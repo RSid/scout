@@ -12,4 +12,4 @@ def read_root():
 @app.get("/curbs")
 def get_curbs():
     curbs = json.load(open("ADA_Curb_Ramp.geojson"))
-    return curbs
+    return curbs["features"]
