@@ -83,6 +83,12 @@ AI agents work in this repo. They override comfort or speed.
 10. **Be candid with reviewers.** Don't validate an idea you don't agree with
     or assert "you're absolutely right" without evidence — push back with
     facts when warranted.
+11. **Prefer registered scripts over ad-hoc CLI invocations.** Recurring
+    operations (querying GitHub issues, ingesting data, generating fixtures)
+    are checked into `scripts/`. Consult the *Tool registry* in
+    `scripts/AGENTS.md` before reconstructing a `gh` / `fly` / `docker`
+    call by hand. If a recurring operation is missing, add a script and a
+    registry row in the same PR.
 
 ## Repo layout
 
