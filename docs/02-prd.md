@@ -742,8 +742,8 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 ### §7.5 Open-source & community health (NF-OSS)
 
 - **NF-OSS-01** License: AGPL-3.0. `LICENSE` file present.
-- **NF-OSS-02** `CONTRIBUTING.md` explains how to set up the dev env, run tests,
-  and submit a PR.
+- **NF-OSS-02** ~~`CONTRIBUTING.md` explains how to set up the dev env, run tests,
+  and submit a PR.~~ **DONE** — see `CONTRIBUTING.md`.
 - **NF-OSS-03** `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
 - **NF-OSS-04** Issue templates for "Data is wrong about a place" (links to M3
   flow when shipped) and "Found a bug."
