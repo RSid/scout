@@ -137,7 +137,6 @@ retained for traceability; DEC-019 is the active decision.
   acceptable for a civic project.
 - Contributors must understand AGPL implications. We'll state this in
   CONTRIBUTING.md.
-- DCO (Developer Certificate of Origin) sign-off enforced on PRs.
 
 ---
 
