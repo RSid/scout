@@ -169,7 +169,13 @@ Condition mapping same as B.1. `kind` = `aid` when present/good.
   with `ada=true` and a DC bbox filter applied client-side (the API supports
   `lat`/`lng`/`distance` but not bbox; iterate over a small grid of points or
   filter post-fetch).
-- **Cache:** 24 h server-side. Stored in a simple JSON file or SQLite table.
+- **Cache:** 24 h server-side via an in-process TTL cache inside the
+  `RefugeRestrooms` adapter (per DEC-020). On restart the cache is empty and
+  is rehydrated from the upstream API on first request. This data isn't
+  stored in the `features` PG table because it changes more frequently than
+  DC OpenData and we want to always reflect Refuge's latest. If rate-limit
+  pressure ever appears, the adapter can be backed by a `restroom_cache`
+  table in PG without changing call sites.
 - **Mapping:**
 
 | API field | Normalized field |
@@ -207,26 +213,36 @@ time and bake into the source data:
 ## C. Ingestion algorithm (pseudocode for `scripts/ingest_dc.py`)
 
 ```python
-def ingest():
-    features = []
-    for dataset in DATASETS:                 # one row per source above
+async def ingest(session: AsyncSession) -> IngestResult:
+    rows = []
+    for dataset in DATASETS:                 # one entry per source above
         if not dataset.enabled_in_m1:
-            log("skipping", dataset.id, "per data-schema.md")
+            log.info("skipping", id=dataset.id, reason="per data-schema.md")
             continue
         raw = load_geojson(dataset.path)
         for raw_feat in raw["features"]:
-            features.append(normalize(raw_feat, dataset.mapping_rules))
+            rows.append(normalize(raw_feat, dataset.mapping_rules))
 
-    features.extend(fetch_osm_amenities("bench", category="rest_spots"))
-    features.extend(fetch_osm_amenities("drinking_water", category="water_cooling"))
+    rows.extend(await fetch_osm_amenities("bench", category="rest_spots"))
+    rows.extend(await fetch_osm_amenities("drinking_water", category="water_cooling"))
 
-    write_indexed_store(features)            # in-memory STRtree at runtime;
-                                             # serialized to a compact .parquet
-                                             # or .feather for fast startup
+    # Upsert per DEC-019. ON CONFLICT (id) keeps re-runs idempotent.
+    stmt = (
+        insert(Feature)
+        .values(rows)
+        .on_conflict_do_update(
+            index_elements=[Feature.id],
+            set_={col: getattr(insert_excluded, col) for col in UPDATABLE_COLS},
+        )
+    )
+    result = await session.execute(stmt)
+    await session.commit()
+    return summarize(result)
 ```
 
-**Idempotency:** the output store is keyed by `id = f"{source_dataset}:{source_id}"`.
-Re-running with unchanged inputs produces a byte-identical output.
+**Idempotency:** rows are keyed by `id = f"{source_dataset}:{source_id}"`.
+Re-running with unchanged inputs results in zero changed rows (verifiable
+via `xmax = 0` or by comparing counts).
 
 ---
 
