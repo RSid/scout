@@ -22,7 +22,7 @@ directory typically only contains `README.md` + `import.sh` between batches).
    ./import.sh                     # idempotent: creates labels + milestone + issues
    ```
 
-3. Delete the imported files (e.g. `rm <TICKET-ID>-*.md`) once you've verified
+3. Delete the imported files (e.g. `rm M1-[TF]*.md`) once you've verified
    they landed in GitHub. The README and the script stay.
 
 **Overrides (env vars):**
@@ -89,7 +89,7 @@ A convention this repo has adopted to keep traceability tight:
 
 | Prefix | Meaning | Source of truth |
 |---|---|---|
-| `M{n}-F{nn}` | Product / user-story tickets | `docs/02-prd.md` §6 |
+| `M{n}-F{nn}` | Product / user-story tickets (importer picks these up) | `docs/02-prd.md` §6 |
 | `M{n}-T{nn}` | Tech / tooling / scaffolding tickets that the PRD doesn't break down | This importer + the GH issues it creates |
 | `DEC-NNN` | Architectural decision | `docs/03-decisions.md` |
 | `OQ-NN` | Open question | `docs/02-prd.md` §10 |
@@ -105,23 +105,29 @@ convention in [`CONTRIBUTING.md`](../../../CONTRIBUTING.md), e.g.
 Copy-paste-able prompt for the next time you want a staff-engineer agent
 to repeat what was done for the M1 scaffolding wave:
 
-> You are the technical lead. Read `AGENTS.md`, `docs/02-prd.md`,
-> `docs/03-decisions.md`, and any relevant `docs/prompts/*.md`. Identify the
-> technical prereqs and cross-cutting work needed for **{MILESTONE}** that the
-> PRD's `M{n}-F*` product tickets don't break down. Produce one Markdown file
-> per issue in `docs/issues/scaffolding/`, following the format documented in
-> that directory's `README.md`. Use the ID scheme `M{n}-T{nn}` so the new
-> tickets sit alongside (not on top of) the PRD's F-tickets. Each issue body
-> follows **Context → Acceptance criteria → References → Out of scope** and
-> cites PRD sections, `DEC-NNN`s, and `AGENTS.md` rules where applicable.
+> You are the technical lead. Read `AGENTS.md`, `docs/02-prd.md`, and
+> `docs/03-decisions.md`. For **{MILESTONE}**, produce one Markdown file per
+> issue in `docs/issues/scaffolding/`, following the format documented in
+> that directory's `README.md`. Use either ID prefix as appropriate:
 >
-> Cross-cutting issues should be **atomic** (one concern each). Issues that
-> mirror an existing prompt seed in `docs/prompts/` should be **epics** linking
-> to that prompt + the F-tickets they unblock. Don't re-emit issues for
-> already-tracked `M{n}-F*` tickets; reference them instead.
+> - `M{n}-F{nn}` for product / user-story tickets (mirror the PRD's
+>   §6 F-tickets one-for-one; reuse the PRD title verbatim).
+> - `M{n}-T{nn}` for technical / tooling / scaffolding work the PRD doesn't
+>   break down (atomic — one concern each).
+>
+> Each issue body focuses on **desired behavior**, not on implementation
+> playbooks. Use this section order: **Context → Acceptance criteria →
+> References → Out of scope**. Cite PRD sections, `DEC-NNN`s, and
+> `AGENTS.md` rules where they shape the requirement. Avoid pointing the
+> reader at `docs/prompts/*.md` in titles or acceptance criteria — those
+> prompt files are implementation seeds for downstream agents, not contracts
+> for the issue.
+>
+> Don't re-emit issues for already-tracked F-tickets or T-tickets;
+> reference them instead.
 >
 > When the files are ready, ask the user before running `./import.sh`. After
-> a successful import, delete the `M{n}-T*.md` files but leave `README.md`
+> a successful import, delete the `M{n}-[TF]*.md` files but leave `README.md`
 > and `import.sh` in place.
 
 Tweak the milestone, ID prefix, and scope sentence as needed.

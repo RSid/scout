@@ -107,10 +107,10 @@ fi
 # ---- collect & validate issue files -----------------------------------------
 
 shopt -s nullglob
-mapfile -t ISSUE_FILES < <(find "$SCRIPT_DIR" -maxdepth 1 -type f -name 'M1-T*.md' | sort)
+mapfile -t ISSUE_FILES < <(find "$SCRIPT_DIR" -maxdepth 1 -type f -name 'M1-[TF]*.md' | sort)
 
 if [[ "${#ISSUE_FILES[@]}" -eq 0 ]]; then
-  echo "ERROR: no M1-T*.md files in $SCRIPT_DIR" >&2
+  echo "ERROR: no M1-[TF]*.md files in $SCRIPT_DIR" >&2
   exit 1
 fi
 
