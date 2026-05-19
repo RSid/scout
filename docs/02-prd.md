@@ -337,28 +337,35 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   Scout's MVP surface area, with each item testable and a tooling recommendation
   (axe-core, manual, screen-reader).
 
-#### M1-F11 — Data ingestion pipeline (DC GeoJSON → normalized store)
+#### M1-F11 — Data ingestion pipeline (DC GeoJSON → PostgreSQL/PostGIS)
 - **Persona:** (developer/operator)
 - **User value:** *So that DC's heterogeneous datasets are queryable through one
   consistent schema, and re-running ingest is one command.*
-- **Depends on:** —
+- **Depends on:** the DB schema (DEC-019; first Alembic migration must be applied).
 - **Acceptance criteria:**
-  - Python script `scripts/ingest_dc.py` reads each `*.geojson` in the repo, maps
-    fields to the normalized schema, and writes to a SQLite file with a Spatialite
-    extension (or a flat indexed JSON if Spatialite proves painful — see OQ-01).
-  - Mapping rules per dataset documented in `appendix-data-schema.md`, including the
-    `kind`/`condition_normalized` derivation.
+  - Python script `scripts/ingest_dc.py` reads each `*.geojson` in `data/`, maps
+    fields to the normalized schema (per `appendix-data-schema.md`), and upserts
+    rows into the `features` table via SQLAlchemy.
+  - Upsert key is `id` (`"{source_dataset}:{source_id}"`); upsert clause uses
+    `ON CONFLICT (id) DO UPDATE SET ...` so re-runs are idempotent at the row
+    level.
+  - Mapping rules per dataset documented in `appendix-data-schema.md`, including
+    the `kind`/`condition_normalized` derivation.
   - Casing normalization on the Barriers dataset's `ASSET_TYPE`.
   - Accessible Parking Zones is *not* ingested in M1 (flagged as low-quality in
     `appendix-data-schema.md`).
-  - Ingest is idempotent: re-running produces a byte-identical output for unchanged
-    input.
-  - Script logs counts per category and per condition.
+  - `--dry-run` flag prints counts per category/condition and exits without
+    writing.
+  - Script logs counts per category and per condition, plus total rows
+    inserted/updated/unchanged.
+  - Wraps the full ingest in a single transaction so a mid-run failure leaves
+    the DB unchanged.
 - **Accessibility notes:** N/A (backend).
 - **Estimate:** M
 - **Prompt seed:** Generate stories for the DC ingest pipeline: per-dataset
-  mapping, idempotency, logging, and `--dry-run` mode. Reference the schemas in
-  `appendix-data-schema.md`.
+  mapping, PostgreSQL upsert, idempotency, logging, transactional safety, and
+  `--dry-run` mode. Reference the schemas in `appendix-data-schema.md` and the
+  DDL in §9.2.
 
 #### M1-F12 — Backend API surface
 - **Persona:** (developer)
@@ -423,24 +430,41 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Prompt seed:** Generate stories for responsive layout, touch target sizes,
   PWA installability, and the mobile-vs-desktop view toggle.
 
-#### M1-F15 — Dockerized deployment to Fly.io
+#### M1-F15 — Dockerized deployment to Fly.io (app + sibling Postgres VM)
 - **Persona:** (operator)
 - **User value:** *So that the app runs in one command for anyone, and deploys with
   one push.*
 - **Depends on:** M1-F12
 - **Acceptance criteria:**
-  - Multi-stage `Dockerfile` produces a < 200 MB image with the FastAPI app + built
-    Next.js static export + the SQLite/Spatialite data file baked in (or mounted as
-    a volume — see OQ-02).
-  - `docker-compose.yml` for local dev with hot-reload for both backend and frontend.
-  - `fly.toml` configured for a single small machine, autostart enabled, with a health
-    check on `/api/health`.
-  - GitHub Actions workflow runs tests + builds the image + deploys on push to `main`.
-  - `README.md` updated with one-command run instructions.
+  - Multi-stage `Dockerfile` produces a < 200 MB image with the FastAPI app +
+    built Next.js standalone bundle + the PMTiles file for DC.
+  - **No data baked into the app image.** The DB lives in the sibling PG VM
+    (per DEC-019); the app reads via `SCOUT_DATABASE_URL`.
+  - `Dockerfile.postgres` pins `postgis/postgis:16-3.4` by digest.
+  - `docker-compose.yml` for local dev includes:
+    - `db` (postgis, named volume `scout-pg-data`),
+    - `backend` (hot-reload),
+    - `web` (hot-reload),
+    - and waits for `db` to be healthy before starting `backend`.
+  - `fly.app.toml` for the app VM (single `shared-cpu-1x`, autostart on,
+    health check on `/api/health`).
+  - `fly.postgres.toml` for the PG VM (single `shared-cpu-1x`, 3 GB volume
+    attached at `/var/lib/postgresql/data`, internal-only listener).
+  - GitHub Actions workflow runs tests + builds the app image + deploys on
+    push to `main`. PG VM is deployed manually the first time; subsequent
+    schema changes go via `alembic upgrade head` run from the app on startup.
+  - First-deploy runbook in `infra/runbooks/first-deploy.md`: how to bring up
+    the PG VM, set the database password as a Fly secret, run initial
+    Alembic migrations, run `scripts/ingest_dc.py`.
+  - `README.md` updated with one-command-local-run instructions
+    (`docker compose up`).
 - **Accessibility notes:** N/A (ops).
-- **Estimate:** M
-- **Prompt seed:** Generate stories for the Dockerization, fly.toml, GitHub
-  Actions, and README updates. Include cold-start time and image size budgets.
+- **Estimate:** M (slightly larger than the original — two Fly apps and a
+  runbook)
+- **Prompt seed:** Generate stories for the Dockerization, two `fly.*.toml`
+  files, GitHub Actions, first-deploy runbook, and README updates. Include
+  cold-start time and image size budgets. Reference DEC-019 for the PG
+  topology.
 
 ---
 
@@ -622,17 +646,26 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Prompt seed:** Generate stories for notification email, opt-out, and
   template structure.
 
-#### M3-F30 — Migrate data store from SQLite to PostGIS
+#### M3-F30 — Postgres backup/restore + observability hardening
 - **Persona:** (operator)
-- **User value:** *So write-heavy user-contribution workloads scale.*
+- **User value:** *So that user-contributed data is durable, recoverable, and
+  observable now that the DB contains irreplaceable user contributions.*
 - **Depends on:** M3-F25, M3-F26
-- **Acceptance criteria:** Alembic migrations from the SQLite schema to PostGIS;
-  ingest pipeline updated; ORS still external; dev compose has Postgres; Fly
-  Postgres provisioned for prod.
-- **Accessibility notes:** N/A.
-- **Estimate:** L
-- **Prompt seed:** Generate stories for the SQLite-to-PostGIS migration, including
-  dual-run cutover and rollback plan.
+- **Acceptance criteria:**
+  - Nightly `pg_dump` to a Fly volume snapshot + an off-Fly destination
+    (e.g., Backblaze B2 or Cloudflare R2 free tier).
+  - Documented restore runbook in `infra/runbooks/postgres-restore.md`,
+    with a quarterly restore drill that ops walks through.
+  - Basic observability: connection-count gauge, slow-query log threshold
+    set to 200 ms, alerting via Fly's built-in mechanisms or self-hosted
+    Plausible-style telemetry (per DEC-006 upgrade paths).
+  - Disaster-recovery RPO/RTO documented (target: RPO ≤ 24 h, RTO ≤ 4 h —
+    appropriate for civic project scale).
+- **Accessibility notes:** N/A (ops).
+- **Estimate:** M
+- **Prompt seed:** Generate stories for PG backup automation, restore
+  runbook, observability hooks, and the recurring restore drill. Reference
+  DEC-019 for the PG topology.
 
 ---
 
@@ -735,27 +768,35 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 ┌──────────────────────────────┐  ┌──────────────────────────────┐
 │   Static PMTiles (DC bbox)   │  │      FastAPI backend         │
 │   Self-hosted, served by     │  │      Python 3.12, uv         │
-│   the same container as the  │  │      Pydantic v2             │
-│   API (or a CDN if budget    │  │                              │
-│   allows).                   │  │   /api/health                │
-└──────────────────────────────┘  │   /api/categories            │
+│   the same container as the  │  │      SQLAlchemy 2 + GeoAlchemy2│
+│   API (or a CDN if budget    │  │      Pydantic v2             │
+│   allows).                   │  │                              │
+└──────────────────────────────┘  │   /api/health                │
+                                  │   /api/categories            │
                                   │   /api/route                 │
                                   │   /api/route-features        │
                                   │   /api/restrooms             │
                                   └──────────────────────────────┘
-                                       │              │
-                                       │              │
-                          (3) Routing  │              │ (4) Restrooms
-                                       ▼              ▼
-                          ┌────────────────────┐ ┌───────────────────────┐
-                          │ OpenRouteService   │ │ Refuge Restrooms API  │
-                          │ (public API in M1, │ │ (DC-filtered, ADA)    │
-                          │  self-host if      │ │ Cached 24h            │
-                          │  needed)           │ │                       │
-                          └────────────────────┘ └───────────────────────┘
-
-                          (5) Feature data: SQLite + Spatialite (M1)
-                              → migrated to PostGIS (M3)
+                                       │       │       │
+                          (3) Routing  │       │       │ (4) Restrooms
+                                       ▼       │       ▼
+                          ┌────────────────────┐│┌───────────────────────┐
+                          │ OpenRouteService   │││ Refuge Restrooms API  │
+                          │ (public API in M1) │││ (DC-filtered, ADA,    │
+                          │ via routing adapter│││  24h cache, via       │
+                          │ (DEC-020)          │││  restrooms adapter)   │
+                          └────────────────────┘│└───────────────────────┘
+                                                │
+                                  (5) Spatial SQL via SQLAlchemy + GeoAlchemy2
+                                                ▼
+                              ┌─────────────────────────────────┐
+                              │ PostgreSQL 16 + PostGIS 3.x      │
+                              │ Self-hosted in a sibling Fly VM │
+                              │ (`scout-pg.internal:5432`)      │
+                              │ 3 GB Fly volume; private network│
+                              │ Single `features` table in M1;  │
+                              │ M3 adds submissions, accounts.  │
+                              └─────────────────────────────────┘
 ```
 
 **Repo layout (proposed):**
@@ -765,19 +806,25 @@ scout/
 ├── apps/
 │   ├── backend/         FastAPI app
 │   │   ├── scout/
+│   │   ├── alembic/     migrations (DEC-019)
+│   │   ├── alembic.ini
 │   │   ├── tests/
 │   │   └── pyproject.toml
 │   └── web/             Next.js app
 │       ├── app/
 │       ├── components/
+│       ├── design/      design tokens (DEC-015 → prompts/07)
 │       ├── lib/
 │       └── package.json
 ├── data/                source GeoJSONs (current top-level *.geojson move here)
 ├── scripts/             ingest_dc.py, build_pmtiles.sh
 ├── infra/
-│   ├── Dockerfile       multi-stage; final image runs both apps
-│   ├── docker-compose.yml
-│   └── fly.toml
+│   ├── Dockerfile           app image (FastAPI + Next.js)
+│   ├── Dockerfile.postgres  PostGIS image (pinned)
+│   ├── docker-compose.yml   dev: app + web + postgis
+│   ├── fly.app.toml         deploys the app
+│   ├── fly.postgres.toml    deploys the sibling PG VM
+│   └── runbooks/            ops runbooks (per DEC-006)
 ├── docs/                this folder
 ├── .github/workflows/   ci.yml, deploy.yml
 ├── LICENSE              AGPL-3.0
@@ -788,15 +835,19 @@ scout/
 
 ## §9. Data model (normalized)
 
-Full per-dataset mapping rules are in `appendix-data-schema.md`. The unified shape:
+Full per-dataset mapping rules are in `appendix-data-schema.md`. The runtime
+store is PostgreSQL + PostGIS (per DEC-019). M1 has a single `features` table;
+M3 adds tables for user submissions, moderation queue, and accounts.
+
+### §9.1 API contract (JSON shape)
 
 ```jsonc
 {
-  "id": "dc_curb_ramp_ADA_CurbRampPt_1",          // stable across re-ingests
+  "id": "dc_ada_curb_ramp:ADA_CurbRampPt_1",      // stable across re-ingests
   "category": "curb_ramps",                       // see /api/categories
   "kind": "obstacle",                             // or "aid"
   "condition": "Non-Compliant",                   // raw source value
-  "condition_normalized": "blocking",             // blocking | difficult | mild | good | missing | n_a
+  "condition_normalized": "blocking",             // blocking | difficult | mild | good | missing | present | absent | n_a
   "inspected_year": 2016,
   "source_dataset": "dc_ada_curb_ramp",
   "source_id": "ADA_CurbRampPt_1",
@@ -807,18 +858,62 @@ Full per-dataset mapping rules are in `appendix-data-schema.md`. The unified sha
 }
 ```
 
+### §9.2 DDL (M1)
+
+Authoritative version lives in the first Alembic migration; this is for
+reviewer reference.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+CREATE TABLE features (
+    id                    text        PRIMARY KEY,
+    category              text        NOT NULL,
+    kind                  text        NOT NULL,
+    condition             text,
+    condition_normalized  text        NOT NULL,
+    inspected_year        smallint,
+    source_dataset        text        NOT NULL,
+    source_id             text        NOT NULL,
+    attributes            jsonb       NOT NULL DEFAULT '{}',
+    geom                  geography(Point, 4326) NOT NULL,
+    created_at            timestamptz NOT NULL DEFAULT now(),
+    updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX features_geom_idx       ON features USING GIST (geom);
+CREATE INDEX features_category_idx   ON features (category);
+CREATE INDEX features_source_idx     ON features (source_dataset);
+```
+
+### §9.3 Corridor query (M1)
+
+The implementation of `/api/route-features` (M1-F07) reduces to:
+
+```sql
+SELECT *,
+       ST_Distance(geom, ST_StartPoint(:line)::geography) AS along_route_m
+FROM   features
+WHERE  category = ANY(:enabled_categories)
+  AND  ST_DWithin(geom, :line::geography, :buffer_m)
+ORDER  BY along_route_m
+LIMIT  500;
+```
+
+(`ST_LineSubstring` and `ST_LineLocatePoint` provide a more accurate
+along-route distance than `ST_Distance` from start; refine during
+implementation.)
+
 ## §10. Open questions
 
 Each open question gets a stable ID (`OQ-NN`) so downstream agents and PRs can
 reference it.
 
-- **OQ-01** SQLite + Spatialite vs. plain Python with shapely + R-tree in memory?
-  Both work for ~88k points; the latter has zero ops cost. **Default: in-memory
-  with shapely + STRtree** for M1; revisit if startup time > 5 s. Lock decision
-  during scaffolding.
-- **OQ-02** Bake data file into the Docker image vs. mount as a volume? Baked-in
-  is simpler and immutable; volumes allow swap without redeploy. **Default: baked
-  in** for M1.
+- **OQ-01** ~~SQLite + Spatialite vs. in-memory shapely?~~ **RESOLVED** by
+  DEC-019: PostgreSQL + PostGIS from M1, self-hosted in a sibling Fly VM.
+- **OQ-02** ~~Bake data file into the Docker image vs. mount as a volume?~~
+  **RESOLVED** by DEC-019: data lives in the sibling PG VM, not in the app
+  image. App image carries only code + Alembic migrations + PMTiles.
 - **OQ-03** Where do we host PMTiles? Same container? Separate static bucket?
   **Default: same container** for M1 (zero-budget). Move to R2/Backblaze if
   bandwidth ever becomes an issue.
@@ -851,6 +946,16 @@ reference it.
 - **OQ-12** PWA offline scope — caching the SPA shell is easy; caching tiles for
   a user's neighborhood is harder. **Recommendation:** SPA shell only in M1;
   per-neighborhood tile caching in M2 if requested.
+- **OQ-13** **Project Sidewalk DC** (University of Washington research project) has
+  250,000+ crowdsourced sidewalk accessibility labels across ~1,075 miles of DC
+  streets — meaningfully richer than DC's own ADA datasets. They publish a public
+  GeoJSON API. **Options:** (a) ignore for M1, ship with DC OpenData only;
+  (b) blend Project Sidewalk data into M1 alongside DC OpenData under a new
+  `source_dataset="project_sidewalk_dc"`; (c) defer to M2, reach out to the
+  research team first to confirm fair-use and attribution expectations.
+  **Recommendation:** option (c). The DC OpenData alone is enough to validate M1
+  with users; bringing in a partner dataset properly is a M2 conversation. Block
+  any speculative ingestion until we've talked to UW.
 
 ## §11. Risks
 

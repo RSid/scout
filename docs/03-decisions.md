@@ -110,33 +110,13 @@ when traffic exceeds 1500 req/day (per OQ-10).
 
 ---
 
-## DEC-004 — Data store for M1: in-memory Python (shapely + STRtree), not SQLite/Spatialite
+## DEC-004 — *Superseded by DEC-019.* (Original: in-memory shapely + STRtree.)
 
-**Context.** ~88k point features (plus restrooms via API) need fast spatial query
-("features within X meters of this LineString"). Solo dev wants zero ops complexity.
-
-**Options considered.**
-- **PostGIS.** Industry standard for geo. Overkill at this scale; adds a moving
-  part (Postgres container) that has no other M1 purpose.
-- **SQLite + Spatialite.** Single file; embedded; supports R-tree. Spatialite has
-  platform-specific install pain (especially on Alpine in Docker).
-- **In-memory shapely + STRtree, hydrated from GeoJSON at startup.** Simple,
-  zero ops, fast for our size. Lose persistence of writes (none in M1 anyway).
-
-**Decision.** In-memory shapely + STRtree at startup. Persist nothing in M1
-beyond the source GeoJSONs in the repo.
-
-**Rationale.**
-- M1 has *no user writes*. Read-only data fits memory comfortably (~88k points
-  is ~30 MB in shapely).
-- Eliminates a moving part. Faster CI. Easier "clone & run" for contributors.
-- DEC-014 (Postgres in M3) takes over when writes appear.
-
-**Consequences.**
-- Cold start cost: parse + index time of ~3 s on a small machine. Acceptable; Fly
-  autostart handles it. Add a startup log line for visibility.
-- If memory becomes a constraint (it won't at this size), we revisit with
-  Spatialite or PostGIS.
+The original decision proposed an in-memory store for M1 to minimize ops, then
+migrating to PostGIS in M3. After analysis (see DEC-019), the M3-refactor cost
+(~3 days) outweighs the M1-ops cost of running Postgres from day one, and
+PostgreSQL is more contributor-approachable than the alternatives. DEC-004 is
+retained for traceability; DEC-019 is the active decision.
 
 ---
 
@@ -184,6 +164,23 @@ Next.js export, and the PMTiles file.
   caching and small image size.
 - DNS at the project's chosen domain points to Fly. Add a `Caddyfile`-equivalent
   via Fly proxy or use a Cloudflare proxy if HTTPS / WAF becomes a need.
+
+**Upgrade paths (if Scout grows or budget appears).** Each is independently
+takeable; none of them require a re-architecture.
+
+| Symptom | First lever (no/low cost) | Next lever (small budget) |
+|---|---|---|
+| Cold-start latency annoys users | `min_machines_running = 1` on Fly (still free with caveats) | Reserve a small always-on machine |
+| Tile bandwidth costs (if we ever hit them) | Front Fly with a Cloudflare proxy (free tier, caches PMTiles ranges) | Move PMTiles to R2/Backblaze + CDN |
+| ORS rate limit hit | Self-host ORS in a sibling Fly VM | Pay for an ORS Pro key |
+| Geocoding rate limit hit | Self-host Photon (DC extract is small) | Use Mapbox/Stadia geocoding |
+| Postgres I/O ceiling | Bigger Fly PG plan | Move to Neon/Supabase if cheaper |
+| Email volume (M3+) | Cloudflare Email Workers / Mailchannels free | Postmark/Resend |
+| Analytics privacy without spend | Plausible self-hosted | Plausible Cloud |
+
+Each lever is documented as a runbook in `infra/runbooks/` (to be written during
+M1-F15). The intent: when a constraint bites, the fix is *one runbook away*, not
+a re-platforming project.
 
 ---
 
@@ -337,42 +334,60 @@ demand.
 
 ---
 
-## DEC-014 — Data store in M3: Postgres + PostGIS via Fly Postgres
+## DEC-014 — *Folded into DEC-019.* (Original: PostGIS arriving in M3.)
 
-**Context.** When user contributions land (M3), we need a real, writable, indexable
-geospatial store.
-
-**Decision.** Postgres with PostGIS extension, hosted on Fly Postgres in prod;
-docker-compose for dev. Alembic for migrations.
-
-**Rationale.**
-- PostGIS is the established standard.
-- Fly Postgres is operationally light; we already host on Fly.
-- `pyproject.toml` already declares `psycopg2-binary`, `sqlalchemy`, `alembic` —
-  the user has signaled intent for this path.
-
-**Consequences.**
-- Migration tooling becomes important. `alembic` covers schema; data backfill
-  needs a separate scripted pass for the M1 in-memory features → DB.
+Since PostgreSQL + PostGIS now lands in M1 (per DEC-019), M3 inherits the
+schema rather than introducing it. M3-specific additions (user submissions,
+moderation queue, accounts) are pure additive migrations on top of the M1
+schema. No separate "M3 data-store decision" is needed.
 
 ---
 
-## DEC-015 — Color palette: IBM color-blind-safe baseline, designer pass in M2
+## DEC-015 — Visual design system: produced by a dedicated design pass before M1 frontend coding
 
 **Context.** Accessibility app must be accessible *visually* including for users
-with color vision differences.
+with color vision differences, AND must reflect a coherent aesthetic. The
+project owner has explicit aesthetic input and wants to drive a design pass with
+a separate agent rather than have the scaffolding agent guess.
 
-**Decision.** M1 uses IBM's color-blind-safe palette
-(https://www.ibm.com/design/language/color/) for category colors. M2 commissions
-a designer pass for brand polish — but the new palette must pass the same
-color-blind tests.
+**Decision.** Run a dedicated design-system pass (see
+`docs/prompts/07-design-system.md`) before — or in parallel with — the M1
+frontend scaffolding. That pass produces:
+
+- Color tokens (light + dark) with documented contrast ratios and color-blind
+  safety verification.
+- Typography scale and font choice (self-hosted, no Google Fonts).
+- Spacing scale, radius scale, elevation scale.
+- Map marker shape language (obstacle family vs. aid family) — shape carries
+  meaning so color is never the sole signal.
+- Focus indicator pattern.
+- Disclaimer banner and onboarding modal mockups.
+- Component pattern library for: button, input, combobox, modal, popover,
+  list-item-details, banner, chip, toggle.
+
+**Non-negotiable constraints the design pass must honor.**
+
+- WCAG 2.2 AA contrast minimums (4.5:1 text, 3:1 large/UI).
+- Targeted AAA 1.4.6 where the design permits.
+- Color-blind safety verified against protanopia, deuteranopia, and tritanopia.
+- `prefers-reduced-motion` and `prefers-color-scheme` honored.
+- Touch targets ≥ 44×44 px.
+- Map markers differentiated by **shape AND color**, not color alone.
+- Focus indicators with ≥ 3:1 contrast against adjacent fills.
 
 **Rationale.**
-- IBM's palette is vetted across protanopia/deuteranopia/tritanopia.
-- Solo-dev-friendly to use a pre-validated palette in M1.
+- Bringing aesthetic input early prevents a "designed by an engineer" feel.
+- Locking the constraints means the designer's freedom is bounded by what we
+  can ship accessibly.
+- Decoupling design from frontend scaffolding lets the engineering agent focus
+  on behavior, not bikeshedding colors.
 
 **Consequences.**
-- Designer brief must include color-blind constraints in M2.
+- Frontend scaffold prompt (`prompts/03-scaffold-frontend-m1.md`) will reference
+  the design tokens file produced by the design pass, not embed colors inline.
+- If the design pass slips, the frontend agent can scaffold against the
+  IBM-color-blind-safe palette as a temporary fallback, behind a thin tokens
+  module that the designer can later swap.
 
 ---
 
@@ -431,20 +446,195 @@ on the final brand decision before M1 ships.
 
 ---
 
-## Decisions still to make (early)
+## DEC-019 — Data store: PostgreSQL + PostGIS from M1, self-hosted in a sibling Fly VM
 
-These don't block scaffolding but should be settled before M1 ships:
+**Supersedes:** DEC-004. **Folds in:** DEC-014.
+
+**Context.** ~88k point features in M1 (read-only DC data), growing to include
+user contributions in M3 (writes, moderation queue, accounts). We considered
+deferring Postgres to M3 to keep M1 minimal, but the refactor cost
+(~3 engineer-days) plus the soft cost of in-memory-store assumptions leaking
+into call sites outweighs the one-time setup cost of bringing Postgres in from
+the start. The owner's already-declared `psycopg2-binary` / `sqlalchemy` /
+`alembic` dependencies signaled the intended end-state.
+
+**Decision.** PostgreSQL 16 with the PostGIS 3.x extension is the data store
+for M1 through M4. Self-hosted in a **sibling Fly VM** (separate `fly.toml`
+from the app) with a Fly-managed volume for persistence, fitting the
+zero-budget constraint (Fly's free tier includes 3 GB of persistent volume).
+The app connects via `SCOUT_DATABASE_URL`. SQLAlchemy 2.x is the ORM,
+GeoAlchemy2 provides the PostGIS bindings, Alembic owns the schema.
+
+**M1 schema (one table).**
+
+```sql
+CREATE TABLE features (
+    id                    text PRIMARY KEY,             -- "{source_dataset}:{source_id}"
+    category              text NOT NULL,
+    kind                  text NOT NULL,                -- 'obstacle' | 'aid'
+    condition             text,                         -- raw source value
+    condition_normalized  text NOT NULL,
+    inspected_year        smallint,
+    source_dataset        text NOT NULL,
+    source_id             text NOT NULL,
+    attributes            jsonb NOT NULL DEFAULT '{}',
+    geom                  geography(Point, 4326) NOT NULL,
+    created_at            timestamptz NOT NULL DEFAULT now(),
+    updated_at            timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX features_geom_idx        ON features USING GIST (geom);
+CREATE INDEX features_category_idx    ON features (category);
+CREATE INDEX features_source_dataset  ON features (source_dataset);
+```
+
+Corridor query in M1 uses `ST_DWithin(geom, ST_GeographyFromText(:line), :buffer_m)`
+on the `geography` column — automatically handles WGS84 distances in meters
+without per-query reprojection.
+
+**Options considered.**
+- **In-memory shapely + STRtree (original DEC-004).** Smallest M1 footprint;
+  requires a ~3-day refactor at M3.
+- **SQLite + SpatiaLite + GeoAlchemy2.** Zero-ops in M1 with ORM continuity,
+  but SpatiaLite has platform install friction (Alpine vs Debian-slim,
+  `load_extension` quirks) and most contributors don't know it.
+- **PostgreSQL + PostGIS, Fly Managed Postgres.** Lowest ops; small monthly
+  cost above the smallest free tier; subject to Fly's pricing-model changes.
+- **PostgreSQL + PostGIS, self-hosted in a Fly VM** *(chosen).* Owner-confirmed
+  preference; fits zero budget; uses Fly's free volume; same DB engine across
+  dev, CI, and prod.
+
+**Hosting topology.**
+
+- **Dev (docker-compose):** a `postgis/postgis:16-3.4` container with a named
+  volume. `apps/backend` connects via the compose network.
+- **CI (GitHub Actions):** a `postgis/postgis:16-3.4` service container;
+  ephemeral.
+- **Prod (Fly):** a separate Fly app (`scout-pg`) running
+  `postgis/postgis:16-3.4` (or building from official Dockerfile pinned by
+  digest) on a `shared-cpu-1x` machine with a 3 GB volume. The app connects
+  via Fly's private network at `scout-pg.internal:5432`. Password injected via
+  Fly secrets; no public listener.
+
+**Rationale.**
+
+- One DB engine across all environments; one SQL dialect; one set of
+  migrations.
+- PostGIS gives us real spatial SQL (`ST_DWithin`, `ST_Intersects`,
+  `ST_LineSubstring`) — cleaner than buffering by hand in shapely and
+  computing along-route distance in Python.
+- Alembic + GeoAlchemy2 + SQLAlchemy 2.x is contributor-familiar. New
+  contributors with web-app experience can ramp without learning a custom
+  in-memory store or SpatiaLite quirks.
+- Zero throw-away cost when M3 adds writes — just new migrations.
+
+**Consequences.**
+
+- One extra container in dev (`docker compose up` brings up app + PG).
+- ~+2 s app cold start (DB connection establishment); offset by query speed
+  improvements vs. in-memory STRtree once we have indexes.
+- Backups: not required in M1 (data is reproducible from source GeoJSONs).
+  Required in M3+ (user contributions). Documented as a runbook hand-off in
+  `infra/runbooks/postgres-backup.md` to be authored when M3 starts.
+- One sibling Fly app to operate. Trade-off accepted.
+
+---
+
+## DEC-020 — Third-party services accessed via vendor-agnostic adapters
+
+**Context.** Scout integrates with several external services: routing
+(OpenRouteService), geocoding (Nominatim), restroom data (Refuge Restrooms),
+map tiles (Protomaps / OSM), and later email (M3). Every one of these has
+plausible alternatives, and we may need to swap any of them under budget
+pressure or rate-limit pressure (see DEC-006 upgrade paths).
+
+**Decision.** Every third-party integration is accessed through a thin,
+in-process **adapter / Port-Adapter** layer. The application code depends only
+on the adapter interface (a Python `Protocol` for backend; a TypeScript
+`interface` for frontend), never on the concrete provider SDK or HTTP client.
+
+**Layout.**
+
+Backend (`apps/backend/scout/clients/`):
+
+```
+clients/
+├── routing/
+│   ├── __init__.py          # exports RoutingProvider Protocol + get_provider()
+│   ├── protocol.py          # RoutingProvider Protocol
+│   ├── openrouteservice.py  # OpenRouteServiceProvider implementation
+│   └── stub.py              # in-process fake for tests
+├── geocoding/
+│   ├── __init__.py
+│   ├── protocol.py          # GeocodingProvider Protocol
+│   ├── nominatim.py
+│   └── stub.py
+├── restrooms/
+│   ├── __init__.py
+│   ├── protocol.py          # RestroomProvider Protocol
+│   ├── refuge.py
+│   └── stub.py
+└── email/                   # added in M3
+    └── ...
+```
+
+Frontend mirrors the same pattern in `apps/web/lib/providers/` for any
+client-side service.
+
+**Provider selection.** `get_provider()` returns the concrete impl based on a
+single env var per concern (`SCOUT_ROUTING_PROVIDER`, default
+`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `nominatim`; etc.).
+Tests use `stub`. Production uses the real impl. Swap is one env var.
+
+**Interface design rules.**
+
+- Protocols define the *use case*, not the vendor. `RoutingProvider.walking_route(
+  start, end, profile)` — not `ors_directions(...)`.
+- Protocols return Scout-domain types (`Route`, `Address`, `Restroom`) — never
+  the vendor's wire types.
+- Vendor-specific error codes are translated to Scout error codes at the adapter
+  boundary.
+- Vendor-specific caching/rate-limiting lives inside the adapter; the caller
+  doesn't know.
+
+**Rationale.**
+
+- Today's lock-in is cheap to introduce and expensive to remove. Adapters
+  cost us ~50 lines per vendor; switching providers later costs us hours
+  instead of weeks.
+- Tests stay fast and offline; we use the `stub` adapter, never the wire.
+- DEC-006's "upgrade paths" become drop-in swaps, not rewrites.
+
+**Consequences.**
+
+- A small amount of boilerplate per integration.
+- New rule for PRs touching `clients/`: every new vendor adds a new
+  implementation file under the existing protocol; doesn't change call sites.
+- The frontend agent must consume the API as well-shaped JSON — they do not
+  inline ORS-specific assumptions in components.
+
+---
+
+## DEC-PEND-* — Pending decisions
+
+These don't block scaffolding but should be settled before M1 ships.
 
 - **DEC-PEND-A** — Final brand / product-facing name. (See DEC-018.)
-- **DEC-PEND-B** — Domain name and DNS provider.
-- **DEC-PEND-C** — Whether to seek a partner (DC chapter of disability advocacy
-  org, e.g. DC Disability Rights Center, Independence Now) before public launch.
-  This affects the disclaimer language and the user-research approach.
-- **DEC-PEND-D** — Email provider for M3 magic links (Resend, Postmark, Mailchannels).
-- **DEC-PEND-E** — Whether the M1 launch is a "soft launch" (linked from your
-  personal channels and disability-org Slack/Discord groups) or a "public launch"
-  (blog post, social, local press). Affects how aggressive the disclaimer needs
-  to be.
+  *Status:* unchanged; revisit before M1 ships.
+- **DEC-PEND-B** — Domain name and DNS provider. *Status:* deferred pending
+  owner research.
+- **DEC-PEND-C** — Partnership with DC disability advocacy orgs. *Status:*
+  **deferred until after M1 POC ships.** Plan: build M1, then approach local
+  disability advocates and chapters to invite them to use it, give feedback,
+  and consider formal partnership. Disclaimer language in M1 should therefore
+  be self-authored and conservative — we are speaking only for ourselves.
+- **DEC-PEND-D** — Email provider for M3 magic links (Resend, Postmark,
+  Mailchannels). *Status:* deferred pending owner research. Adapter pattern
+  in DEC-020 means the choice is reversible.
+- **DEC-PEND-E** — M1 launch venue. *Status:* **resolved.** Soft launch via
+  the owner's disability community group within their activist circle. No
+  blog post, no press, no social broadcast for M1. This is a friend-of-author
+  beta, not a public beta. Disclaimer remains prominent but doesn't need
+  liability-first hardening that a press release would warrant.
 
 ---
 
