@@ -16,7 +16,7 @@ domain expertise — are welcome.
 2. Read `AGENTS.md` for coding conventions — both the root one and the
    nested one for the subtree you'll touch (`apps/backend/`, `apps/web/`,
    `scripts/`).
-3. Browse `docs/03-decisions.md` if you want to understand *why* a choice
+3. Browse `docs/03-decisions.md` if you want to understand _why_ a choice
    was made before proposing a change to it.
 4. Pick an issue tagged `good first issue` or `help wanted`, or propose
    something in Discussions.
@@ -105,12 +105,12 @@ Coverage floors and the full testing philosophy live in `AGENTS.md`.
 ## Submitting a change
 
 1. **Open or claim an issue.** Even small changes benefit from a recorded
-   *why*.
+   _why_.
 2. **Branch.** Use a descriptive name that references the ticket id when
    one exists: `feat/m1-f04-route-caching`, `fix/m1-f06-focus-trap`,
    `docs/contributing-clarification`.
 3. **Make the change.** Follow `AGENTS.md` for conventions. Keep PRs
-   scoped to one concern.
+   scoped to one concern. We love humans coding, but if you're using agents we support [GreenPT](https://greenpt.com/) for sustainability and privacy-focused LLMs!
 4. **Test it.** New behavior gets a new test. A red CI isn't a reviewer's
    problem.
 5. **Push and open a PR** using the description template below. Fill in
@@ -164,8 +164,8 @@ docs: clarify AGENTS.md commit format
 ```
 
 The full agent-facing rules around mocks, ticket citation, and
-decision-log hygiene live in `AGENTS.md` under *Working with this repo as
-an agent*.
+decision-log hygiene live in `AGENTS.md` under _Working with this repo as
+an agent_.
 
 ### What CI checks
 
@@ -203,7 +203,7 @@ you'll be able to report inside the app. Until then, please open an issue.
 ### Security issues
 
 **Do not file a public issue.** Open a private security advisory on this
-repo's *Security* tab. Please give us a reasonable window to fix before
+repo's _Security_ tab. Please give us a reasonable window to fix before
 disclosure. Scout has no bug-bounty budget but we will credit you in the
 release notes.
 
