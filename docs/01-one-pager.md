@@ -14,11 +14,35 @@ search, so the map shows only the information that affects their specific needs.
 ## Why it matters
 
 DC publishes detailed ADA-compliance datasets, but they're inert — buried in OpenData portals
-in formats no resident actually uses to plan a trip. Existing accessibility apps
-(e.g. AccessNow) catalog *static venues*, not *the path between them*. For a partially-mobile
-user trying to attend a protest, an organizing meeting, a doctor's appointment, or a friend's
-apartment, the gap between "I can walk a few blocks" and "I can survive *these* few blocks"
-is everything.
+in formats no resident actually uses to plan a trip. For a partially-mobile user trying to
+attend a protest, an organizing meeting, a doctor's appointment, or a friend's apartment,
+the gap between "I can walk a few blocks" and "I can survive *these* few blocks" is
+everything.
+
+## Where Scout fits in the existing landscape
+
+There's an active ecosystem of accessibility tools, but every one of them does
+something different from what Scout does. The gap is real.
+
+| Tool | Focus | What it doesn't do |
+|---|---|---|
+| **AccessNow** | Crowdsourced ratings of *venues* (restaurants, shops, parks) | Routing; path-level info |
+| **Wheelmap** | OSM-based traffic-light ratings of *venues* worldwide | Routing; depth beyond a single tag |
+| **AXS Map** | Crowdsourced *venue* ratings, NYC-focused | Routing; coverage outside NYC |
+| **ROLLIN** | Paid app: 6-feature *venue* scores across ~15 states | Routing; path-level info; free access |
+| **AbleVu** | Paid ($299/yr) venue catalog for ~8 cities | Routing; affordability; DC |
+| **Citymapper** | Wheelchair-aware *transit* routing in select metros | Walking routes; non-transit context |
+| **Google Maps** | A binary "wheelchair accessible" tag on some places | Path-level info; verification; trust |
+| **Project Sidewalk** | UW research project crowdsourcing *sidewalk labels* (250,000+ in DC) | Consumer-facing routing; a product to *use* the data |
+
+**The gap Scout fills:** walking-route planning where the user sees the
+obstacles and aids *along the path they're about to walk*, in the city they live in,
+filtered to the categories that affect them personally — using both official city
+data and richer crowdsourced sources where available.
+
+Project Sidewalk in particular is a candidate *upstream data source* for Scout, not
+a competitor; their DC labels are richer than DC's official datasets and they
+publish a GeoJSON API. We track this as `OQ-13` in the PRD.
 
 Concrete picture of the problem, from the DC datasets themselves:
 
