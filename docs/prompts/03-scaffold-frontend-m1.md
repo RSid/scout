@@ -10,10 +10,32 @@ tickets in the Scout PRD.
 
 - `docs/02-prd.md` §6.1 (M1 tickets, especially F01, F02, F03, F05, F06, F08, F09,
   F10, F14) and §7.1 (Non-functional accessibility requirements).
-- `docs/03-decisions.md` DEC-001, DEC-002, DEC-009, DEC-010, DEC-013, DEC-015,
-  DEC-016.
+- `docs/03-decisions.md` DEC-001, DEC-002, DEC-009, DEC-010, DEC-013, **DEC-015
+  (design system runs in parallel)**, DEC-016, **DEC-020 (vendor-agnostic
+  adapters apply on the frontend too where the FE makes external calls)**.
 - `docs/appendix-data-schema.md` (the Feature shape you consume from the API).
 - `docs/01-one-pager.md` (voice and tone).
+
+## Design tokens — parallel work
+
+Per DEC-015, the design pass (prompts/07-design-system.md) runs in parallel
+with this scaffolding. Until the designer's tokens land:
+
+- Use a **fallback tokens module** at `apps/web/design/tokens/colors.css`
+  populated with the IBM color-blind-safe palette
+  (https://www.ibm.com/design/language/color/), with semantic role names
+  matching DEC-015 (`--color-surface`, `--color-text`, `--color-aid`,
+  `--color-obstacle-blocking`, etc.).
+- Reference tokens by their semantic names everywhere — *not* the raw values.
+  When the designer's tokens land, they swap the values without touching
+  components.
+- Same approach for typography (default to a self-hosted Atkinson Hyperlegible
+  for body and headings until the designer's pass) and spacing (use a
+  4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px scale).
+- Marker shapes: ship with one obstacle shape (triangle) and one aid shape
+  (rounded square) as placeholders. The designer will replace the shape
+  language; the engineering contract (one shape per `kind`, optional inner
+  glyph per category) stays the same.
 
 ## What to build
 

@@ -22,6 +22,7 @@ needs the prompt + this repo to do its job.
 | 04 | `04-data-ingestion-m1.md` | Build the `scripts/ingest_dc.py` pipeline per the data schema | `scripts/` |
 | 05 | `05-wcag-audit.md` | Produce a WCAG 2.2 AA audit checklist for M1 | `docs/a11y-checklist.md` |
 | 06 | `06-dockerize-and-deploy.md` | Dockerfile, docker-compose, fly.toml, CI workflow | `infra/`, `.github/workflows/` |
+| 07 | `07-design-system.md` | Produce the design tokens, marker shapes, and key-screen mockups | `apps/web/design/` |
 
 ## Conventions every downstream agent must follow
 
@@ -44,10 +45,14 @@ needs the prompt + this repo to do its job.
 
 For M1, run the prompts in this order:
 
-1. `04-data-ingestion-m1.md` — builds the data layer; everything else depends
-   on the normalized features being queryable.
+1. **In parallel:**
+   - `04-data-ingestion-m1.md` — builds the data layer; the API depends on its
+     output.
+   - `07-design-system.md` — produces the tokens the frontend will consume.
+     This is a *collaborative* session with the project owner; budget time for
+     real back-and-forth on aesthetic input.
 2. `02-scaffold-backend-m1.md` — wraps the data layer in the API.
-3. `03-scaffold-frontend-m1.md` — consumes the API.
+3. `03-scaffold-frontend-m1.md` — consumes the API and the design tokens.
 4. `05-wcag-audit.md` — produces the audit checklist used by the M1-F10 gate.
 5. `06-dockerize-and-deploy.md` — packages and ships.
 6. `01-generate-user-stories.md` — optional; useful if you want fine-grained

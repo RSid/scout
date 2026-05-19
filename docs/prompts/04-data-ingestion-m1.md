@@ -3,16 +3,18 @@
 ## Role
 
 You are a senior data engineer. You write a small, idempotent, well-tested Python
-script that turns DC OpenData GeoJSONs (plus selected OSM amenities) into a
-single pre-built artifact the backend loads at startup.
+script that turns DC OpenData GeoJSONs (plus selected OSM amenities) into rows
+in the `features` PostGIS table that the backend queries.
 
 ## Inputs (read these before coding)
 
 - `docs/appendix-data-schema.md` — **the source of truth for every mapping rule.**
-- `docs/02-prd.md` §6.1 ticket M1-F11.
-- `docs/03-decisions.md` DEC-004 (in-memory store) and DEC-018.
+- `docs/02-prd.md` §6.1 ticket M1-F11, §9.2 (DDL), §9.3 (corridor query).
+- `docs/03-decisions.md` DEC-019 (PostgreSQL + PostGIS from M1), DEC-018.
 - The seven `*.geojson` files in the repo root (move them to `data/` as part of
   this work).
+- The first Alembic migration (created by the backend scaffold) — it owns the
+  schema; this script only writes data.
 
 ## What to build
 
@@ -32,23 +34,24 @@ data/
 └── Accessible_Parking_Zones.geojson   # NOT INGESTED — keep for posterity
 ```
 
-The output is a single file:
-
-```
-data/derived/features.parquet           # or .feather; pick one and stick with it
-```
+The output is rows in the `features` table of the PostgreSQL DB pointed at by
+`SCOUT_DATABASE_URL`. No standalone artifact file (Alembic + the live DB are
+the source of truth).
 
 ## Required behaviors
 
 ### CLI
 
 ```
-uv run python scripts/ingest_dc.py [--dry-run] [--output PATH] [--include-osm]
+uv run python scripts/ingest_dc.py \
+    [--dry-run] \
+    [--include-osm/--no-include-osm] \
+    [--database-url URL]   # overrides SCOUT_DATABASE_URL
 ```
 
-- `--dry-run` prints counts per category/condition and exits without writing.
+- `--dry-run` parses + maps + counts but does not write to the DB. Useful in CI.
 - `--include-osm` (default: true) fetches OSM amenities via Overpass.
-- `--output` overrides the default output path.
+- `--database-url` overrides the env var (used by tests / local debugging).
 
 ### Per-dataset processing
 
@@ -73,16 +76,20 @@ each row:
 
 ### Idempotency
 
-Re-running with unchanged inputs must produce a byte-identical output. Sort the
-output by `id` before writing.
+- Use PostgreSQL `INSERT ... ON CONFLICT (id) DO UPDATE SET ...` (via
+  SQLAlchemy 2.x's `postgresql.insert(...).on_conflict_do_update(...)`).
+- Re-running with unchanged inputs must result in zero changed rows.
+  (Use `xmax = 0` trick or compare counts before/after to verify.)
+- Process the entire ingest inside one transaction. On any error, rollback —
+  the DB should never be left in a partial state.
 
 ### Logging
 
 Use `logging` (not `print`) at INFO level. On completion, log:
 
 ```
-ingest complete | datasets=N | features_total=N | features_per_category={...} |
-output_path=... | bytes=N | took_ms=N
+ingest complete | datasets=N | features_total=N |
+features_per_category={...} | inserted=N | updated=N | unchanged=N | took_ms=N
 ```
 
 ### Tests
@@ -90,25 +97,32 @@ output_path=... | bytes=N | took_ms=N
 `tests/test_ingest.py` covers:
 
 - Each per-dataset mapping function maps a representative input row to the
-  expected normalized output.
+  expected normalized output (pure-Python, no DB needed).
 - Casing normalization of `ASSET_TYPE` works for known dirty inputs.
 - The skip rule for Accessible Parking Zones is honored.
-- Idempotency: running ingest twice on the same input yields byte-identical
-  output.
+- Idempotency: running ingest twice against an ephemeral test PG database (a
+  pytest fixture using `testcontainers-postgres` *or* a CI service container)
+  yields `inserted=N, updated=0, unchanged=N` on the second run.
+- Transactional rollback: a forced failure mid-ingest leaves zero rows.
 - OSM Overpass is mocked (no real network).
+
+**Per `<user_rule>`:** when mocking OSM Overpass (or anything else), add a
+`# MOCK:` comment and list each mock in the PR description for owner review.
 
 ## Don't
 
 - Don't bring in heavy ETL frameworks (Dagster, Airflow, etc.). Plain Python.
-- Don't write to a database in M1.
+- Don't define the schema in this script. The schema lives in the Alembic
+  migration owned by `apps/backend/`. This script imports the SQLAlchemy
+  model and writes rows.
 - Don't drop the raw `condition` field; downstream needs it for the "source
   said: ___" UI.
-- Don't change the schema without updating `docs/appendix-data-schema.md` in the
-  same PR.
+- Don't change the schema without updating `docs/appendix-data-schema.md`,
+  PRD §9.2, and adding a new Alembic migration — all in the same PR.
 
 ## Deliverable
 
-A working `scripts/ingest_dc.py` plus its OSM helper, with tests, that produces
-`data/derived/features.parquet`. Update the root `README.md` with the command
-to run it. Commit message: `feat(data): build M1 DC ingestion pipeline per
-docs/appendix-data-schema.md`.
+A working `scripts/ingest_dc.py` plus its OSM helper, with tests, that
+populates the `features` table. Update the root `README.md` with the command
+to run it (`uv run python scripts/ingest_dc.py`). Commit message:
+`feat(data): build M1 DC ingestion pipeline per docs/appendix-data-schema.md`.
