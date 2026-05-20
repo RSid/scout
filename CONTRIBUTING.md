@@ -176,21 +176,24 @@ before pushing.
 
 ## Reporting bugs and data issues
 
-### Bugs in Scout itself
+The Issues tab has two structured templates that prompt for everything
+the maintainers need to triage. Pick the one that matches your report:
 
-Open an issue with:
-
-- **What you did** (steps to reproduce)
-- **What you expected**
-- **What happened**
-- **Environment** (browser + OS, or `python -V` for backend bugs)
-- **Screenshots / logs**, scrubbed of any PII
-
-### "Data is wrong about a place"
+- [**Bug report**](.github/ISSUE_TEMPLATE/bug_report.yml) — something in
+  Scout itself isn't working. The form asks for reproducible steps
+  (approximate textual locations, not raw GPS), browser/OS, Python
+  version for backend bugs, screenshots with scrubbing guidance, and an
+  optional axe-core output attachment.
+- [**Data is wrong about a place**](.github/ISSUE_TEMPLATE/data-wrong.yml)
+  — a feature is mis-described in the underlying DC dataset. The form
+  asks for the dataset, an approximate textual location, what's wrong,
+  and your freshness expectation.
 
 DC's underlying datasets are often years old; Scout doesn't fix the data,
-it surfaces freshness. When the M3 user-corrections flow ships (`M3-F25`),
-you'll be able to report inside the app. Until then, please open an issue.
+it surfaces freshness. When the M3 user-corrections flow ships
+(`M3-F25`), you'll be able to report inside the app. Until then the
+"Data is wrong" issue template is the right place — we file these so the
+M3 backlog stays grounded in real reports.
 
 ### Security issues
 
