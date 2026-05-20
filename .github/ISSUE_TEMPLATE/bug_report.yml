@@ -1,0 +1,93 @@
+name: Bug report
+description: Something in Scout itself isn't working as expected.
+title: "[bug] <one-line summary>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. A few quick rules before you start:
+
+        - **Do not include raw GPS coordinates** unless you specifically
+          want them in the public record. An approximate textual location
+          ("near Logan Circle") is plenty for triage.
+        - **Scrub screenshots** of any personal address, name, phone
+          number, or other identifying info. Most browsers and the macOS
+          Preview app can crop and redact.
+        - **Security vulnerabilities do not go here.** Open a private
+          security advisory on this repo's **Security** tab. The full
+          disclosure process will live in `SECURITY.md` once `M1-T09`
+          lands.
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Describe the route or interaction that triggered the bug. Use
+        approximate locations rather than precise coordinates.
+      placeholder: |
+        1. Open the planner
+        2. Search "Eastern Market" → "Lincoln Park"
+        3. Pick the wheelchair profile and click "Plan route"
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+    validations:
+      required: true
+
+  - type: input
+    id: browser_os
+    attributes:
+      label: Browser and OS
+      placeholder: "Firefox 124 on macOS 14.4"
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version (backend bugs only)
+      description: Output of `python -V`. Leave blank for frontend bugs.
+      placeholder: "Python 3.12.4"
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+      description: |
+        Drag images into this field. Please redact any PII first.
+    validations:
+      required: false
+
+  - type: textarea
+    id: axe_output
+    attributes:
+      label: Accessibility (axe) output
+      description: |
+        Optional. If the bug is an accessibility regression, paste the
+        relevant `axe-core` violations or attach the JSON report.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy_ack
+    attributes:
+      label: Privacy acknowledgement
+      options:
+        - label: I have not included raw GPS coordinates, email addresses, or other PII unless I intentionally wanted them in the public record.
+          required: true

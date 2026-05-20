@@ -31,13 +31,23 @@ A single file `docs/a11y-checklist.md` structured as:
       surrounding background").
     - Pass/Fail/N-A box.
     - Notes column.
-4. **Screen-reader test scripts.** Two short scripts (VoiceOver-Safari + NVDA-Firefox)
-   that a tester can read aloud:
-    - "Open the app. Tab through to the route planner. Enter '14th & U' as
-      start and 'US Capitol' as destination. Submit. Confirm the route summary
-      is announced. Confirm the parallel list view is announced. Confirm at
-      least one feature popup is announced. Confirm Escape closes the popup
-      and focus returns sensibly."
+4. **Screen-reader test scripts.** Three short scripts a tester can read
+   aloud, one per major (desktop + mobile) screen-reader pairing required by
+   PRD `M1-F10`:
+    - **VoiceOver + Safari (macOS):** "Open the app. Tab through to the route
+      planner. Enter '14th & U' as start and 'US Capitol' as destination.
+      Submit. Confirm the route summary is announced. Confirm the parallel
+      list view is announced. Confirm at least one feature popup is
+      announced. Confirm Escape closes the popup and focus returns sensibly."
+    - **NVDA + Firefox (Windows):** Same flow as VoiceOver-Safari. Note any
+      announcement differences (e.g. live-region politeness handling).
+    - **TalkBack + Chrome (Android):** Same flow, adapted for touch
+      exploration: swipe-right to advance focus, double-tap to activate,
+      two-finger swipe to scroll. Confirm the address combobox, the "Use my
+      location" button, the route summary, and the parallel list view are
+      all reachable and announced. Confirm the disclaimer banner is reached
+      early in the reading order. Confirm popups are dismissable without a
+      hardware keyboard.
 5. **Known limitations.** Be honest. Items we deliberately do not meet at
    M1 (e.g., AAA 1.4.6 on the map symbol contrast, where the data symbol
    density forces a compromise) are listed with explicit rationale and a path

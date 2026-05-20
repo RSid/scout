@@ -2,7 +2,19 @@
 
 Data-ingestion and dev-utility scripts. Read `../AGENTS.md` first.
 
-## Stack
+This folder holds two distinct categories, with different rules:
+
+1. **Ingestion scripts** (Python) — read source data, transform, write to
+   the DB. Subject to the *Stack*, *CLI shape*, *Idempotency*, and *Tests*
+   sections below.
+2. **External-CLI wrappers** (shell) — thin, read-only or single-purpose
+   wrappers around tools like `gh`, `fly`, `docker`. Subject only to the
+   *External-CLI wrappers* section below.
+
+When in doubt, write Python. Reach for shell only when the entire job is
+"shape some args, call one external CLI, pass its output through."
+
+## Stack (ingestion scripts)
 
 - Pure Python ≥ 3.12 with `uv`. No ETL frameworks (no Dagster, Airflow,
   Prefect).
@@ -15,9 +27,9 @@ Data-ingestion and dev-utility scripts. Read `../AGENTS.md` first.
 - `logging` from the standard library, structured key-value lines. No
   `print`.
 
-## CLI shape
+## CLI shape (ingestion scripts)
 
-Every script supports at least:
+Every ingestion script supports at least:
 
 - `--dry-run` — parse, validate, count; do not write.
 - `--database-url URL` — overrides `SCOUT_DATABASE_URL`.
@@ -60,3 +72,36 @@ Scripts are idempotent and re-runnable.
 - Don't change the data schema without updating
   `docs/appendix-data-schema.md`, the PRD §9.2 DDL, and adding a new
   Alembic migration — all in the same PR.
+
+## External-CLI wrappers
+
+For scripts whose entire job is "shape some args, call one external CLI,
+emit its output":
+
+- POSIX `bash` with `set -euo pipefail`. Executable (`chmod +x`).
+- Top-of-file docstring block with one-line description, full *Usage*
+  examples, and a one-line note on inputs/outputs. `--help` prints it.
+- Read-only by default. If the script mutates remote state (creates
+  issues, deploys, etc.), say so loudly in the docstring and gate
+  destructive paths behind an explicit flag or env var.
+- Fail fast if the external CLI is missing or unauthenticated, with a
+  message that names the fix (`Run: gh auth login`).
+- No hidden globals; configurable via flags first, env vars second
+  (document both). Default `REPO` and similar to the values appropriate
+  for this repo.
+- No tests required for sub-50-line wrappers whose only logic is arg
+  parsing plus one external call. If a wrapper grows non-trivial logic,
+  promote it to Python and apply the ingestion-script rules.
+
+## Tool registry
+
+Agent-facing scripts in this folder. **Prefer running these over
+re-implementing the underlying CLI call** — they exist precisely so the
+"right invocation" lives in one place that agents and humans share.
+
+When you add a registered script, append a row here. Each script's own
+top-of-file docstring remains the source of truth for flags.
+
+| Script                  | What it does                                                         | When to reach for it                                            |
+| ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `scripts/gh-issues.sh`  | Lists issues in `RSid/scout` (JSON or table), optional milestone filter. | Anytime an agent or contributor needs issue metadata as data. |

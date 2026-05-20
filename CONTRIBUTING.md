@@ -18,8 +18,7 @@ domain expertise — are welcome.
    `scripts/`).
 3. Browse `docs/03-decisions.md` if you want to understand _why_ a choice
    was made before proposing a change to it.
-4. Pick an issue tagged `good first issue` or `help wanted`, or propose
-   something in Discussions.
+4. Pick an issue tagged `good first issue` or `help wanted`.
 
 ## Ground rules
 
@@ -139,33 +138,53 @@ docs: clarify AGENTS.md commit format
 
 ### PR description template
 
-```
-## Summary
-<what changed, in 1–3 sentences>
+GitHub auto-populates the PR form from
+[`.github/pull_request_template.md`](.github/pull_request_template.md).
+That file is the source of truth — if you need to change the sections,
+edit it there. The sections it asks for are:
 
-## Tickets closed
-- M1-F04
-- OQ-10 (now RESOLVED — note in docs/02-prd.md §10)
+- **Summary** (1–3 sentences)
+- **Tickets closed** (`M1-F04`, `M1-T11`, `OQ-10`, …)
+- **Decisions touched** (`DEC-NNN`)
+- **Tests added or changed**
+- **Mocks introduced** (every mock must be visible per `AGENTS.md` rule #3)
+- **Screenshots** (UI changes only)
+- **Out of scope**
 
-## Decisions touched
-- DEC-020 (extended adapter for new vendor)
-
-## Tests added or changed
-- ...
-
-## Mocks introduced
-- ...
-
-## Screenshots
-<UI changes only>
-
-## Out of scope
-- ...
-```
+Plus an author checklist covering the dependency-justification sentence,
+data-schema bookkeeping, and CI expectations.
 
 The full agent-facing rules around mocks, ticket citation, and
 decision-log hygiene live in `AGENTS.md` under _Working with this repo as
 an agent_.
+
+### Reviewing a PR
+
+Reviewers (and the author, before requesting review):
+
+- **CODEOWNERS auto-assigns review.** `.github/CODEOWNERS` routes every
+  PR to the maintainers for the subtree it touches. Branch protection on
+  `main` requires **one approving review from a code owner** before
+  merge for outside contributors (per `DEC-017`); the solo maintainer
+  can self-merge per the same decision's documented exception.
+- **The PR description is a checklist.** It comes from
+  [`.github/pull_request_template.md`](.github/pull_request_template.md).
+  Verify every section is filled in — empty **Mocks introduced** should
+  read "None", not be left blank.
+- **Mocks must be visible** (`AGENTS.md` rule #3). Every mock in the
+  diff carries a `# MOCK:` / `// MOCK:` comment AND is listed in the PR
+  description. Spot-check both.
+- **New dependencies need the one-sentence justification** (what need,
+  what was rejected, why this) and a passing local vulnerability scan
+  (`pip-audit` / `npm audit --omit=dev`). See `AGENTS.md` "Dependency
+  policy".
+- **No silent `DEC-NNN` reversals** (`AGENTS.md` rule #4). If a
+  decision needs to change, the author opens
+  `docs/proposals/DEC-NNN-followup.md` first.
+- **Tests stay strong** (`AGENTS.md` rule #2). A weakened or deleted
+  passing test gets pushed back on, not waved through.
+- **Push back with evidence, not vibes.** It's fine to disagree;
+  unevidenced "looks good" reviews aren't really reviews.
 
 ### What CI checks
 
@@ -184,21 +203,24 @@ before pushing.
 
 ## Reporting bugs and data issues
 
-### Bugs in Scout itself
+The Issues tab has two structured templates that prompt for everything
+the maintainers need to triage. Pick the one that matches your report:
 
-Open an issue with:
-
-- **What you did** (steps to reproduce)
-- **What you expected**
-- **What happened**
-- **Environment** (browser + OS, or `python -V` for backend bugs)
-- **Screenshots / logs**, scrubbed of any PII
-
-### "Data is wrong about a place"
+- [**Bug report**](.github/ISSUE_TEMPLATE/bug_report.yml) — something in
+  Scout itself isn't working. The form asks for reproducible steps
+  (approximate textual locations, not raw GPS), browser/OS, Python
+  version for backend bugs, screenshots with scrubbing guidance, and an
+  optional axe-core output attachment.
+- [**Data is wrong about a place**](.github/ISSUE_TEMPLATE/data-wrong.yml)
+  — a feature is mis-described in the underlying DC dataset. The form
+  asks for the dataset, an approximate textual location, what's wrong,
+  and your freshness expectation.
 
 DC's underlying datasets are often years old; Scout doesn't fix the data,
-it surfaces freshness. When the M3 user-corrections flow ships (`M3-F25`),
-you'll be able to report inside the app. Until then, please open an issue.
+it surfaces freshness. When the M3 user-corrections flow ships
+(`M3-F25`), you'll be able to report inside the app. Until then the
+"Data is wrong" issue template is the right place — we file these so the
+M3 backlog stays grounded in real reports.
 
 ### Security issues
 
@@ -209,7 +231,6 @@ release notes.
 
 ## Questions
 
-- **General discussion:** open a GitHub Discussion.
 - **Sensitive accessibility feedback** you'd rather not share publicly:
   email the maintainer listed in the repo profile.
 
