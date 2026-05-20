@@ -16,26 +16,50 @@ tickets in the Scout PRD.
 - `docs/appendix-data-schema.md` (the Feature shape you consume from the API).
 - `docs/01-one-pager.md` (voice and tone).
 
-## Design tokens — parallel work
+## Design tokens — produced by the design pass (DEC-015)
 
-Per DEC-015, the design pass (prompts/07-design-system.md) runs in parallel
-with this scaffolding. Until the designer's tokens land:
+The design pass (`docs/prompts/07-design-system.md`) has merged. Do not
+recreate or invent tokens; consume what is already at `apps/web/design/`:
 
-- Use a **fallback tokens module** at `apps/web/design/tokens/colors.css`
-  populated with the IBM color-blind-safe palette
-  (https://www.ibm.com/design/language/color/), with semantic role names
-  matching DEC-015 (`--color-surface`, `--color-text`, `--color-aid`,
-  `--color-obstacle-blocking`, etc.).
-- Reference tokens by their semantic names everywhere — *not* the raw values.
-  When the designer's tokens land, they swap the values without touching
-  components.
-- Same approach for typography (default to a self-hosted Atkinson Hyperlegible
-  for body and headings until the designer's pass) and spacing (use a
-  4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px scale).
-- Marker shapes: ship with one obstacle shape (triangle) and one aid shape
-  (rounded square) as placeholders. The designer will replace the shape
-  language; the engineering contract (one shape per `kind`, optional inner
-  glyph per category) stays the same.
+- `apps/web/design/tokens/index.css` — single-import entry point. Add
+  `@import "@/design/tokens/index.css";` to `app/globals.css`.
+- `apps/web/design/tokens/colors.css` — semantic role names (`--color-surface`,
+  `--color-text`, `--color-text-muted`, `--color-accent`, `--color-link`,
+  `--color-focus-ring`, `--color-aid`, `--color-obstacle-{mild,difficult,blocking}`,
+  `--color-warning-{surface,border,text}`, etc.), with light + dark variants
+  driven by `prefers-color-scheme` and a manual `[data-theme=…]` opt-in.
+- `apps/web/design/tokens/colors.ts` — typed mirror (`colorVar("accent")`
+  returns `"var(--color-accent)"`). Use for MapLibre paint specs and
+  programmatic SVG fills. **Never inline raw hex in components.**
+- `apps/web/design/tokens/typography.css` — `@font-face` for Atkinson
+  Hyperlegible (self-hosted; run `scripts/fetch_fonts.sh` before
+  `pnpm dev` on a fresh clone), type scale, line-heights, max measure.
+- `apps/web/design/tokens/spacing.css` — `--space-*`, `--radius-*`,
+  `--elevation-*`, `--target-min` (44 px), focus-ring width + offset,
+  `--z-*` ladder.
+- `apps/web/design/tokens/motion.css` — durations, easings, and the
+  `prefers-reduced-motion` universal reset.
+
+Marker SVGs at `apps/web/design/markers/` — six shapes for the M1
+default-on categories (obstacle family: triangle / diamond / hexagon;
+aid family: circle / squircle / pill). Each authored with
+`fill="currentColor"` so the consumer paints with a severity / aid token.
+The MapLibre sprite is built from these source SVGs at scaffold time.
+
+Reference mockups at `apps/web/design/screens/`:
+`plan-with-route.html` (mobile 375 px + desktop 1280 px composite) and
+`onboarding-modal.html` (final DEC-010 disclaimer copy). Implement the
+React components to match these mockups visually; tokens guarantee the
+palette propagates without inline hex.
+
+Contrast audit at `apps/web/design/audit/contrast-report.md` — every
+pair with measured ratio + AA/AAA verdict + CVD risk-pair analysis.
+The audit notes one known follow-up: implement the **double-ring focus
+style** on the dark-mode accent button (a single sunshine ring fails
+the focus-on-element criterion against the warmed-rust dark-mode accent
+fill at 1.4:1). The plan-view mockup demonstrates the resting style;
+the frontend scaffold must add the second 1 px `surface` stripe inside
+the outer ring for accent buttons in dark mode.
 
 ## What to build
 
@@ -174,8 +198,9 @@ apps/web/
 - Don't add Redux, MobX, Zustand, or any global state library. `localStorage` +
   React Context (for the Profile) is enough.
 - Don't render the map server-side.
-- Don't use Google Fonts (privacy + offline). Use system font stack or self-host
-  Inter.
+- Don't use Google Fonts as a runtime CDN (privacy + offline). The design pass
+  self-hosts Atkinson Hyperlegible under `apps/web/public/fonts/`; populate via
+  `scripts/fetch_fonts.sh`.
 - Don't add analytics, telemetry, or any third-party script in M1.
 - Don't use raw `mapbox-gl` — we use MapLibre (DEC-002).
 - Don't add `next/image` for the map markers — use inline SVG sprite via MapLibre.

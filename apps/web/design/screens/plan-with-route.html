@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scout — plan view (design mockup)</title>
+    <style>
+      @import url("../tokens/index.css");
+
+      /* Mockup chrome — frames the two simulated viewports side by side. */
+      body {
+        margin: 0;
+        padding: var(--space-6);
+        background: #ddd1aa;
+        font-family: var(--font-family-sans);
+        color: #221c14;
+      }
+      .mockup-grid {
+        display: grid;
+        grid-template-columns: 375px 1fr;
+        gap: var(--space-6);
+        align-items: start;
+        max-width: 1900px;
+        margin: 0 auto;
+      }
+      .mockup-frame {
+        background: var(--color-surface);
+        color: var(--color-text);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--elevation-overlay);
+      }
+      .mockup-frame.desktop { width: 1280px; max-width: 100%; }
+      .mockup-caption {
+        display: block;
+        margin-bottom: var(--space-2);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        color: #5c5246;
+        letter-spacing: var(--letter-spacing-wide);
+        text-transform: uppercase;
+      }
+
+      /* === App-level styles (these belong to the frontend; shown here as
+            visual reference for the engineering agent) === */
+
+      .scout-app {
+        min-height: 100%;
+        font-family: var(--font-family-sans);
+        font-size: var(--font-size-base);
+        line-height: var(--line-height-normal);
+        color: var(--color-text);
+        background: var(--color-surface);
+      }
+
+      /* Skip link — visually hidden until focused */
+      .skip-link {
+        position: absolute;
+        left: var(--space-2);
+        top: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface-elevated);
+        color: var(--color-link);
+        border: 2px solid var(--color-focus-ring);
+        border-radius: var(--radius-md);
+        font-weight: var(--font-weight-bold);
+        z-index: var(--z-skip-link);
+        transform: translateY(-150%);
+      }
+      .skip-link:focus { transform: translateY(0); }
+
+      /* Header */
+      .scout-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface-elevated);
+      }
+      .scout-wordmark {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--font-size-xl);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text);
+        letter-spacing: var(--letter-spacing-tight);
+      }
+      .scout-wordmark svg { color: var(--color-accent); }
+      .scout-nav { display: flex; gap: var(--space-2); }
+      .scout-nav a {
+        color: var(--color-link);
+        text-decoration: none;
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-md);
+        font-weight: var(--font-weight-bold);
+        min-height: var(--target-min);
+        display: inline-flex;
+        align-items: center;
+      }
+      .scout-nav a:hover { color: var(--color-link-hover); text-decoration: underline; }
+
+      /* Disclaimer banner (DEC-010, persistent on route view) */
+      .disclaimer-banner {
+        background: var(--color-warning-surface);
+        border-bottom: 2px solid var(--color-warning-border);
+        color: var(--color-warning-text);
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--font-size-sm);
+        display: flex;
+        gap: var(--space-3);
+        align-items: flex-start;
+      }
+      .disclaimer-banner strong { font-weight: var(--font-weight-bold); }
+      .disclaimer-banner a { color: var(--color-warning-text); text-decoration: underline; }
+      .disclaimer-banner button {
+        margin-left: auto;
+        background: transparent;
+        border: 1px solid var(--color-warning-border);
+        color: var(--color-warning-text);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        cursor: pointer;
+        min-height: var(--target-min);
+      }
+
+      /* Main layout */
+      .scout-main { padding: var(--space-4); }
+      .scout-main.desktop {
+        display: grid;
+        grid-template-columns: 1fr 420px;
+        gap: var(--space-6);
+        padding: var(--space-6);
+      }
+
+      /* Address inputs */
+      .route-inputs {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-3);
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--space-4);
+      }
+      .route-inputs .row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+      .route-inputs label {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-bold);
+        min-width: 5rem;
+      }
+      .route-inputs input[type="text"] {
+        flex: 1;
+        font-family: inherit;
+        font-size: var(--font-size-base);
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface);
+        color: var(--color-text);
+        border: 1px solid var(--color-border-strong);
+        border-radius: var(--radius-md);
+        min-height: var(--target-min);
+      }
+      .route-inputs button[type="submit"] {
+        align-self: flex-end;
+        font-family: inherit;
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-bold);
+        padding: var(--space-2) var(--space-4);
+        background: var(--color-accent);
+        color: var(--color-on-accent);
+        border: none;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        min-height: var(--target-min);
+        min-width: var(--target-min);
+      }
+      .route-inputs button[type="submit"]:hover { background: var(--color-accent-hover); }
+      /* Focused state demo — show on the "Find route" button. */
+      .route-inputs button[type="submit"].is-focused {
+        outline: var(--focus-ring-width) solid var(--color-focus-ring);
+        outline-offset: var(--focus-ring-offset);
+      }
+
+      /* Map surface (placeholder rectangle) */
+      .scout-map {
+        position: relative;
+        background: linear-gradient(135deg, #ece4c4 0%, #e0d4a8 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        height: 320px;
+        overflow: hidden;
+        margin-bottom: var(--space-4);
+      }
+      .scout-main.desktop .scout-map { height: 560px; margin-bottom: 0; }
+      .scout-map .route-line {
+        position: absolute; inset: 0;
+        pointer-events: none;
+      }
+      .scout-map .marker {
+        position: absolute;
+        width: 44px; height: 44px;
+        display: grid; place-items: center;
+      }
+      .scout-map .marker svg { width: 40px; height: 40px; }
+
+      /* Route summary chip */
+      .route-summary {
+        display: inline-flex;
+        gap: var(--space-3);
+        align-items: center;
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-bold);
+        margin-bottom: var(--space-3);
+      }
+      .route-summary .divider { color: var(--color-text-muted); font-weight: var(--font-weight-regular); }
+
+      /* Parallel list view (M1-F09) */
+      .feature-list {
+        list-style: none;
+        margin: 0; padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+      .feature-list h2 {
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-bold);
+        margin: 0 0 var(--space-2) 0;
+      }
+      .feature-item {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-3);
+        display: grid;
+        grid-template-columns: 40px 1fr auto;
+        gap: var(--space-3);
+        align-items: center;
+      }
+      .feature-item .icon { color: var(--color-obstacle-blocking); }
+      .feature-item .icon svg { display: block; }
+      .feature-item .label {
+        font-weight: var(--font-weight-bold);
+        font-size: var(--font-size-sm);
+      }
+      .feature-item .meta {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        margin-top: 2px;
+      }
+      .feature-item .distance {
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .feature-item .freshness-chip {
+        display: inline-block;
+        padding: 1px 6px;
+        background: var(--color-stale-surface);
+        color: var(--color-stale-text);
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        margin-left: var(--space-1);
+      }
+
+      /* Item-specific severity colors. */
+      .feature-item.blocking .icon { color: var(--color-obstacle-blocking); }
+      .feature-item.difficult .icon { color: var(--color-obstacle-difficult); }
+      .feature-item.mild .icon { color: var(--color-obstacle-mild); }
+      .feature-item.aid .icon { color: var(--color-aid); }
+    </style>
+  </head>
+  <body>
+    <p
+      style="
+        font-family: var(--font-family-sans);
+        max-width: 720px;
+        margin: 0 auto var(--space-6);
+        color: #221c14;
+        font-size: var(--font-size-sm);
+      "
+    >
+      <strong>Plan view — design mockup.</strong> Two simulated viewports: mobile (375 px,
+      list above map per M1-F09) and desktop (1280 px, list right of map). Shows resting
+      states throughout, with one focused state demonstrated on the "Find route" button
+      to validate the focus indicator pattern. Inline SVGs use the actual marker shapes
+      from <code>apps/web/design/markers/</code> and the actual color tokens from
+      <code>apps/web/design/tokens/</code>; palette changes in tokens propagate here
+      automatically.
+    </p>
+
+    <div class="mockup-grid">
+      <!-- ============ MOBILE 375px ============ -->
+      <div>
+        <span class="mockup-caption">Mobile · 375 × 750</span>
+        <div class="mockup-frame" style="width: 375px;">
+          <div class="scout-app">
+            <a class="skip-link" href="#main">Skip to main content</a>
+
+            <header class="scout-header">
+              <a class="scout-wordmark" href="/" style="text-decoration: none;">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.2" />
+                  <circle cx="12" cy="12" r="2.3" fill="currentColor" />
+                  <path d="M 19 7 L 23 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                </svg>
+                Scout
+              </a>
+              <nav class="scout-nav" aria-label="Primary">
+                <a href="/about">About</a>
+              </nav>
+            </header>
+
+            <section class="disclaimer-banner" role="region" aria-labelledby="d1">
+              <strong id="d1">Planning aid, not a guarantee.</strong>
+              <span>DC data is mostly 2016. <a href="/about#disclaimer">Read more</a>.</span>
+            </section>
+
+            <main id="main" class="scout-main">
+              <form class="route-inputs" aria-label="Plan a route">
+                <div class="row">
+                  <label for="start-m">Start</label>
+                  <input id="start-m" type="text" value="14th &amp; U St NW" />
+                </div>
+                <div class="row">
+                  <label for="dest-m">End</label>
+                  <input id="dest-m" type="text" value="Dupont Circle" />
+                </div>
+                <button type="submit" class="is-focused" aria-describedby="focus-note">
+                  Find route
+                </button>
+              </form>
+
+              <p
+                id="focus-note"
+                style="
+                  font-size: var(--font-size-xs);
+                  color: var(--color-text-muted);
+                  margin: 0 0 var(--space-3);
+                "
+              >
+                ↑ shown with focus ring (3 px teal outline) for reference
+              </p>
+
+              <div class="route-summary" aria-live="polite">
+                <span>0.9 mi</span>
+                <span class="divider">·</span>
+                <span>18 min walking</span>
+                <span class="divider">·</span>
+                <span>4 features</span>
+              </div>
+
+              <section aria-labelledby="list-h-m">
+                <ul class="feature-list" id="list-h-m-list">
+                  <h2 id="list-h-m" style="font-size: var(--font-size-base);">Along this route</h2>
+
+                  <li class="feature-item blocking">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <polygon points="20,4 36,32 4,32" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                        <path d="M 12 26 L 19 26 L 27 16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">
+                        Curb ramp — non-compliant
+                        <span class="freshness-chip">2016</span>
+                      </div>
+                      <div class="meta">14th &amp; T St NW · DC OpenData</div>
+                    </div>
+                    <div class="distance">120 m</div>
+                  </li>
+
+                  <li class="feature-item difficult">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <polygon points="20,4 36,20 20,36 4,20" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                        <rect x="9" y="18" width="22" height="4" rx="1" fill="#ffffff" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">
+                        Sidewalk barrier — pole obstruction
+                        <span class="freshness-chip">2016</span>
+                      </div>
+                      <div class="meta">15th &amp; Riggs Pl NW</div>
+                    </div>
+                    <div class="distance">340 m</div>
+                  </li>
+
+                  <li class="feature-item aid">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <circle cx="20" cy="20" r="16" fill="currentColor" stroke="#ffffff" stroke-width="2" />
+                        <circle cx="20" cy="13" r="2.5" fill="#ffffff" />
+                        <path d="M 14 28 L 16 17 L 24 17 L 26 28 L 22 28 L 22 22 L 18 22 L 18 28 Z" fill="#ffffff" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">Accessible restroom — Whole Foods</div>
+                      <div class="meta">Refuge Restrooms · updated 2024</div>
+                    </div>
+                    <div class="distance">510 m</div>
+                  </li>
+
+                  <li class="feature-item mild">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <polygon points="20,4 34,12 34,28 20,36 6,28 6,12" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                        <path d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z" fill="#ffffff" />
+                        <path d="M 25 16 Q 28 20 25 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">
+                        Audible signal — older type
+                        <span class="freshness-chip">2016</span>
+                      </div>
+                      <div class="meta">Connecticut Ave &amp; Q St NW</div>
+                    </div>
+                    <div class="distance">760 m</div>
+                  </li>
+                </ul>
+              </section>
+
+              <div class="scout-map" role="img" aria-label="Map of route with features (mobile: list above, map below)">
+                <svg viewBox="0 0 335 320" width="100%" height="100%" style="position: absolute; inset: 0;">
+                  <path d="M 20 280 Q 80 200 180 220 T 320 60" stroke="#a8422a" stroke-width="4" fill="none" stroke-linecap="round" />
+                  <circle cx="20" cy="280" r="6" fill="#2c4f5c" />
+                  <circle cx="320" cy="60" r="6" fill="#2c4f5c" />
+                </svg>
+                <div class="marker" style="left: 60px; top: 230px;">
+                  <svg viewBox="0 0 40 40">
+                    <polygon points="20,4 36,32 4,32" fill="#8d2818" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M 12 26 L 19 26 L 27 16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <div class="marker" style="left: 140px; top: 200px;">
+                  <svg viewBox="0 0 40 40">
+                    <polygon points="20,4 36,20 20,36 4,20" fill="#b05b1a" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                    <rect x="9" y="18" width="22" height="4" rx="1" fill="#ffffff" />
+                  </svg>
+                </div>
+                <div class="marker" style="left: 220px; top: 160px;">
+                  <svg viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="#2f7a2e" stroke="#ffffff" stroke-width="2" />
+                    <circle cx="20" cy="13" r="2.5" fill="#ffffff" />
+                    <path d="M 14 28 L 16 17 L 24 17 L 26 28 L 22 28 L 22 22 L 18 22 L 18 28 Z" fill="#ffffff" />
+                  </svg>
+                </div>
+                <div class="marker" style="left: 270px; top: 90px;">
+                  <svg viewBox="0 0 40 40">
+                    <polygon points="20,4 34,12 34,28 20,36 6,28 6,12" fill="#b0832e" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z" fill="#ffffff" />
+                    <path d="M 25 16 Q 28 20 25 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" />
+                  </svg>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ DESKTOP 1280px ============ -->
+      <div>
+        <span class="mockup-caption">Desktop · 1280 × 880</span>
+        <div class="mockup-frame desktop">
+          <div class="scout-app">
+            <header class="scout-header" style="padding: var(--space-3) var(--space-8);">
+              <a class="scout-wordmark" href="/" style="text-decoration: none;">
+                <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                  <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.2" />
+                  <circle cx="12" cy="12" r="2.3" fill="currentColor" />
+                  <path d="M 19 7 L 23 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                </svg>
+                Scout
+              </a>
+              <nav class="scout-nav" aria-label="Primary">
+                <a href="/about">About</a>
+                <a href="/privacy">Privacy</a>
+                <a href="https://github.com/RSid/scout">GitHub</a>
+              </nav>
+            </header>
+
+            <section class="disclaimer-banner" role="region" aria-labelledby="d2" style="padding: var(--space-3) var(--space-8);">
+              <strong id="d2">Planning aid, not a guarantee.</strong>
+              <span>
+                Scout shows DC's public accessibility data — mostly inspected in 2016.
+                Always have a fallback route. <a href="/about#disclaimer">Read the full disclaimer</a>.
+              </span>
+              <button type="button" aria-label="Dismiss for this session">Dismiss</button>
+            </section>
+
+            <main id="main-d" class="scout-main desktop">
+              <div>
+                <form
+                  class="route-inputs"
+                  aria-label="Plan a route"
+                  style="
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                    align-items: end;
+                  "
+                >
+                  <div class="row" style="flex: 1; min-width: 220px;">
+                    <label for="start-d">Start</label>
+                    <input id="start-d" type="text" value="14th &amp; U St NW" />
+                  </div>
+                  <div class="row" style="flex: 1; min-width: 220px;">
+                    <label for="dest-d">End</label>
+                    <input id="dest-d" type="text" value="Dupont Circle" />
+                  </div>
+                  <button type="submit">Find route</button>
+                </form>
+
+                <div class="route-summary" aria-live="polite">
+                  <span>14th &amp; U St NW → Dupont Circle</span>
+                  <span class="divider">·</span>
+                  <span>0.9 mi</span>
+                  <span class="divider">·</span>
+                  <span>18 min walking</span>
+                  <span class="divider">·</span>
+                  <span>4 features</span>
+                </div>
+
+                <div
+                  class="scout-map"
+                  role="img"
+                  aria-label="Map of route with features (desktop: map left, list right)"
+                >
+                  <svg viewBox="0 0 800 560" width="100%" height="100%" style="position: absolute; inset: 0;">
+                    <path d="M 40 480 Q 200 360 460 380 T 760 100" stroke="#a8422a" stroke-width="5" fill="none" stroke-linecap="round" />
+                    <circle cx="40" cy="480" r="8" fill="#2c4f5c" />
+                    <text x="56" y="486" fill="#221c14" font-size="13" font-weight="700" font-family="inherit">Start</text>
+                    <circle cx="760" cy="100" r="8" fill="#2c4f5c" />
+                    <text x="700" y="92" fill="#221c14" font-size="13" font-weight="700" font-family="inherit">Dupont Circle</text>
+                  </svg>
+                  <div class="marker" style="left: 160px; top: 400px;">
+                    <svg viewBox="0 0 40 40">
+                      <polygon points="20,4 36,32 4,32" fill="#8d2818" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                      <path d="M 12 26 L 19 26 L 27 16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </div>
+                  <div class="marker" style="left: 340px; top: 348px;">
+                    <svg viewBox="0 0 40 40">
+                      <polygon points="20,4 36,20 20,36 4,20" fill="#b05b1a" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                      <rect x="9" y="18" width="22" height="4" rx="1" fill="#ffffff" />
+                    </svg>
+                  </div>
+                  <div class="marker" style="left: 540px; top: 308px;">
+                    <svg viewBox="0 0 40 40">
+                      <circle cx="20" cy="20" r="16" fill="#2f7a2e" stroke="#ffffff" stroke-width="2" />
+                      <circle cx="20" cy="13" r="2.5" fill="#ffffff" />
+                      <path d="M 14 28 L 16 17 L 24 17 L 26 28 L 22 28 L 22 22 L 18 22 L 18 28 Z" fill="#ffffff" />
+                    </svg>
+                  </div>
+                  <div class="marker" style="left: 660px; top: 168px;">
+                    <svg viewBox="0 0 40 40">
+                      <polygon points="20,4 34,12 34,28 20,36 6,28 6,12" fill="#b0832e" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                      <path d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z" fill="#ffffff" />
+                      <path d="M 25 16 Q 28 20 25 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <aside aria-labelledby="list-h-d">
+                <h2 id="list-h-d" style="font-size: var(--font-size-lg); margin: 0 0 var(--space-3);">
+                  Along this route
+                </h2>
+                <ul class="feature-list">
+                  <li class="feature-item blocking">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <polygon points="20,4 36,32 4,32" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                        <path d="M 12 26 L 19 26 L 27 16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">
+                        Curb ramp — non-compliant
+                        <span class="freshness-chip">2016</span>
+                      </div>
+                      <div class="meta">14th &amp; T St NW · DC OpenData</div>
+                    </div>
+                    <div class="distance">120 m</div>
+                  </li>
+                  <li class="feature-item difficult">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <polygon points="20,4 36,20 20,36 4,20" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                        <rect x="9" y="18" width="22" height="4" rx="1" fill="#ffffff" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">
+                        Sidewalk barrier — pole obstruction
+                        <span class="freshness-chip">2016</span>
+                      </div>
+                      <div class="meta">15th &amp; Riggs Pl NW</div>
+                    </div>
+                    <div class="distance">340 m</div>
+                  </li>
+                  <li class="feature-item aid">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <circle cx="20" cy="20" r="16" fill="currentColor" stroke="#ffffff" stroke-width="2" />
+                        <circle cx="20" cy="13" r="2.5" fill="#ffffff" />
+                        <path d="M 14 28 L 16 17 L 24 17 L 26 28 L 22 28 L 22 22 L 18 22 L 18 28 Z" fill="#ffffff" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">Accessible restroom — Whole Foods</div>
+                      <div class="meta">Refuge Restrooms · updated 2024</div>
+                    </div>
+                    <div class="distance">510 m</div>
+                  </li>
+                  <li class="feature-item mild">
+                    <span class="icon" aria-hidden="true">
+                      <svg viewBox="0 0 40 40" width="32" height="32">
+                        <polygon points="20,4 34,12 34,28 20,36 6,28 6,12" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                        <path d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z" fill="#ffffff" />
+                        <path d="M 25 16 Q 28 20 25 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="label">
+                        Audible signal — older type
+                        <span class="freshness-chip">2016</span>
+                      </div>
+                      <div class="meta">Connecticut Ave &amp; Q St NW</div>
+                    </div>
+                    <div class="distance">760 m</div>
+                  </li>
+                </ul>
+              </aside>
+            </main>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,5 +1,9 @@
 # Prompt: Produce the Scout M1 design system
 
+> **Status:** The output of this prompt has merged. It supersedes the
+> palette fallback in `prompts/03-scaffold-frontend-m1.md`. The resulting
+> design system lives at `apps/web/design/`.
+
 ## Role
 
 You are a senior product designer with deep experience in accessibility-first
