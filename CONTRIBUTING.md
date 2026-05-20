@@ -159,6 +159,34 @@ The full agent-facing rules around mocks, ticket citation, and
 decision-log hygiene live in `AGENTS.md` under _Working with this repo as
 an agent_.
 
+### Reviewing a PR
+
+Reviewers (and the author, before requesting review):
+
+- **CODEOWNERS auto-assigns review.** `.github/CODEOWNERS` routes every
+  PR to the maintainers for the subtree it touches. Branch protection on
+  `main` requires **one approving review from a code owner** before
+  merge for outside contributors (per `DEC-017`); the solo maintainer
+  can self-merge per the same decision's documented exception.
+- **The PR description is a checklist.** It comes from
+  [`.github/pull_request_template.md`](.github/pull_request_template.md).
+  Verify every section is filled in — empty **Mocks introduced** should
+  read "None", not be left blank.
+- **Mocks must be visible** (`AGENTS.md` rule #3). Every mock in the
+  diff carries a `# MOCK:` / `// MOCK:` comment AND is listed in the PR
+  description. Spot-check both.
+- **New dependencies need the one-sentence justification** (what need,
+  what was rejected, why this) and a passing local vulnerability scan
+  (`pip-audit` / `npm audit --omit=dev`). See `AGENTS.md` "Dependency
+  policy".
+- **No silent `DEC-NNN` reversals** (`AGENTS.md` rule #4). If a
+  decision needs to change, the author opens
+  `docs/proposals/DEC-NNN-followup.md` first.
+- **Tests stay strong** (`AGENTS.md` rule #2). A weakened or deleted
+  passing test gets pushed back on, not waved through.
+- **Push back with evidence, not vibes.** It's fine to disagree;
+  unevidenced "looks good" reviews aren't really reviews.
+
 ### What CI checks
 
 - Lint + format: `ruff` (Python), `eslint` + `prettier` (TS).
