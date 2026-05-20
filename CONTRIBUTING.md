@@ -139,29 +139,21 @@ docs: clarify AGENTS.md commit format
 
 ### PR description template
 
-```
-## Summary
-<what changed, in 1–3 sentences>
+GitHub auto-populates the PR form from
+[`.github/pull_request_template.md`](.github/pull_request_template.md).
+That file is the source of truth — if you need to change the sections,
+edit it there. The sections it asks for are:
 
-## Tickets closed
-- M1-F04
-- OQ-10 (now RESOLVED — note in docs/02-prd.md §10)
+- **Summary** (1–3 sentences)
+- **Tickets closed** (`M1-F04`, `M1-T11`, `OQ-10`, …)
+- **Decisions touched** (`DEC-NNN`)
+- **Tests added or changed**
+- **Mocks introduced** (every mock must be visible per `AGENTS.md` rule #3)
+- **Screenshots** (UI changes only)
+- **Out of scope**
 
-## Decisions touched
-- DEC-020 (extended adapter for new vendor)
-
-## Tests added or changed
-- ...
-
-## Mocks introduced
-- ...
-
-## Screenshots
-<UI changes only>
-
-## Out of scope
-- ...
-```
+Plus an author checklist covering the dependency-justification sentence,
+data-schema bookkeeping, and CI expectations.
 
 The full agent-facing rules around mocks, ticket citation, and
 decision-log hygiene live in `AGENTS.md` under _Working with this repo as
