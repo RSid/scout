@@ -18,8 +18,7 @@ domain expertise — are welcome.
    `scripts/`).
 3. Browse `docs/03-decisions.md` if you want to understand _why_ a choice
    was made before proposing a change to it.
-4. Pick an issue tagged `good first issue` or `help wanted`, or propose
-   something in Discussions.
+4. Pick an issue tagged `good first issue` or `help wanted`.
 
 ## Ground rules
 
@@ -232,7 +231,6 @@ release notes.
 
 ## Questions
 
-- **General discussion:** open a GitHub Discussion.
 - **Sensitive accessibility feedback** you'd rather not share publicly:
   email the maintainer listed in the repo profile.
 
