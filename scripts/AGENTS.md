@@ -102,6 +102,7 @@ re-implementing the underlying CLI call** — they exist precisely so the
 When you add a registered script, append a row here. Each script's own
 top-of-file docstring remains the source of truth for flags.
 
-| Script                  | What it does                                                         | When to reach for it                                            |
-| ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `scripts/gh-issues.sh`  | Lists issues in `RSid/scout` (JSON or table), optional milestone filter. | Anytime an agent or contributor needs issue metadata as data. |
+| Script                   | What it does                                                                                                            | When to reach for it                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `scripts/gh-issues.sh`   | Lists issues in `RSid/scout` (JSON or table), optional milestone filter.                                                | Anytime an agent or contributor needs issue metadata as data.                     |
+| `scripts/fetch_fonts.sh` | Downloads the four Atkinson Hyperlegible `.woff2` files (+ OFL license) from googlefonts/atkinson-hyperlegible into `apps/web/public/fonts/`. Idempotent. | Before the first `pnpm dev` on a fresh clone, or after a font-family swap (see DEC-015). |
