@@ -1,0 +1,95 @@
+/*
+ * Scout typography tokens — M1 design system v1 (DEC-015)
+ *
+ * Type family: Atkinson Hyperlegible (Braille Institute, SIL OFL).
+ * Chosen because it is designed for low-vision readability — open apertures,
+ * disambiguated letterforms (a vs. o, 1 vs. l vs. I), high x-height. Aligns
+ * with Scout's primary persona.
+ *
+ * Self-hosted under `apps/web/public/fonts/`. The frontend scaffold runs
+ * `scripts/fetch_fonts.sh` (see `apps/web/design/fonts/README.md`) to populate
+ * those files; do not load fonts from a CDN per NF-PRIV-01.
+ */
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/AtkinsonHyperlegible-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/AtkinsonHyperlegible-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/AtkinsonHyperlegible-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/AtkinsonHyperlegible-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  /* Family stacks. The system fallback chain matches Atkinson's aesthetic so
+     pre-font-load FOUT is minimal. */
+  --font-family-sans:
+    "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono:
+    ui-monospace, "SFMono-Regular", Menlo, Monaco, "Cascadia Code", Consolas,
+    "Liberation Mono", monospace;
+
+  /* Scale (px). Modular-ish around a 16 px base. */
+  --font-size-xs: 0.75rem; /* 12 */
+  --font-size-sm: 0.875rem; /* 14 */
+  --font-size-base: 1rem; /* 16 — body default */
+  --font-size-lg: 1.125rem; /* 18 */
+  --font-size-xl: 1.5rem; /* 24 — section headings */
+  --font-size-2xl: 2rem; /* 32 — page heading */
+  --font-size-3xl: 3rem; /* 48 — landing hero */
+
+  /* Line heights. Loose enough for low-vision readers; tight on headings. */
+  --line-height-tight: 1.15;
+  --line-height-snug: 1.35;
+  --line-height-normal: 1.55;
+  --line-height-loose: 1.7;
+
+  /* Weights — only two weights are downloaded. */
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
+
+  /* Letter spacing — Atkinson is already loose; only mild adjustments. */
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+
+  /* Max measure for body copy — 65 ch, per the design prompt's 65–75 character
+     guidance and DEC-013's longer-translation tolerance. */
+  --measure-body: 65ch;
+  --measure-narrow: 45ch;
+}
+
+/* Base typographic resets — apply only when consumer opts in via .prose or :root. */
+:root {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  /* Prevent iOS's default text-size-adjust from breaking the rhythm. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
