@@ -1,0 +1,84 @@
+/*
+ * Scout spacing, radius, and elevation tokens — M1 design system v1 (DEC-015)
+ *
+ * Spacing scale is the 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px scale from
+ * `docs/prompts/03-scaffold-frontend-m1.md`, kept consistent so the frontend
+ * scaffold can swap from its provisional values to these without churn.
+ *
+ * Touch targets ≥ 44×44 px per WCAG 2.5.5 and DEC-015.
+ */
+
+:root {
+  /* Spacing — use for margin, padding, and gap. */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4 */
+  --space-2: 0.5rem; /* 8 */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-6: 1.5rem; /* 24 */
+  --space-8: 2rem; /* 32 */
+  --space-12: 3rem; /* 48 */
+  --space-16: 4rem; /* 64 */
+
+  /* Radii — gentle, civic-warm feel. Avoid pill-everything; rectangles read trustworthy. */
+  --radius-none: 0;
+  --radius-sm: 0.25rem; /* 4 — chips */
+  --radius-md: 0.5rem; /* 8 — buttons, inputs */
+  --radius-lg: 0.75rem; /* 12 — cards, modals */
+  --radius-xl: 1rem; /* 16 — large surfaces */
+  --radius-full: 9999px;
+
+  /* Elevation — flat surfaces preferred; reserve shadow for floating overlays
+     (modal, popover) where occlusion is communicating depth. No shadows on
+     resting buttons or cards. */
+  --elevation-flat: none;
+  --elevation-raised:
+    0 1px 2px rgba(34, 28, 20, 0.06), 0 1px 3px rgba(34, 28, 20, 0.04);
+  --elevation-overlay:
+    0 4px 16px rgba(34, 28, 20, 0.12), 0 2px 6px rgba(34, 28, 20, 0.08);
+  --elevation-modal:
+    0 16px 48px rgba(34, 28, 20, 0.24), 0 4px 12px rgba(34, 28, 20, 0.12);
+
+  /* Minimum interactive size (WCAG 2.5.5). Pair every clickable component with
+     a min-width and min-height set to this. */
+  --target-min: 2.75rem; /* 44 */
+
+  /* Focus indicator — 3px outline with 1px offset reads as the same indicator
+     across the app (DEC-015 requirement: same indicator everywhere). */
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 1px;
+
+  /* Layout containers. */
+  --container-narrow: 36rem; /* 576 — reading column */
+  --container-content: 56rem; /* 896 — about/privacy pages */
+  --container-wide: 80rem; /* 1280 — desktop plan view */
+
+  /* Z-index ladder. Anchor every overlay here so stacking is intentional. */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-banner: 100; /* disclaimer banner */
+  --z-overlay: 200; /* dropdowns, popovers */
+  --z-modal: 300; /* onboarding / profile dialogs */
+  --z-toast: 400; /* live-region toasts */
+  --z-skip-link: 500; /* always reachable */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --elevation-raised:
+      0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --elevation-overlay:
+      0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+    --elevation-modal:
+      0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+}
+
+[data-theme="dark"] {
+  --elevation-raised:
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --elevation-overlay:
+    0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --elevation-modal:
+    0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
