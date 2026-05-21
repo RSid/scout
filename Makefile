@@ -2,6 +2,10 @@
 
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 COMPOSE := $(ROOT)/infra/docker-compose.yml
+# `--project-directory` aimed at repo root so Compose picks up the canonical
+# `.env` (sibling of this Makefile) instead of looking inside `infra/`. That
+# means SCOUT_DB_HOST_PORT et al. live in the same .env as backend settings.
+COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
@@ -19,9 +23,9 @@ bootstrap: ## verify uv (+ pnpm) and print installer hints when missing
 sync: ## install Python deps for apps/backend (run from repo root)
 	uv sync --directory "$(ROOT)/apps/backend"
 
-dev: ## run full-stack dev via Compose once infra/docker-compose.yml exists
-	@test -f "$(COMPOSE)" || { printf '%s\n' 'missing infra/docker-compose.yml (M1-T05). After it lands: `make docker-up`.'; exit 1; }
-	docker compose -f "$(COMPOSE)" up
+dev: ## run full-stack dev via Compose
+	@test -f "$(COMPOSE)" || { printf '%s\n' 'missing infra/docker-compose.yml (M1-T05a). After it lands: `make docker-up`.'; exit 1; }
+	docker compose $(COMPOSE_FLAGS) up
 
 test: ## run backend and frontend test suites when scaffolded
 	@if [ -d "$(ROOT)/apps/backend/tests" ]; then \
@@ -98,9 +102,9 @@ ingest: ## dry-run DC ingest (scripts/ingest_dc.py) when present
 	fi
 
 docker-up: ## docker compose up (infra/docker-compose.yml)
-	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05)'; exit 1; }
-	docker compose -f "$(COMPOSE)" up
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	docker compose $(COMPOSE_FLAGS) up
 
 docker-down: ## docker compose down (infra/docker-compose.yml)
-	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05)'; exit 1; }
-	docker compose -f "$(COMPOSE)" down
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	docker compose $(COMPOSE_FLAGS) down

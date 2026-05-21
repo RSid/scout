@@ -22,9 +22,20 @@ data/derived/
 .env.*
 !.env.example
 
-# uv workspace stub: ephemeral lock emitted at repo root while the committed
-# lock lives in apps/backend/uv.lock (M1-T13).
-/uv.lock
+# uv workspace lockfile lives at the repo root (per pyproject.toml's
+# [tool.uv.workspace] members = ["apps/backend"]). Do not re-introduce
+# apps/backend/uv.lock — a member-level lock beside the canonical root
+# uv.lock can leave Docker installs missing geoalchemy2/shapely/asyncpg/psycopg.
+apps/backend/uv.lock
+
+# Test + coverage artifacts
+coverage/
+apps/web/coverage/
+apps/web/test-results/
+apps/web/playwright-report/
+
+# Runtime cache (SCOUT_CACHE_DIR default)
+.scout-cache/
 
 # IDE + OS
 .DS_Store

@@ -1,0 +1,149 @@
+# Local dev stack for Scout (M1-T05a).
+#
+# Usage:
+#   make docker-up        # boots db + backend + web
+#   make docker-down      # tears down, preserving the pgdata volume
+#   make docker-up + --profile ingest:
+#     docker compose --project-directory . -f infra/docker-compose.yml \
+#                    --profile ingest run --rm ingest
+#
+# Paths: all relative paths below are resolved against Compose's project
+# directory, which the Makefile pins to the **repo root** via
+# `--project-directory $(ROOT)` so the same `.env` powers backend and
+# Compose. If you invoke `docker compose` directly, pass the same flag,
+# or run from the repo root so the default resolves there.
+#
+# Bind mounts give hot-reload semantics; named volumes shield
+# .venv / node_modules from the host so platform-specific binaries do not
+# clobber each other.
+#
+# Network: a single user-defined bridge so services resolve by name
+# (`db`, `backend`).
+
+name: scout
+
+services:
+
+  db:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.postgres
+    image: scout-postgis:local
+    container_name: scout-db
+    environment:
+      POSTGRES_DB: scout
+      POSTGRES_USER: scout
+      POSTGRES_PASSWORD: scout
+    ports:
+      # Host port is overridable for users with another Postgres on :5432
+      # (`SCOUT_DB_HOST_PORT=5433 make docker-up`). Container-internal port
+      # stays 5432 so the bridge network DSN (`db:5432`) is unaffected.
+      - "${SCOUT_DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scout -d scout -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Compose-network DSN — inside the bridge, `db` resolves to the
+      # PostGIS container. The host-side override lives in `.env.example`.
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
+      SCOUT_NOMINATIM_USER_AGENT: "scout-dev/0.1 (compose)"
+      # Provider stubs let the stack boot without external secrets.
+      SCOUT_ROUTING_PROVIDER: stub
+      SCOUT_GEOCODING_PROVIDER: stub
+      SCOUT_RESTROOMS_PROVIDER: stub
+      SCOUT_LOG_LEVEL: INFO
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      # Bind mount mirrors the uv-workspace layout: workspace root at /app,
+      # member at /app/apps/backend. The venv at /app/.venv lives outside
+      # this path so no shielding volume is needed.
+      - ./apps/backend:/app/apps/backend
+      # Read-only data drop for ingestion fixtures (M1-F02 will populate).
+      - ./data:/app/data:ro
+    ports:
+      # Host port overridable for users with another API on :8080.
+      - "${SCOUT_BACKEND_HOST_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-web
+    image: scout-web:dev
+    container_name: scout-web
+    depends_on:
+      - backend
+    environment:
+      # Point the browser at the host-published backend so dev-tools links
+      # resolve from the user's machine, not from inside the container.
+      # If SCOUT_BACKEND_HOST_PORT is overridden, the browser must hit the
+      # new host port (not the container port 8080), hence the interpolation.
+      NEXT_PUBLIC_SCOUT_API_BASE_URL: "http://localhost:${SCOUT_BACKEND_HOST_PORT:-8080}"
+      NEXT_PUBLIC_SCOUT_MAP_MODE: stub
+      NEXT_PUBLIC_SCOUT_STUB_GEOCODE: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./apps/web:/app/web
+      # Same shielding rationale as backend-venv: keep linux node_modules
+      # away from a macOS host install.
+      - web-node_modules:/app/web/node_modules
+      - web-next:/app/web/.next
+    ports:
+      # Host port overridable for users with another dev server on :3000.
+      - "${SCOUT_WEB_HOST_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  # Profile-gated. Stays out of `docker compose up` until invoked
+  # explicitly so it cannot block the dev loop.
+  #   docker compose -f infra/docker-compose.yml --profile ingest run --rm ingest
+  # Once scripts/build_pmtiles.sh + scripts/ingest_features.py land
+  # (M1-F02), flip `entrypoint` to invoke them in series.
+  ingest:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-ingest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data:ro
+      - ./scripts:/app/scripts:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "[ingest] no-op: M1-F02 ingestion scripts not yet implemented."
+        echo "[ingest] when scripts/ingest_features.py lands, replace this entrypoint."
+        exit 0
+    restart: "no"
+
+volumes:
+  pgdata:
+  web-node_modules:
+  web-next:

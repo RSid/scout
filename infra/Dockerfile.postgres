@@ -1,0 +1,18 @@
+# PostGIS pinned by sha256 (DEC-006: PostGIS 16, ext 3.4).
+#
+# Refresh procedure when bumping the floor version:
+#   docker buildx imagetools inspect postgis/postgis:16-3.4
+#
+# Then update both the tag and the digest below so the lock travels with the
+# manifest reference. The tag is informational; the digest is what's pulled.
+FROM postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
+
+# Match `.env.example` defaults so a stock `docker compose up` boots cleanly
+# without any secrets on disk. Compose still passes these explicitly for
+# transparency / override safety; they are restated here so the image is
+# self-contained when run standalone (e.g. `docker run`).
+ENV POSTGRES_DB=scout \
+    POSTGRES_USER=scout \
+    POSTGRES_PASSWORD=scout
+
+EXPOSE 5432

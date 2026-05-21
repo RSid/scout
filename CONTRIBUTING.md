@@ -72,21 +72,26 @@ ingest dry-run, etc.).
 
 ### Running locally
 
-Until `infra/docker-compose.yml` lands (`M1-T05`), `make dev` stops with a
-pointer to that ticket. Once Compose is in place, use:
+The local stack lives in `infra/docker-compose.yml` (`M1-T05a`). It boots
+PostGIS, the FastAPI backend with hot reload, and the Next.js frontend in
+dev mode against each other:
 
 ```bash
-make dev
-# or: make docker-up
+make docker-up        # builds images on first run, then `docker compose up`
+open http://localhost:3000   # web UI
+open http://localhost:8080/api/health   # backend
+make docker-down      # stop, preserve the pgdata volume
 ```
 
-That will bring up Postgres + PostGIS, the FastAPI backend, and the Next.js
-frontend once those services are wired in `M1-F15`; applies Alembic
-migrations; and (optionally) runs the DC data ingest on first boot.
-Source GeoJSON inputs live under `data/` (`PRD §8`).
+`make dev` is an alias for `make docker-up`. See `infra/README.md` for
+service layout, volume rationale, and how to reset the database.
 
-There is intentionally no stub `fastapi dev main.py` entrypoint —
-`apps/backend/` is scaffolded in `M1-T01`.
+Fly.io (or whatever production host we eventually commit to) is tracked
+separately under `M1-T05b` and intentionally not part of the local
+workflow — you should not need a host account to develop Scout.
+
+There is intentionally no stub `fastapi dev main.py` entrypoint;
+`apps/backend/` is scaffolded in `M1-T01` and runs via Compose.
 
 ### Running tests
 
@@ -180,8 +185,9 @@ an agent_.
 - Dependency vulnerability scan: `pip-audit`, `npm audit --omit=dev` —
   fail on `high`/`critical`.
 
-Until the CI workflow lands (`M1-F15`), please run the local equivalents
-before pushing.
+CI runs on every push / PR via `.github/workflows/ci.yml`. Please run the
+local equivalents (`make lint typecheck test`) before pushing so you don't
+discover a failure two minutes after the PR opens.
 
 ## Reporting bugs and data issues
 

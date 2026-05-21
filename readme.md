@@ -16,4 +16,15 @@ make bootstrap
 make sync
 ```
 
-See `make help` for shortcuts (lint, tests, Compose, ingest dry-run, …). Copy `.env.example` to `.env` and adjust `SCOUT_*` variables for local work.
+Run the full stack locally (PostGIS + backend + web) with Docker
+Compose — no host account required:
+
+```bash
+make docker-up                       # http://localhost:3000  +  :8080
+make docker-down
+```
+
+See `infra/README.md` for the Compose layout and `CONTRIBUTING.md` for the
+end-to-end dev loop. `make help` lists every shortcut (lint, tests,
+Compose, ingest dry-run, …). Copy `.env.example` to `.env` and adjust
+`SCOUT_*` variables when you need host-side overrides.
