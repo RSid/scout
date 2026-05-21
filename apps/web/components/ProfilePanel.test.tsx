@@ -71,7 +71,9 @@ describe("ProfilePanel", () => {
     await user.click(triggers[0]);
 
     await waitFor(() =>
-      expect(screen.getByRole("dialog", { name: /^accessibility profile$/i })).toBeVisible(),
+      expect(
+        screen.getByRole("dialog", { name: /^accessibility profile$/i }),
+      ).toBeVisible(),
     );
 
     const results = await axe(baseElement);

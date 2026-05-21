@@ -6,11 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiCategory } from "@/lib/api";
 
-import {
-  PROFILE_STORAGE_KEY,
-  ProfileProvider,
-  useProfile,
-} from "./profile";
+import { PROFILE_STORAGE_KEY, ProfileProvider, useProfile } from "./profile";
 
 const REMOTE_CATEGORY: ApiCategory = {
   id: "elevators",
@@ -26,7 +22,7 @@ function ProfileProbe(): ReactNode {
   return (
     <div>
       {isReady ? null : <p>waiting</p>}
-      <p aria-live="polite">{isReady ? categories.at(0)?.label ?? "" : ""}</p>
+      <p aria-live="polite">{isReady ? (categories.at(0)?.label ?? "") : ""}</p>
     </div>
   );
 }
@@ -83,7 +79,11 @@ describe("ProfileProvider", () => {
           >
             Enable category
           </button>
-          <button type="button" disabled={!isReady || first === undefined} onClick={() => persist()}>
+          <button
+            type="button"
+            disabled={!isReady || first === undefined}
+            onClick={() => persist()}
+          >
             Save profile selections
           </button>
           <p aria-live="polite">{String(selections[REMOTE_CATEGORY.id] ?? "unset")}</p>
@@ -117,10 +117,7 @@ describe("ProfileProvider", () => {
 describe("ProfileProvider offline hydrate", () => {
   beforeEach(() => {
     // MOCK: network failure path should fall back to bundled taxonomy copy.
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("network unavailable")),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
     window.localStorage.removeItem(PROFILE_STORAGE_KEY);
   });
 

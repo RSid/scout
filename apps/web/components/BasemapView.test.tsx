@@ -5,10 +5,7 @@ import { render, screen } from "@testing-library/react";
 
 import BasemapView from "./BasemapView";
 
-import {
-  DEMO_ROUTE,
-  demoCorridorFeatures,
-} from "@/lib/fixtures/route-plan-fixtures";
+import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
 
 describe("BasemapView", () => {
   beforeEach(() => {

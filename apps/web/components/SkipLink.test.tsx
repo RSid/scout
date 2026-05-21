@@ -7,7 +7,10 @@ import SkipLink from "./a11y/SkipLink";
 describe("SkipLink", () => {
   it("anchors to main landmark", async () => {
     const { container } = render(<SkipLink />);
-    expect(screen.getByRole("link", { name: /skip to main/i })).toHaveAttribute("href", "#main");
+    expect(screen.getByRole("link", { name: /skip to main/i })).toHaveAttribute(
+      "href",
+      "#main",
+    );
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
   });

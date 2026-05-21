@@ -24,7 +24,7 @@ to `docs/stories/{ticket_id}.md` using this exact template per story:
 
 **As** {persona, e.g. P1 — partially-mobile DC resident}
 **I want** <capability>
-**So that** <outcome that aligns with the ticket's "User value"> 
+**So that** <outcome that aligns with the ticket's "User value">
 
 **Acceptance criteria** (Given/When/Then, testable):
 - Given …, when …, then …

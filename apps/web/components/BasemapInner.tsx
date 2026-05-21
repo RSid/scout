@@ -1,56 +1,48 @@
-'use client'
+"use client";
 
-import type { GeoJSON } from 'geojson'
-import { useEffect, useMemo, useRef } from 'react'
+import type { GeoJSON } from "geojson";
+import { useEffect, useMemo, useRef } from "react";
 
-import maplibregl from 'maplibre-gl'
+import maplibregl from "maplibre-gl";
 
-import 'maplibre-gl/dist/maplibre-gl.css'
+import "maplibre-gl/dist/maplibre-gl.css";
 
-import { colorVar } from '@/design/tokens/colors'
+import { colorVar } from "@/design/tokens/colors";
 
-import { useAnnounce } from '@/components/a11y/AnnounceProvider'
+import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
-import type { CorridorResponse } from '@/lib/api'
+import type { CorridorResponse } from "@/lib/api";
 
 type BasemapInnerProps = Readonly<{
-  corridor: CorridorResponse['features']
-  route: GeoJSON.Feature<GeoJSON.LineString> | null
-}>
+  corridor: CorridorResponse["features"];
+  route: GeoJSON.Feature<GeoJSON.LineString> | null;
+}>;
 
-function featureCollection(
-  feats: GeoJSON.Feature[],
-): GeoJSON.FeatureCollection {
+function featureCollection(feats: GeoJSON.Feature[]): GeoJSON.FeatureCollection {
   return {
-    type: 'FeatureCollection',
+    type: "FeatureCollection",
     features: structuredClone(feats),
-  }
+  };
 }
 
-export default function BasemapInner({
-  corridor,
-  route,
-}: BasemapInnerProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const announce = useAnnounce()
-  const preparedMarkers = useMemo(
-    () => corridor.map(markKind),
-    [corridor],
-  )
+export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const announce = useAnnounce();
+  const preparedMarkers = useMemo(() => corridor.map(markKind), [corridor]);
   const markerCollection = useMemo(
     () => featureCollection(preparedMarkers),
     [preparedMarkers],
-  )
+  );
 
   useEffect(() => {
-    const element = containerRef.current
-    if (!element || typeof window === 'undefined') {
-      return undefined
+    const element = containerRef.current;
+    if (!element || typeof window === "undefined") {
+      return undefined;
     }
 
     const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
-    ).matches
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
 
     const map = new maplibregl.Map({
       container: element,
@@ -59,116 +51,116 @@ export default function BasemapInner({
       zoom: 12,
       interactive: true,
       keyboard: true,
-    })
+    });
 
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
-      'top-right',
-    )
+      "top-right",
+    );
 
     const popup = new maplibregl.Popup({
       closeButton: true,
-      anchor: 'top',
-    })
+      anchor: "top",
+    });
 
-    const canvas = map.getCanvasContainer()
+    const canvas = map.getCanvasContainer();
 
     function handleCanvasKey(evt: KeyboardEvent) {
-      if (evt.key === 'Escape') {
-        popup.remove()
+      if (evt.key === "Escape") {
+        popup.remove();
       }
     }
 
-    canvas.addEventListener('keydown', handleCanvasKey)
+    canvas.addEventListener("keydown", handleCanvasKey);
 
     const routeGeojson = route
       ? featureCollection([route])
-      : { type: 'FeatureCollection', features: [] }
+      : { type: "FeatureCollection", features: [] };
 
-    map.on('load', () => {
-      map.addSource('route-line', {
-        type: 'geojson',
+    map.on("load", () => {
+      map.addSource("route-line", {
+        type: "geojson",
         data: routeGeojson as GeoJSON.FeatureCollection,
-      })
+      });
 
       map.addLayer({
-        id: 'route-line',
-        type: 'line',
-        source: 'route-line',
+        id: "route-line",
+        type: "line",
+        source: "route-line",
         layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
+          "line-cap": "round",
+          "line-join": "round",
         },
         paint: {
-          'line-color': colorVar('accent'),
-          'line-width': 5,
-          'line-opacity': prefersReducedMotion ? 0.9 : 0.92,
+          "line-color": colorVar("accent"),
+          "line-width": 5,
+          "line-opacity": prefersReducedMotion ? 0.9 : 0.92,
         },
-      })
+      });
 
-      map.addSource('cluster-points', {
-        type: 'geojson',
+      map.addSource("cluster-points", {
+        type: "geojson",
         data: markerCollection,
         cluster: true,
         clusterMaxZoom: 15,
         clusterRadius: 50,
-      })
+      });
 
       map.addLayer({
-        id: 'clusters',
-        type: 'circle',
-        source: 'cluster-points',
-        filter: ['has', 'point_count'],
+        id: "clusters",
+        type: "circle",
+        source: "cluster-points",
+        filter: ["has", "point_count"],
         paint: {
-          'circle-color': colorVar('text-muted'),
-          'circle-radius': ['step', ['get', 'point_count'], 12, 10, 16, 20, 20],
-          'circle-stroke-color': colorVar('surface'),
-          'circle-stroke-width': 2,
+          "circle-color": colorVar("text-muted"),
+          "circle-radius": ["step", ["get", "point_count"], 12, 10, 16, 20, 20],
+          "circle-stroke-color": colorVar("surface"),
+          "circle-stroke-width": 2,
         },
-      })
+      });
 
       map.addLayer({
-        id: 'markers',
-        type: 'circle',
-        source: 'cluster-points',
-        filter: ['!', ['has', 'point_count']],
+        id: "markers",
+        type: "circle",
+        source: "cluster-points",
+        filter: ["!", ["has", "point_count"]],
         paint: {
-          'circle-radius': 7,
-          'circle-color': [
-            'match',
-            ['coalesce', ['get', 'scout_kind'], 'obstacle'],
-            'aid',
-            colorVar('aid'),
-            colorVar('obstacle-mild'),
+          "circle-radius": 7,
+          "circle-color": [
+            "match",
+            ["coalesce", ["get", "scout_kind"], "obstacle"],
+            "aid",
+            colorVar("aid"),
+            colorVar("obstacle-mild"),
           ],
-          'circle-opacity': [
-            'match',
-            ['coalesce', ['get', 'scout_kind'], 'obstacle'],
-            'aid',
+          "circle-opacity": [
+            "match",
+            ["coalesce", ["get", "scout_kind"], "obstacle"],
+            "aid",
             0.94,
             0.9,
           ],
-          'circle-stroke-color': colorVar('surface'),
-          'circle-stroke-width': 2,
+          "circle-stroke-color": colorVar("surface"),
+          "circle-stroke-width": 2,
         },
-      })
-    })
+      });
+    });
 
-    map.on('error', () => {
-      announce('Interactive map paused because upstream tiles refused to load.')
-    })
+    map.on("error", () => {
+      announce("Interactive map paused because upstream tiles refused to load.");
+    });
 
-    map.on('click', 'clusters', (evt) => {
-      const hit = evt.features?.[0]
-      if (!hit || hit.geometry.type !== 'Point') {
-        return
+    map.on("click", "clusters", (evt) => {
+      const hit = evt.features?.[0];
+      if (!hit || hit.geometry.type !== "Point") {
+        return;
       }
 
-      const clusterProp = Number(hit.properties?.cluster_id ?? NaN)
-      const clusterSource = map.getSource('cluster-points') as maplibregl.GeoJSONSource
+      const clusterProp = Number(hit.properties?.cluster_id ?? NaN);
+      const clusterSource = map.getSource("cluster-points") as maplibregl.GeoJSONSource;
 
       if (Number.isNaN(clusterProp)) {
-        return
+        return;
       }
 
       void clusterSource
@@ -179,49 +171,49 @@ export default function BasemapInner({
             center: evt.lngLat,
             animate: prefersReducedMotion ? false : true,
             duration: prefersReducedMotion ? 0 : 360,
-          })
+          });
         })
         .catch(() => {
           map.zoomIn({
             animate: prefersReducedMotion ? false : true,
-          })
-        })
-    })
+          });
+        });
+    });
 
-    map.on('click', 'markers', (evt) => {
-      const marker = evt.features?.[0]
+    map.on("click", "markers", (evt) => {
+      const marker = evt.features?.[0];
       if (
-        marker?.geometry?.type !== 'Point' ||
+        marker?.geometry?.type !== "Point" ||
         !marker.properties?.category ||
         !evt.lngLat
       ) {
-        return
+        return;
       }
 
       const condition =
-        typeof marker.properties.condition === 'string'
+        typeof marker.properties.condition === "string"
           ? marker.properties.condition
-          : 'Condition unknown'
+          : "Condition unknown";
 
       popup
         .setLngLat(evt.lngLat)
         .setHTML(
           `<section tabindex="-1"><h4>${marker.properties.category}</h4><p>${condition}</p></section>`,
-        )
-      popup.addTo(map)
+        );
+      popup.addTo(map);
 
-      popup.getElement()?.focus()
-    })
+      popup.getElement()?.focus();
+    });
 
-    map.resize()
+    map.resize();
 
     return () => {
-      canvas.removeEventListener('keydown', handleCanvasKey)
+      canvas.removeEventListener("keydown", handleCanvasKey);
 
-      popup.remove()
-      map.remove()
-    }
-  }, [announce, markerCollection, route])
+      popup.remove();
+      map.remove();
+    };
+  }, [announce, markerCollection, route]);
 
   return (
     <div
@@ -239,56 +231,54 @@ export default function BasemapInner({
         Activate JavaScript so we can initialise the Scout map viewport.
       </noscript>
     </div>
-  )
+  );
 }
 
-function markKind(point: CorridorResponse['features'][number]): GeoJSON.Feature {
+function markKind(point: CorridorResponse["features"][number]): GeoJSON.Feature {
   const category =
-    typeof point.properties?.category === 'string'
+    typeof point.properties?.category === "string"
       ? point.properties.category
-      : 'unknown'
+      : "unknown";
 
-  const aidish = category.includes('rest') || category.includes('shade')
+  const aidish = category.includes("rest") || category.includes("shade");
 
   return {
     ...point,
     properties: {
       ...point.properties,
-      scout_kind: aidish ? 'aid' : 'obstacle',
+      scout_kind: aidish ? "aid" : "obstacle",
     },
-  }
+  };
 }
 
 function buildStyle(): maplibregl.StyleSpecification {
   const rasterBase =
-    process.env.NEXT_PUBLIC_MAP_RASTER_TILES ??
-    'https://tile.openstreetmap.org'
+    process.env.NEXT_PUBLIC_MAP_RASTER_TILES ?? "https://tile.openstreetmap.org";
 
   /** Future: swap raster for `dc.pmtiles` once published metadata lists source-layer names. */
 
-  const tiles =
-    rasterBase.includes('{')
-      ? [rasterBase]
-      : [`${rasterBase}/{z}/{x}/{y}.png`]
+  const tiles = rasterBase.includes("{")
+    ? [rasterBase]
+    : [`${rasterBase}/{z}/{x}/{y}.png`];
 
   return {
     version: 8,
     sources: {
       scoutRaster: {
-        attribution: '&copy; OpenStreetMap contributors',
-        type: 'raster',
+        attribution: "&copy; OpenStreetMap contributors",
+        type: "raster",
         tileSize: 256,
         tiles,
       },
     },
     layers: [
       {
-        id: 'scout-basemap',
-        type: 'raster',
-        source: 'scoutRaster',
+        id: "scout-basemap",
+        type: "raster",
+        source: "scoutRaster",
         minzoom: 0,
         maxzoom: 20,
       },
     ],
-  }
+  };
 }

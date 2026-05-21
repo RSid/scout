@@ -4,10 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import FeatureListView from "./FeatureListView";
 
-import {
-  DEMO_ROUTE,
-  demoCorridorFeatures,
-} from "@/lib/fixtures/route-plan-fixtures";
+import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
 
 describe("FeatureListView", () => {
   it("renders nearby feature heading for fixture data", async () => {
@@ -15,7 +12,9 @@ describe("FeatureListView", () => {
       <FeatureListView route={DEMO_ROUTE} features={demoCorridorFeatures()} />,
     );
 
-    expect(screen.getByRole("heading", { level: 2, name: /Nearby features \(2\)/ })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /Nearby features \(2\)/ }),
+    ).toBeVisible();
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);

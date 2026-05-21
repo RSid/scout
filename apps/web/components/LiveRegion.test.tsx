@@ -8,7 +8,9 @@ describe("LiveRegion", () => {
   it("hosts polite status updates accessibly", async () => {
     const { container } = render(<LiveRegion message="Features refreshed." />);
 
-    expect(screen.getByRole("status", { hidden: false })).toHaveTextContent("Features refreshed.");
+    expect(screen.getByRole("status", { hidden: false })).toHaveTextContent(
+      "Features refreshed.",
+    );
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);

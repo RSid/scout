@@ -8,15 +8,9 @@ import RouteSummary from "@/components/RouteSummary";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
-import {
-  DEMO_ROUTE,
-  demoCorridorFeatures,
-} from "@/lib/fixtures/route-plan-fixtures";
+import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
 
-import {
-  fetchCorridorFeatures,
-  type CorridorResponse,
-} from "@/lib/api";
+import { fetchCorridorFeatures, type CorridorResponse } from "@/lib/api";
 
 import { formatApproxMeters, roughDistanceMeters } from "@/lib/geo";
 import { useProfile } from "@/lib/profile";
@@ -100,12 +94,7 @@ export default function PlanExperience() {
 
   const distanceLabelMeters =
     anchorA !== null && anchorB !== null
-      ? roughDistanceMeters(
-          anchorA[0],
-          anchorA[1],
-          anchorB[0],
-          anchorB[1],
-        )
+      ? roughDistanceMeters(anchorA[0], anchorA[1], anchorB[0], anchorB[1])
       : distanceAlongFallbackRoute(DEMO_ROUTE);
 
   function handleCoordinates(coords: readonly [number, number]) {
@@ -171,7 +160,8 @@ export default function PlanExperience() {
             Corridor previews
           </h1>
           <p className="max-w-2xl text-[color:var(--color-text-muted)]">
-            Pick two nominatim suggestions to swap the LineString scaffold, otherwise the deterministic demo corridor remains.
+            Pick two nominatim suggestions to swap the LineString scaffold, otherwise
+            the deterministic demo corridor remains.
           </p>
         </div>
         <ProfilePanel />
@@ -179,9 +169,7 @@ export default function PlanExperience() {
 
       <RouteSummary
         distanceLabel={formatApproxMeters(distanceLabelMeters)}
-        warnings={[
-          "Heuristic distance until hosted routing merges into M1-F04.",
-        ]}
+        warnings={["Heuristic distance until hosted routing merges into M1-F04."]}
       />
 
       <AddressAutocomplete onPickCoordinates={handleCoordinates} />
@@ -195,4 +183,3 @@ export default function PlanExperience() {
     </section>
   );
 }
-

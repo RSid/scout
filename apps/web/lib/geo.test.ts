@@ -52,18 +52,17 @@ describe("summarizeLineStringDegrees", () => {
   });
 
   it("throws when the line string is too short", () => {
-    expect(() =>
-      summarizeLineStringDegrees([[0, 0]], 0, 0),
-    ).toThrow(/at least two coordinate/);
+    expect(() => summarizeLineStringDegrees([[0, 0]], 0, 0)).toThrow(
+      /at least two coordinate/,
+    );
 
-    expect(() => summarizeLineStringDegrees([], 0, 0)).toThrow(/at least two coordinate/);
+    expect(() => summarizeLineStringDegrees([], 0, 0)).toThrow(
+      /at least two coordinate/,
+    );
   });
 
   it("throws when coordinates are malformed", () => {
-    const line = [
-      [0],
-      [0],
-    ] as GeoJSON.LineString["coordinates"];
+    const line = [[0], [0]] as GeoJSON.LineString["coordinates"];
 
     expect(() => summarizeLineStringDegrees(line, 0, 0)).toThrow(/invalid coordinate/);
   });

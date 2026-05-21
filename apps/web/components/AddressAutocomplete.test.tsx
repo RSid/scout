@@ -10,9 +10,9 @@ import AddressAutocomplete from "./AddressAutocomplete";
 describe("AddressAutocomplete", () => {
   it("pipes picked coordinates through onPickCoordinates", async () => {
     // MOCK: keep debounced RAC flow off the public Nominatim endpoint in CI.
-    const geocodeSpy = vi.spyOn(scoutApi, "reverseGeocodeNominatim").mockResolvedValue([
-      { type: "Point", coordinates: [-77.0369, 38.9072] },
-    ]);
+    const geocodeSpy = vi
+      .spyOn(scoutApi, "reverseGeocodeNominatim")
+      .mockResolvedValue([{ type: "Point", coordinates: [-77.0369, 38.9072] }]);
 
     try {
       const onPickCoordinates = vi.fn();

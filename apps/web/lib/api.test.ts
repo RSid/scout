@@ -170,10 +170,7 @@ describe("reverseGeocodeNominatim", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () =>
-          [{ lon: "-1", lat: "-2", label: "a" }] satisfies Record<
-            string,
-            unknown
-          >[],
+          [{ lon: "-1", lat: "-2", label: "a" }] satisfies Record<string, unknown>[],
       }),
     );
   });

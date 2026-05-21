@@ -1,29 +1,26 @@
-'use client'
+"use client";
 
-import type { CorridorResponse } from '@/lib/api'
-import type { GeoJSON } from 'geojson'
+import type { CorridorResponse } from "@/lib/api";
+import type { GeoJSON } from "geojson";
 
-import { obstacleMarkerSlug } from '@/components/FeatureMarker'
-import {
-  summarizeLineStringDegrees,
-  formatApproxMeters,
-} from '@/lib/geo'
+import { obstacleMarkerSlug } from "@/components/FeatureMarker";
+import { summarizeLineStringDegrees, formatApproxMeters } from "@/lib/geo";
 
-export type CorridorFeatureProps = CorridorResponse['features'][number]
+export type CorridorFeatureProps = CorridorResponse["features"][number];
 
 type Props = Readonly<{
-  features: readonly CorridorFeatureProps[]
-  route: GeoJSON.Feature<GeoJSON.LineString>
-}>
+  features: readonly CorridorFeatureProps[];
+  route: GeoJSON.Feature<GeoJSON.LineString>;
+}>;
 
-export default function FeatureListView({
-  route,
-  features,
-}: Props) {
+export default function FeatureListView({ route, features }: Props) {
   return (
     <section aria-labelledby="feature-list-heading" className="space-y-4">
       <header>
-        <h2 id="feature-list-heading" className="text-lg font-semibold text-[color:var(--color-text)]">
+        <h2
+          id="feature-list-heading"
+          className="text-lg font-semibold text-[color:var(--color-text)]"
+        >
           Nearby features ({features.length})
         </h2>
         <p className="text-sm text-[color:var(--color-text-muted)]">
@@ -33,20 +30,20 @@ export default function FeatureListView({
 
       <ol className="space-y-3">
         {features.map((feat) => {
-          const slug = `${feat.properties?.category ?? 'feature'}`
+          const slug = `${feat.properties?.category ?? "feature"}`;
           return (
             <li key={feat.id ?? slug}>
               <FeatureRow slug={slug} feat={feat} route={route} />
             </li>
-          )
+          );
         })}
       </ol>
     </section>
-  )
+  );
 }
 
 function slugLabel(categorySlug: string): string {
-  return categorySlug.replaceAll('_', ' ')
+  return categorySlug.replaceAll("_", " ");
 }
 
 function FeatureRow({
@@ -54,15 +51,15 @@ function FeatureRow({
   feat,
   route,
 }: Readonly<{
-  slug: string
-  feat: CorridorFeatureProps
-  route: GeoJSON.Feature<GeoJSON.LineString>
+  slug: string;
+  feat: CorridorFeatureProps;
+  route: GeoJSON.Feature<GeoJSON.LineString>;
 }>) {
-  let offsetText = ''
+  let offsetText = "";
 
-  if (feat.geometry.type === 'Point') {
-    const lon = feat.geometry.coordinates[0]
-    const lat = feat.geometry.coordinates[1]
+  if (feat.geometry.type === "Point") {
+    const lon = feat.geometry.coordinates[0];
+    const lat = feat.geometry.coordinates[1];
 
     try {
       if (lon !== undefined && lat !== undefined) {
@@ -70,24 +67,28 @@ function FeatureRow({
           route.geometry.coordinates,
           lon,
           lat,
-        )
-        offsetText = `${formatApproxMeters(crossMetersRough)} from corridor`
+        );
+        offsetText = `${formatApproxMeters(crossMetersRough)} from corridor`;
       }
     } catch {
-      offsetText = 'Distance approximation unavailable.'
+      offsetText = "Distance approximation unavailable.";
     }
   }
 
-  const label = slugLabel(slug)
+  const label = slugLabel(slug);
   const condition =
-    typeof feat.properties?.condition === 'string' ? feat.properties.condition : conditionUnknown()
+    typeof feat.properties?.condition === "string"
+      ? feat.properties.condition
+      : conditionUnknown();
 
-  const shape = obstacleMarkerSlug(slug)
+  const shape = obstacleMarkerSlug(slug);
 
   const inspectedYear =
-    typeof feat.properties?.inspected_year === 'number' ? feat.properties.inspected_year : null
+    typeof feat.properties?.inspected_year === "number"
+      ? feat.properties.inspected_year
+      : null;
 
-  const summaryHeading = `${shape} · ${label} · ${condition} · ${offsetText || '~ distance unknown'}`
+  const summaryHeading = `${shape} · ${label} · ${condition} · ${offsetText || "~ distance unknown"}`;
 
   return (
     <details className="rounded-tokenLg border border-border bg-surface-elevated text-[color:var(--color-text)]">
@@ -109,9 +110,9 @@ function FeatureRow({
         </button>
       </div>
     </details>
-  )
+  );
 }
 
 function conditionUnknown(): string {
-  return 'Condition unknown.'
+  return "Condition unknown.";
 }

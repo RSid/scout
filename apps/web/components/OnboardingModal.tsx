@@ -7,10 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import ProfileCategoryFields from "@/components/ProfileCategoryFields";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
-import {
-  ONBOARDING_KEY,
-  markOnboardingComplete,
-} from "@/lib/onboarding-storage";
+import { ONBOARDING_KEY, markOnboardingComplete } from "@/lib/onboarding-storage";
 import { useProfile } from "@/lib/profile";
 
 export default function OnboardingModal() {
@@ -61,23 +58,34 @@ export default function OnboardingModal() {
               Three quick beats before plotting a District route.
             </p>
           </header>
-          <div id="scout-onboarding-description" className="mt-[var(--space-5)] space-y-[var(--space-5)]">
+          <div
+            id="scout-onboarding-description"
+            className="mt-[var(--space-5)] space-y-[var(--space-5)]"
+          >
             <p className="text-[color:var(--color-text)]">
-              Scout overlays volunteered accessibility cues on top of public basemaps — good for scouting
-              a trip ahead of time, terrible as a realtime safety net.
+              Scout overlays volunteered accessibility cues on top of public basemaps —
+              good for scouting a trip ahead of time, terrible as a realtime safety net.
             </p>
             <p className="text-[color:var(--color-text)]">
-              We pair shape + color cues with categories you pick below so color alone never carries the signal.
+              We pair shape + color cues with categories you pick below so color alone
+              never carries the signal.
             </p>
             <aside className="rounded-tokenMd bg-[color:var(--color-warning-surface)] p-[var(--space-5)] text-sm text-[color:var(--color-warning-text)]">
-              Data can be stale immediately after release. Crossing guards, elevators, closures, police barricades
-              aren&apos;t magically reflected unless someone reports them. Always corroborate in the wild.
+              Data can be stale immediately after release. Crossing guards, elevators,
+              closures, police barricades aren&apos;t magically reflected unless someone
+              reports them. Always corroborate in the wild.
             </aside>
           </div>
           <section className="mt-[var(--space-6)] space-y-[var(--space-3)]">
-            <h2 className="text-lg font-semibold text-[color:var(--color-text)]">Choose categories before we continue</h2>
+            <h2 className="text-lg font-semibold text-[color:var(--color-text)]">
+              Choose categories before we continue
+            </h2>
             <div className="max-h-[40vh] overflow-y-auto rounded-tokenMd border border-border p-[var(--space-4)]">
-              <ProfileCategoryFields categories={categories} selections={selections} onToggle={toggle} />
+              <ProfileCategoryFields
+                categories={categories}
+                selections={selections}
+                onToggle={toggle}
+              />
             </div>
             <button
               type="button"

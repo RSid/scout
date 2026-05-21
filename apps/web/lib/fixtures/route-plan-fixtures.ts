@@ -1,13 +1,13 @@
-import type { CorridorResponse } from '@/lib/api'
-import type { GeoJSON } from 'geojson'
+import type { CorridorResponse } from "@/lib/api";
+import type { GeoJSON } from "geojson";
 
 /** Deterministic corridor + route payloads for demos and playwright mocks. */
 
 export const DEMO_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = {
-  id: 'demo-route',
-  type: 'Feature',
+  id: "demo-route",
+  type: "Feature",
   geometry: {
-    type: 'LineString',
+    type: "LineString",
     coordinates: [
       [-77.0415, 38.895],
       [-77.0312, 38.9074],
@@ -15,45 +15,45 @@ export const DEMO_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = {
     ],
   },
   properties: { fallback: true },
-}
+};
 
-export function demoCorridorFeatures(): CorridorResponse['features'] {
+export function demoCorridorFeatures(): CorridorResponse["features"] {
   return [
     {
-      type: 'Feature',
+      type: "Feature",
       geometry: {
-        type: 'Point',
+        type: "Point",
         coordinates: [-77.034, 38.903],
       },
       properties: {
-        id: 'demo:feat-1',
-        category: 'curb_ramps',
-        kind: 'obstacle',
-        condition: 'Good',
-        condition_normalized: 'good',
+        id: "demo:feat-1",
+        category: "curb_ramps",
+        kind: "obstacle",
+        condition: "Good",
+        condition_normalized: "good",
         inspected_year: 2021,
-        source_dataset: 'demo',
-        source_id: '1',
+        source_dataset: "demo",
+        source_id: "1",
         attributes: {},
       },
     },
     {
-      type: 'Feature',
+      type: "Feature",
       geometry: {
-        type: 'Point',
+        type: "Point",
         coordinates: [-77.022, 38.913],
       },
       properties: {
-        id: 'demo:feat-2',
-        category: 'rest_spots',
-        kind: 'aid',
-        condition: 'Fair',
-        condition_normalized: 'fair',
+        id: "demo:feat-2",
+        category: "rest_spots",
+        kind: "aid",
+        condition: "Fair",
+        condition_normalized: "fair",
         inspected_year: 2020,
-        source_dataset: 'demo',
-        source_id: '2',
+        source_dataset: "demo",
+        source_id: "2",
         attributes: {},
       },
     },
-  ]
+  ];
 }

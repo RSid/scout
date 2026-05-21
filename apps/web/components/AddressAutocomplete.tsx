@@ -1,10 +1,7 @@
 "use client";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
-import {
-  ScoutApiError,
-  reverseGeocodeNominatim,
-} from "@/lib/api";
+import { ScoutApiError, reverseGeocodeNominatim } from "@/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -156,7 +153,9 @@ export default function AddressAutocomplete({
 
             navigator.geolocation.getCurrentPosition(
               ({ coords }) => {
-                announce(`Browser anchored ${coords.latitude.toFixed(3)}°, ${coords.longitude.toFixed(3)}°`);
+                announce(
+                  `Browser anchored ${coords.latitude.toFixed(3)}°, ${coords.longitude.toFixed(3)}°`,
+                );
                 onPickCoordinates([coords.longitude, coords.latitude]);
               },
               () => {
@@ -168,7 +167,10 @@ export default function AddressAutocomplete({
           Use my location on click only
         </button>
         {busy ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]" aria-live="polite">
+          <p
+            className="text-sm text-[color:var(--color-text-muted)]"
+            aria-live="polite"
+          >
             Debouncing nominatim…
           </p>
         ) : null}

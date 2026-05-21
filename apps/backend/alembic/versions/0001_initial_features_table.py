@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 from geoalchemy2.types import Geography
 from sqlalchemy.dialects.postgresql import JSONB
+
+from alembic import op
 
 revision = "0001"
 down_revision = None
@@ -14,7 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(sa.text('CREATE EXTENSION IF NOT EXISTS postgis'))
+    op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS postgis"))
     op.create_table(
         "features",
         sa.Column("id", sa.Text(), primary_key=True),
@@ -25,7 +26,9 @@ def upgrade() -> None:
         sa.Column("inspected_year", sa.SmallInteger(), nullable=True),
         sa.Column("source_dataset", sa.Text(), nullable=False),
         sa.Column("source_id", sa.Text(), nullable=False),
-        sa.Column("attributes", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column(
+            "attributes", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
         sa.Column(
             "geom",
             Geography(geometry_type="POINT", srid=4326, spatial_index=False),

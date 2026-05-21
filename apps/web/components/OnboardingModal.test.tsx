@@ -66,7 +66,9 @@ describe("OnboardingModal", () => {
 
     await user.click(screen.getByRole("button", { name: /^not now$/i }));
 
-    await waitFor(() => expect(window.localStorage.getItem(ONBOARDING_KEY)).toBe("true"));
+    await waitFor(() =>
+      expect(window.localStorage.getItem(ONBOARDING_KEY)).toBe("true"),
+    );
 
     const results = await axe(baseElement);
 

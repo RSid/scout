@@ -26,7 +26,9 @@ describe("AnnounceProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: /announce route/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status", { hidden: false })).toHaveTextContent("Route updated."),
+      expect(screen.getByRole("status", { hidden: false })).toHaveTextContent(
+        "Route updated.",
+      ),
     );
 
     const results = await axe(container);

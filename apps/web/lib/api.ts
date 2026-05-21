@@ -36,13 +36,14 @@ function parseUpstreamError(payload: unknown): ScoutApiError {
     "error" in payload &&
     typeof (payload as { error?: unknown }).error === "object" &&
     (payload as { error: { message?: unknown; code?: unknown } }).error !== null
-      ? (payload as {
-          error?: { message?: unknown; code?: unknown };
-        }).error
+      ? (
+          payload as {
+            error?: { message?: unknown; code?: unknown };
+          }
+        ).error
       : undefined;
 
-  const msg =
-    typeof err?.message === "string" ? err.message : "Scout upstream error.";
+  const msg = typeof err?.message === "string" ? err.message : "Scout upstream error.";
   const code = typeof err?.code === "string" ? err.code : undefined;
 
   return new ScoutApiError(msg, code);
@@ -89,7 +90,10 @@ export interface ApiCategory {
 }
 
 export async function fetchCategories(signal?: AbortSignal): Promise<ApiCategory[]> {
-  const resp = await fetch(`${apiBase()}/api/categories`, { signal, cache: "no-store" });
+  const resp = await fetch(`${apiBase()}/api/categories`, {
+    signal,
+    cache: "no-store",
+  });
   const body = await safeReadJson(resp);
   if (!resp.ok || typeof body !== "object" || body === null) {
     throw parseUpstreamError(body);

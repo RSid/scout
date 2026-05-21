@@ -4,6 +4,7 @@
 
 - **Python ≥ 3.12** — [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
 - **Node ≥ 20 + pnpm** — needed once `apps/web/package.json` exists ([pnpm install](https://pnpm.io/installation)).
+- **pre-commit** — `brew install pre-commit` or `uv tool install pre-commit` ([install guide](https://pre-commit.com/#install)).
 
 ## Getting started
 
@@ -11,6 +12,7 @@
 git clone https://github.com/RSid/scout.git
 cd scout
 make bootstrap
+pre-commit install
 make sync
 ```
 
