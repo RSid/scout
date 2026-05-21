@@ -61,41 +61,47 @@ apps. Accessibility regressions block release. WCAG 2.2 AA is the floor
 git clone https://github.com/RSid/scout.git
 cd scout
 pre-commit install
-
-# backend
-uv venv
-source .venv/bin/activate
-uv sync
+make bootstrap
+make sync                  # installs apps/backend deps via uv
+cp .env.example .env       # then edit SCOUT_* for your machine
 ```
+
+Run `make help` for the full shortcut list (lint, typecheck, Compose,
+ingest dry-run, etc.).
 
 ### Running locally
 
-Today, you can run the placeholder backend:
+The local stack lives in `infra/docker-compose.yml` (`M1-T05a`). It boots
+PostGIS, the FastAPI backend with hot reload, and the Next.js frontend in
+dev mode against each other:
 
 ```bash
-fastapi dev main.py
+make docker-up        # builds images on first run, then `docker compose up`
+open http://localhost:3000   # web UI
+open http://localhost:8080/api/health   # backend
+make docker-down      # stop, preserve the pgdata volume
 ```
 
-Once `M1-F15` ships, the one-command flow becomes:
+`make dev` is an alias for `make docker-up`. See `infra/README.md` for
+service layout, volume rationale, and how to reset the database.
 
-```bash
-docker compose up
-```
+Fly.io (or whatever production host we eventually commit to) is tracked
+separately under `M1-T05b` and intentionally not part of the local
+workflow — you should not need a host account to develop Scout.
 
-That brings up Postgres + PostGIS, the FastAPI backend, and the Next.js
-frontend; applies Alembic migrations; and (optionally) runs the DC data
-ingest on first boot.
+There is intentionally no stub `fastapi dev main.py` entrypoint;
+`apps/backend/` is scaffolded in `M1-T01` and runs via Compose.
 
 ### Running tests
 
 ```bash
-# backend (when apps/backend/ scaffolds)
-cd apps/backend && uv run pytest
+make test
+```
 
-# frontend unit + a11y (when apps/web/ scaffolds)
-cd apps/web && pnpm test
+Behind the scenes this runs backend `pytest` when `apps/backend/tests/` exists,
+and frontend `pnpm test` when `apps/web/package.json` lands. Frontend E2E:
 
-# frontend E2E + a11y
+```bash
 cd apps/web && pnpm exec playwright test
 ```
 
@@ -198,8 +204,9 @@ Reviewers (and the author, before requesting review):
 - Dependency vulnerability scan: `pip-audit`, `npm audit --omit=dev` —
   fail on `high`/`critical`.
 
-Until the CI workflow lands (`M1-F15`), please run the local equivalents
-before pushing.
+CI runs on every push / PR via `.github/workflows/ci.yml`. Please run the
+local equivalents (`make lint typecheck test`) before pushing so you don't
+discover a failure two minutes after the PR opens.
 
 ## Reporting bugs and data issues
 

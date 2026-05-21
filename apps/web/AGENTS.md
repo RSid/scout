@@ -60,7 +60,7 @@ The full spec is PRD §7.1. Code-level rules:
 - **Forms**: labels are programmatic (`<label for>` or `aria-labelledby`),
   errors are inline AND announced via the shared `<LiveRegion/>`.
 - **Unit tests for components include a jest-axe assertion**: `expect(await
-  axe(container)).toHaveNoViolations()`.
+axe(container)).toHaveNoViolations()`.
 - **E2E tests for every route include an axe scan.**
 
 ## Tailwind and design tokens

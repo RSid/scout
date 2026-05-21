@@ -1,0 +1,35 @@
+# Build outputs / caches
+**/.next
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/coverage
+**/test-results
+**/playwright-report
+**/.turbo
+**/.vite
+**/dist
+**/build
+
+# VCS + editor
+.git
+.gitignore
+.vscode
+.idea
+**/*.swp
+**/.DS_Store
+
+# Local-only
+.env
+.env.local
+**/.env.local
+.scout-cache
+**/.scout-cache
+
+# Docker self-references — never copy into the build context
+infra/docker-compose*.yml
+
+# CI artifacts
+.github/workflows/*.log

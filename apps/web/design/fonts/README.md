@@ -38,7 +38,7 @@ redistributions ship with the license.
 ## Source files vs. the design folder
 
 This README lives in `apps/web/design/fonts/` because the design layer
-is what *specifies* the font choice and the `@font-face` declaration.
+is what _specifies_ the font choice and the `@font-face` declaration.
 The actual binary `.woff2` files live in `apps/web/public/fonts/` so
 Next.js serves them at the `/fonts/*` URL the `@font-face` references.
 

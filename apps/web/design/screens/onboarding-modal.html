@@ -28,7 +28,8 @@
       /* Faint underlying app to give context — blurred-ish abstract */
       .stage::before {
         content: "";
-        position: absolute; inset: 0;
+        position: absolute;
+        inset: 0;
         background: linear-gradient(135deg, #faf3dc 0%, #ece4c4 60%, #e0d4a8 100%);
         opacity: 0.7;
       }
@@ -92,7 +93,8 @@
         outline-offset: var(--focus-ring-offset);
       }
       .category-option input[type="checkbox"] {
-        width: 1.125rem; height: 1.125rem;
+        width: 1.125rem;
+        height: 1.125rem;
         accent-color: var(--color-accent);
       }
       .category-option .label {
@@ -102,11 +104,17 @@
       }
       .category-option .glyph {
         flex-shrink: 0;
-        width: 28px; height: 28px;
-        display: grid; place-items: center;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
       }
-      .category-option.obstacle .glyph { color: var(--color-obstacle-blocking); }
-      .category-option.aid .glyph { color: var(--color-aid); }
+      .category-option.obstacle .glyph {
+        color: var(--color-obstacle-blocking);
+      }
+      .category-option.aid .glyph {
+        color: var(--color-aid);
+      }
 
       .modal .actions {
         display: flex;
@@ -127,7 +135,9 @@
         min-height: var(--target-min);
         min-width: var(--target-min);
       }
-      .btn-primary:hover { background: var(--color-accent-hover); }
+      .btn-primary:hover {
+        background: var(--color-accent-hover);
+      }
       .btn-link {
         background: transparent;
         border: none;
@@ -154,8 +164,8 @@
       the PRD §7.4), six default-on category checkboxes (matches the M1 set in
       <code>docs/appendix-data-schema.md</code> §B), and a single "Got it" primary
       action plus a "Skip for now" escape hatch. One category option is shown in its
-      focused state. The modal is centered over a dimmed app backdrop; focus is
-      trapped inside; <code>Escape</code> closes it.
+      focused state. The modal is centered over a dimmed app backdrop; focus is trapped
+      inside; <code>Escape</code> closes it.
     </p>
 
     <div class="stage">
@@ -171,28 +181,53 @@
 
         <p id="onb-desc">
           Scout helps you plan walking routes in Washington, DC that show the
-          accessibility obstacles and aids along the route you're about to take —
-          curb ramps, sidewalk gaps, restrooms, rest spots — filtered to the
-          categories that affect you.
+          accessibility obstacles and aids along the route you're about to take — curb
+          ramps, sidewalk gaps, restrooms, rest spots — filtered to the categories that
+          affect you.
         </p>
 
         <p>
-          Pick the categories that matter to you. You can change these any time
-          from the Profile panel.
+          Pick the categories that matter to you. You can change these any time from the
+          Profile panel.
         </p>
 
-        <fieldset class="categories" style="border: 0; padding: 0; margin: 0;">
-          <legend class="visually-hidden" style="
-            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
-          ">Accessibility preferences</legend>
+        <fieldset class="categories" style="border: 0; padding: 0; margin: 0">
+          <legend
+            class="visually-hidden"
+            style="
+              position: absolute;
+              width: 1px;
+              height: 1px;
+              padding: 0;
+              margin: -1px;
+              overflow: hidden;
+              clip: rect(0, 0, 0, 0);
+              white-space: nowrap;
+              border: 0;
+            "
+          >
+            Accessibility preferences
+          </legend>
 
           <label class="category-option obstacle is-focused">
             <input type="checkbox" checked />
             <span class="glyph" aria-hidden="true">
               <svg viewBox="0 0 40 40" width="28" height="28">
-                <polygon points="20,4 36,32 4,32" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
-                <path d="M 12 26 L 19 26 L 27 16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                <polygon
+                  points="20,4 36,32 4,32"
+                  fill="currentColor"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M 12 26 L 19 26 L 27 16"
+                  fill="none"
+                  stroke="#ffffff"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </span>
             <span class="label">Curb ramps</span>
@@ -202,7 +237,13 @@
             <input type="checkbox" checked />
             <span class="glyph" aria-hidden="true">
               <svg viewBox="0 0 40 40" width="28" height="28">
-                <polygon points="20,4 36,20 20,36 4,20" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+                <polygon
+                  points="20,4 36,20 20,36 4,20"
+                  fill="currentColor"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                />
                 <rect x="9" y="18" width="22" height="4" rx="1" fill="#ffffff" />
               </svg>
             </span>
@@ -213,9 +254,24 @@
             <input type="checkbox" checked />
             <span class="glyph" aria-hidden="true">
               <svg viewBox="0 0 40 40" width="28" height="28">
-                <polygon points="20,4 34,12 34,28 20,36 6,28 6,12" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
-                <path d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z" fill="#ffffff" />
-                <path d="M 25 16 Q 28 20 25 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" />
+                <polygon
+                  points="20,4 34,12 34,28 20,36 6,28 6,12"
+                  fill="currentColor"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z"
+                  fill="#ffffff"
+                />
+                <path
+                  d="M 25 16 Q 28 20 25 24"
+                  fill="none"
+                  stroke="#ffffff"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
               </svg>
             </span>
             <span class="label">Audible signals</span>
@@ -225,9 +281,19 @@
             <input type="checkbox" checked />
             <span class="glyph" aria-hidden="true">
               <svg viewBox="0 0 40 40" width="28" height="28">
-                <circle cx="20" cy="20" r="16" fill="currentColor" stroke="#ffffff" stroke-width="2" />
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="16"
+                  fill="currentColor"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                />
                 <circle cx="20" cy="13" r="2.5" fill="#ffffff" />
-                <path d="M 14 28 L 16 17 L 24 17 L 26 28 L 22 28 L 22 22 L 18 22 L 18 28 Z" fill="#ffffff" />
+                <path
+                  d="M 14 28 L 16 17 L 24 17 L 26 28 L 22 28 L 22 22 L 18 22 L 18 28 Z"
+                  fill="#ffffff"
+                />
               </svg>
             </span>
             <span class="label">Accessible restrooms</span>
@@ -237,7 +303,16 @@
             <input type="checkbox" checked />
             <span class="glyph" aria-hidden="true">
               <svg viewBox="0 0 40 40" width="28" height="28">
-                <rect x="5" y="5" width="30" height="30" rx="9" fill="currentColor" stroke="#ffffff" stroke-width="2" />
+                <rect
+                  x="5"
+                  y="5"
+                  width="30"
+                  height="30"
+                  rx="9"
+                  fill="currentColor"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                />
                 <rect x="11" y="14" width="18" height="3" rx="0.5" fill="#ffffff" />
                 <rect x="9" y="19" width="22" height="3" rx="0.5" fill="#ffffff" />
                 <rect x="11" y="22" width="3" height="7" fill="#ffffff" />
@@ -251,8 +326,20 @@
             <input type="checkbox" checked />
             <span class="glyph" aria-hidden="true">
               <svg viewBox="0 0 40 40" width="28" height="28">
-                <rect x="10" y="4" width="20" height="32" rx="10" fill="currentColor" stroke="#ffffff" stroke-width="2" />
-                <path d="M 20 11 C 24 17 25 21 25 23 A 5 5 0 0 1 15 23 C 15 21 16 17 20 11 Z" fill="#ffffff" />
+                <rect
+                  x="10"
+                  y="4"
+                  width="20"
+                  height="32"
+                  rx="10"
+                  fill="currentColor"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                />
+                <path
+                  d="M 20 11 C 24 17 25 21 25 23 A 5 5 0 0 1 15 23 C 15 21 16 17 20 11 Z"
+                  fill="#ffffff"
+                />
               </svg>
             </span>
             <span class="label">Water fountains</span>
@@ -260,11 +347,10 @@
         </fieldset>
 
         <p class="disclaimer">
-          <strong>Scout is a planning aid, not a guarantee.</strong> The data
-          comes from DC's public datasets, much of which was last inspected in
-          2016, and from community sources of varying freshness. Conditions can
-          change. Always plan a fallback route. Scout's maintainers are not
-          responsible for trip outcomes.
+          <strong>Scout is a planning aid, not a guarantee.</strong> The data comes from
+          DC's public datasets, much of which was last inspected in 2016, and from
+          community sources of varying freshness. Conditions can change. Always plan a
+          fallback route. Scout's maintainers are not responsible for trip outcomes.
         </p>
 
         <div class="actions">

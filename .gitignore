@@ -1,2 +1,44 @@
-__pycache__
+# Python
+__pycache__/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+apps/web/.next/
+.turbo/
+.pnpm-store/
+
+# Data artifacts
+*.pmtiles
+data/derived/
+
+# Env + secrets
+.env
+.env.*
+!.env.example
+
+# uv workspace lockfile lives at the repo root (per pyproject.toml's
+# [tool.uv.workspace] members = ["apps/backend"]). Do not re-introduce
+# apps/backend/uv.lock — a member-level lock beside the canonical root
+# uv.lock can leave Docker installs missing geoalchemy2/shapely/asyncpg/psycopg.
+apps/backend/uv.lock
+
+# Test + coverage artifacts
+coverage/
+apps/web/coverage/
+apps/web/test-results/
+apps/web/playwright-report/
+
+# Runtime cache (SCOUT_CACHE_DIR default)
+.scout-cache/
+
+# IDE + OS
 .DS_Store
+.idea/
+.vscode/
+*.swp

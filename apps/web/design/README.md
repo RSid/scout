@@ -108,7 +108,7 @@ Full mapping table and rendering notes in `markers/README.md`.
 ## Reference screens
 
 `screens/plan-with-route.html` and `screens/onboarding-modal.html` are
-static HTML reference mockups. They use the *actual* tokens via
+static HTML reference mockups. They use the _actual_ tokens via
 `@import "../tokens/index.css"`, so any palette change in `tokens/`
 reflects in the mockup on next page load. They are not part of the
 production bundle — they're a visual hand-off for the frontend agent.
@@ -139,8 +139,8 @@ When iterating on the palette:
 6. Update this README's "Status — v1" section to note "v2: <date> —
    <one-line rationale>".
 
-Iteration changes do not require a new DEC. A *new marker shape system*
-or a *new typeface* does require one.
+Iteration changes do not require a new DEC. A _new marker shape system_
+or a _new typeface_ does require one.
 
 ## See also
 
