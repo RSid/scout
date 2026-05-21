@@ -23,6 +23,7 @@ needs the prompt + this repo to do its job.
 | 05 | `05-wcag-audit.md` | Produce a WCAG 2.2 AA audit checklist for M1 | `docs/a11y-checklist.md` |
 | 06 | `06-dockerize-and-deploy.md` | Dockerfile, docker-compose, fly.toml, CI workflow | `infra/`, `.github/workflows/` |
 | 07 | `07-design-system.md` | Produce the design tokens, marker shapes, and key-screen mockups | `apps/web/design/` |
+| 08 | `08-category-copy-audit.md` | Audit and rewrite API-driven category labels (`ApiCategory.label`, `ApiCategory.description`) for voice consistency per DEC-021 | One PR; sources vary (backend / fixtures / PRD) |
 
 ## Conventions every downstream agent must follow
 
