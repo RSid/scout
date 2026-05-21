@@ -104,4 +104,5 @@ top-of-file docstring remains the source of truth for flags.
 
 | Script                  | What it does                                                         | When to reach for it                                            |
 | ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Makefile (repo root) | Shortcut targets for sync, lint, Compose, ingest dry-run (`make help`). Prefer over ad-hoc tool invocations. | Everyday dev + agent workflows; aligns with DEC-011. |
 | `scripts/gh-issues.sh`  | Lists issues in `RSid/scout` (JSON or table), optional milestone filter. | Anytime an agent or contributor needs issue metadata as data. |
