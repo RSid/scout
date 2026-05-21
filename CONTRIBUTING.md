@@ -62,41 +62,42 @@ apps. Accessibility regressions block release. WCAG 2.2 AA is the floor
 git clone https://github.com/RSid/scout.git
 cd scout
 pre-commit install
-
-# backend
-uv venv
-source .venv/bin/activate
-uv sync
+make bootstrap
+make sync                  # installs apps/backend deps via uv
+cp .env.example .env       # then edit SCOUT_* for your machine
 ```
+
+Run `make help` for the full shortcut list (lint, typecheck, Compose,
+ingest dry-run, etc.).
 
 ### Running locally
 
-Today, you can run the placeholder backend:
+Until `infra/docker-compose.yml` lands (`M1-T05`), `make dev` stops with a
+pointer to that ticket. Once Compose is in place, use:
 
 ```bash
-fastapi dev main.py
+make dev
+# or: make docker-up
 ```
 
-Once `M1-F15` ships, the one-command flow becomes:
+That will bring up Postgres + PostGIS, the FastAPI backend, and the Next.js
+frontend once those services are wired in `M1-F15`; applies Alembic
+migrations; and (optionally) runs the DC data ingest on first boot.
+Source GeoJSON inputs live under `data/` (`PRD §8`).
 
-```bash
-docker compose up
-```
-
-That brings up Postgres + PostGIS, the FastAPI backend, and the Next.js
-frontend; applies Alembic migrations; and (optionally) runs the DC data
-ingest on first boot.
+There is intentionally no stub `fastapi dev main.py` entrypoint —
+`apps/backend/` is scaffolded in `M1-T01`.
 
 ### Running tests
 
 ```bash
-# backend (when apps/backend/ scaffolds)
-cd apps/backend && uv run pytest
+make test
+```
 
-# frontend unit + a11y (when apps/web/ scaffolds)
-cd apps/web && pnpm test
+Behind the scenes this runs backend `pytest` when `apps/backend/tests/` exists,
+and frontend `pnpm test` when `apps/web/package.json` lands. Frontend E2E:
 
-# frontend E2E + a11y
+```bash
 cd apps/web && pnpm exec playwright test
 ```
 
