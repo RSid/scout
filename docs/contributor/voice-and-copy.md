@@ -1,6 +1,6 @@
 # Scout — voice and copy style guide
 
-**Status:** Draft (sections 1–10 of a 13-section guide) ·
+**Status:** Active (v1) ·
 **Owner:** [project lead] ·
 **Last updated:** 2026-05-21
 
@@ -10,9 +10,12 @@ live-region announcements, About prose, freshness chips — must follow it.
 When the guide and a `DEC-NNN` decision conflict, the decision wins per the
 decisions-log convention.
 
-This is the first draft (Rounds 1–2 of a planned three-round collaboration).
-Future updates will add: tone modulation by surface, a complete never-write
-list, and tooling for testing copy before merging.
+**Scope.** This guide is about copy and writing. Broader accessibility
+implementation — keyboard navigation, focus management, mobile-width and
+minimum-font testing, screen-reader smoke tests — belongs in a separate
+contributor accessibility guide planned for `docs/contributor/` but not
+yet written. Where the two overlap (alt text, aria-labels, link text,
+live-region announcements), the **words** are governed here.
 
 ---
 
@@ -135,8 +138,7 @@ practice:
 - **No hedging language.** Cut _"might possibly," "may potentially," "in
   some cases may."_
 
-Tooling for measuring reading level lands in a future section of this
-guide.
+See §13.3 for tooling and how to test reading level before merging.
 
 ---
 
@@ -622,6 +624,280 @@ Reference material. Skim and revisit when needed.
 
 ---
 
-*Sections 11–13 (tone modulation by surface, never-write list, how to
-test copy before merging) are drafted in the next round and will be
-appended in a follow-up commit.*
+## 11. Tone modulation by surface
+
+Voice (§2) is constant. **Tone** is the voice playing in different
+weather. The five attributes — clear, friendly, civic, community-minded,
+honest about limits — apply everywhere. What changes is the relative
+weight: a homepage hero leans into _civic_ and _friendly_; a freshness
+chip leans into _honest about limits_ and skips friendliness entirely;
+an error message leans into _clear_ and _community-minded_ and skips
+civic-flavored framing.
+
+A useful mental model: how does this surface read at the worst moment of
+someone's day? If a partially-mobile DC resident is running late to a
+doctor's appointment, in pain, on a phone, in cold rain — does this copy
+land?
+
+### 11.1 Onboarding modal (first visit)
+
+Warmer than average, but not chirpy. Honest about what Scout is and what
+its data isn't. Sets the freshness expectation early so it doesn't come
+as a surprise on the route view. No _"welcome aboard,"_ no _"let's go."_
+Three sentences max in the intro; the rest of the modal is the
+categories form.
+
+- Do: _"Scout shows public accessibility data along walking routes in
+  DC. The data is from city sources and is sometimes years old. Pick
+  the categories that matter to you below."_
+- Don't: _"Meet Scout previews — three quick beats before plotting a
+  District route!"_
+
+### 11.2 About page
+
+Longer-form prose. Civic-flavored. The one place "we" (the maintainers)
+is allowed to show up sparingly. Cite specific numbers from public
+sources where possible — concreteness is voice. Reading level can sit
+toward the upper end of FK ≤ 8 here, because the reader self-selected
+into long-form.
+
+- Do: _"DC publishes detailed ADA-compliance data, but most of it was
+  last inspected in 2016. Scout shows the data as-is, with the
+  inspection year on every feature, and leaves the judgment to you."_
+- Don't: _"We're passionate about accessibility and dedicated to
+  changing the way people navigate cities."_
+
+### 11.3 Homepage hero
+
+The pitch lives here. One short paragraph that names who it's for, what
+it does, and what it isn't. No exclamation marks; no marketing-speak.
+Two sentences, ideally.
+
+- Do: _"Walking routes in DC, with accessibility data drawn on top. A
+  planning aid, not verified navigation."_
+- Don't: _"Plan smarter, walk safer — Scout knows the way!"_
+
+### 11.4 Plan / route view (the working surface)
+
+The quietest setting on the dial. The reader is doing a task. Every
+word that isn't doing useful work is in the way. Microcopy ≤ 6 words by
+default. Freshness chips are quiet, never alarming. Buttons are verbs.
+
+- Do: _"Last inspected: 2016."_
+- Don't: _"Heads-up: this data is from 2016 — proceed with caution."_
+
+### 11.5 Errors
+
+Matter-of-fact. Name the problem in plain words. Offer the next step.
+Don't dress it up. (Full rules in §7.4.)
+
+### 11.6 Empty states
+
+Honest about the gap. Offer the closest alternative if one exists.
+Don't apologize and don't promise to fix it (see §2.5). (Full rules in
+§7.5.)
+
+### 11.7 Success and confirmation
+
+Quietest setting on the dial after §11.4. Past tense, factual, two to
+four words. (Full rules in §7.7.)
+
+### 11.8 Disclaimer surfaces
+
+Tone follows the trust ladder (§8.1):
+
+- **L1 (About):** plain, complete, not legalistic. Two to five
+  sentences. The fullest expression of "honest about limits."
+- **L2 (banner):** one factual sentence + link. Quiet, dismissible per
+  session.
+- **L3 (in-context note):** brief and specific to the thing being
+  annotated.
+- **L4 (chip):** facts only, 3–5 words.
+
+### 11.9 Footer / contact / contribution copy
+
+Formal but not legalistic. Direct. Maintainers are visible as "we" here
+(_"we don't accept security disclosures on the public issue tracker"_).
+Plain words even in security copy.
+
+### 11.10 Maintainer-facing copy
+
+PRs, commit messages, code comments, contributor docs — these are
+covered by `AGENTS.md`, not this guide. But the same _values_ apply:
+clear, honest, no jargon when plain words exist. _"User"_ is fine in
+these contexts because the audience is maintainers, not users.
+
+---
+
+## 12. The never-write list
+
+Phrases banned across the guide, consolidated for easy lookup. When in
+doubt, skim this section. Each subsection links back to the section
+that explains the rule.
+
+### 12.1 Disability language (§4)
+
+- _"the disabled," "the handicapped"_ — never as nouns
+- _"wheelchair-bound," "confined to a wheelchair"_ — never
+- _"able-bodied," "normal"_ — never as antonyms of disabled (use
+  _"non-disabled"_ if you must contrast)
+- _"differently-abled," "special needs," "handi-capable"_ — never
+- _"suffers from," "afflicted with"_ — never
+- _"brave," "inspiring," "hero," "warrior"_ applied to the reader —
+  never
+- _"wheelchair-informed routes"_ — banned product phrase (use §4.4
+  alternatives)
+
+### 12.2 Anthropomorphism and product voice (§7.4, §7.7)
+
+- _"Scout got confused," "Scout couldn't…," "Scout thinks…"_
+- _"Oops!" "Whoops!" "Sorry!"_
+- _"We've determined this route is suitable for your needs."_
+- _"Hooray," "welcome aboard," "you're in," "let's go!"_
+
+### 12.3 Link text (§7.2, §9.4)
+
+- _"click here"_
+- _"here"_ (as standalone link text)
+- _"read more"_
+- _"learn more"_
+- _"this," "this link," "more info"_
+- Any link text containing the word _"click"_
+
+### 12.4 Legalese (§8.2)
+
+- _"warrant," "warranties"_
+- _"guarantee," "guaranteed"_
+- _"liable," "liability"_
+- _"responsible for"_ (in liability-disclaiming sense)
+- _"without limitation"_
+- _"as-is"_
+- _"to the fullest extent permitted by law"_
+- _"the user assumes all risk"_
+
+### 12.5 Alarm and command voice (§8.2)
+
+- _"Warning:"_ prefix in body copy
+- All-caps for emphasis
+- Exclamation marks anywhere in user-facing copy (limit: zero)
+- _"Caution," "Danger," "Important!"_ as standalone alerts
+- _"Always," "Never," "Must"_ as commands in disclaimer copy
+
+### 12.6 Vague or commercial filler (§3)
+
+- _"easy," "simple," "just"_ (presumes the user's experience)
+- _"in order to," "please note that," "as you may know"_
+- _"best-in-class," "industry-leading," "world-class"_
+- _"powered by"_
+- _"delight," "delightful," "magical"_
+- _"users"_ in user-facing copy (acceptable in maintainer docs only)
+
+### 12.7 Place names and abbreviations (§9.6, §10.4)
+
+- _"D.C."_ (with periods)
+- _"DC area," "the DMV"_
+- _"ORS"_ in user-facing copy (use _"OpenRouteService"_)
+- _"OSM"_ before its first expanded mention on a surface
+
+### 12.8 Unverified commitments (§2.5)
+
+These are banned unless there is a real tracked artifact backing them:
+
+- _"We're tracking this"_ — unless there's a tracked GitHub issue
+- _"We'll add this"_ — unless there's a milestone for it
+- _"Coming soon"_ — unless there's a specific commitment
+- _"We hear you"_ — unless there's a real feedback channel
+- _"We're working on it"_ — unless we are, and the copy names what
+
+### 12.9 Pronouns (§5)
+
+- _"he or she," "he/she," "(s)he"_
+- _"he"_ or _"she"_ as a generic pronoun for an unspecified person
+- _"one"_ as a pronoun for the reader (_"one can plan a route…"_) —
+  use _"you"_ instead
+
+---
+
+## 13. How to test copy before merging
+
+Copy bugs don't crash the app. They quietly erode trust, exclude users,
+or smuggle in the wrong voice. The checks below are what we run before
+merging copy changes.
+
+**Scope note:** broader accessibility-implementation checks (keyboard
+navigation, focus management, mobile-width and minimum-font testing)
+are not in this guide. They belong in a sibling contributor
+accessibility guide that hasn't been written yet.
+
+### 13.1 The 60-second checklist
+
+Run through this list every time you touch user-facing copy. If any
+answer is "no" or "not sure," fix it before merging.
+
+- [ ] **Voice (§2):** does the copy satisfy all five attributes —
+  clear, friendly, civic, community-minded, honest about limits?
+- [ ] **Reading level (§3):** does body land at FK ≤ 8, and microcopy
+  at FK ≤ 6?
+- [ ] **House words (§6):** does the copy use Scout's word for each
+  concept, not a synonym?
+- [ ] **Disability language (§4):** task-descriptive first, no banned
+  terms?
+- [ ] **Pronouns (§5):** singular "they" for hypothetical people?
+- [ ] **Link text (§7.2, §9.4):** does each link make sense out of
+  context, no "click here" / "read more"?
+- [ ] **Errors (§7.4):** name what happened + offer the next step, no
+  blame, no exclamation?
+- [ ] **Live regions / aria-labels (§9):** ≤ 10 words, fragment, no
+  role-redundancy?
+- [ ] **Trust copy (§8):** facts not disclaimers; plain words not
+  legalese?
+- [ ] **Never-write list (§12):** no banned phrases present?
+- [ ] **Unverified commitments (§2.5):** every "we will," "we're
+  tracking," "coming soon" backed by a real artifact?
+
+### 13.2 Read it aloud
+
+Read every changed line aloud. This catches:
+
+- Sentences too long to say in one breath
+- Awkward phrasings the eye glides past
+- Acronyms that read poorly (_"ORS"_ → "orz")
+- Anything that sounds condescending, jokey, or alarmist
+- Live-region announcements (the screen-reader proxy)
+
+This is the cheapest, highest-value check Scout has. Use it.
+
+### 13.3 Reading-level tools
+
+- **Hemingway Editor** ([hemingwayapp.com](https://hemingwayapp.com) —
+  no account needed): paste body copy, target "Grade 6: Good" or
+  "Grade 8: OK." Free, manual, fast.
+- **Flesch–Kincaid** in any spell-checker: most modern editors (VS
+  Code with extensions, Apple Pages, Google Docs) can surface FK
+  grade. Use the same target.
+- Scout doesn't yet have an automated CI check for reading level.
+  When it does, it lands as a follow-up to this guide.
+
+### 13.4 What CI catches, and what it doesn't
+
+Automated accessibility checks (`jest-axe`, `@axe-core/playwright`,
+`eslint-plugin-jsx-a11y`) catch the **presence** of accessible names —
+missing `alt`, missing `aria-label` on icon-only controls, missing
+labels on form fields. They do **not** evaluate the **quality** of
+those names. _"icon-button-1"_ as an `aria-label` passes axe and fails
+this guide.
+
+The words that go inside those attributes are copy. This guide governs
+that copy. Automation governs only whether the attribute exists.
+
+### 13.5 Review etiquette
+
+When reviewing a PR that changes copy:
+
+- **Cite the section.** _"§7.4 (errors) — no exclamation marks"_ beats
+  _"this feels off."_
+- **Suggest, don't gatekeep.** Propose a concrete revised string in
+  your review comment. Save the author a round trip.
+- **Don't argue voice in the PR.** If you disagree with a rule, open a
+  separate proposal PR against this guide. The current rule applies
+  until that lands.
