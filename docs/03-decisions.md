@@ -613,6 +613,43 @@ Tests use `stub`. Production uses the real impl. Swap is one env var.
 
 ---
 
+## DEC-021 — Voice and copy style binding to `docs/contributor/voice-and-copy.md`
+
+**Context.** Scout's user-facing copy is shipped by humans and agents working
+independently across many surfaces (homepage, About, banner, onboarding,
+errors, freshness chips, aria-labels, live-region announcements). Without a
+shared style, voice drifts — sober on one surface, jokey on another,
+legalistic on a third — and accessibility-sensitive copy (link text,
+aria-labels, error messages) regresses surface by surface. DEC-009 fixes the
+reading level; DEC-010 fixes the disclaimer pattern; nothing yet fixes the
+voice, terminology, or microcopy patterns.
+
+**Decision.** `docs/contributor/voice-and-copy.md` is binding for all
+user-facing copy in the Scout repo. Agents and humans must consult it before
+adding or changing copy on any surface. It supersedes ad-hoc voice choices in
+shipping code; conflicts are resolved by updating the code to match the guide.
+
+**Rationale.**
+- A written, binding voice is the only way multiple agents and contributors
+  produce consistent copy.
+- DEC-009's reading-level target is necessary but not sufficient — it
+  doesn't tell anyone what words to actually pick.
+- `docs/contributor/` is a new home for human-contributor-directed
+  documentation (as opposed to product specifications under `docs/` or
+  runtime code under `apps/`). Future style guides (commit conventions, PR
+  norms beyond what AGENTS.md covers, etc.) will land in the same folder.
+
+**Consequences.**
+- New PRs that introduce or change user-facing copy may be asked in review
+  to cite the section of the guide the copy satisfies.
+- Existing copy that contradicts the guide (catalogued in a follow-up
+  rewrite plan) is revised in subsequent PRs; this DEC does not retroactively
+  block previously-shipped copy.
+- When the guide and a `DEC-` decision conflict, the `DEC-` decision wins
+  per the decisions-log convention.
+
+---
+
 ## DEC-PEND-* — Pending decisions
 
 These don't block scaffolding but should be settled before M1 ships.
