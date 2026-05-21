@@ -1,0 +1,49 @@
+default_install_hook_types: [pre-commit]
+
+exclude: (^|/)apps/web/(coverage|test-results|\.next|node_modules|playwright-report)/|(^|/).*package-lock\.json$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.14
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(apps/backend|scripts)/.*\.py$
+      - id: ruff-format
+        files: ^(apps/backend|scripts)/.*\.py$
+
+  - repo: local
+    hooks:
+      - id: web-prettier
+        name: prettier (apps/web)
+        language: system
+        entry: .pre-commit/web-prettier.sh
+        types: []
+        exclude: (^|/)apps/web/(coverage|test-results|\.next|node_modules|playwright-report)/|(^|/).*package-lock\.json$
+        files: ^apps/web/.*\.(ts|tsx|js|jsx|css|md|json|ya?ml)$
+
+      - id: web-eslint
+        name: eslint (apps/web)
+        language: system
+        entry: .pre-commit/web-eslint.sh
+        types: []
+        exclude: (^|/)apps/web/(coverage|test-results|\.next|node_modules|playwright-report)/
+        files: ^apps/web/.*\.(ts|tsx|js|jsx)$

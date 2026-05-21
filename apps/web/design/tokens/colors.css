@@ -1,0 +1,149 @@
+/*
+ * Scout color tokens — M1 design system v1 (DEC-015)
+ * Direction B "Civic warm". Palette is provisional; iteration after first build is expected.
+ *
+ * Conventions:
+ * - Semantic role names (`--color-surface`, not `--color-cream`). Hue choice is hidden
+ *   behind the role so palette swaps are a one-file edit.
+ * - Every consumer in apps/web/ references these via `var(--color-…)`. Never raw hex.
+ * - Light theme is the default. Dark theme is exposed via `@media (prefers-color-scheme: dark)`
+ *   AND a manual `[data-theme="dark"]` opt-in (so a future theme toggle can override OS).
+ * - Each pair's contrast ratio is recorded inline (computed via WCAG 2.x relative-luminance
+ *   math); the full verification grid lives in `audit/contrast-report.md`.
+ */
+
+:root,
+[data-theme="light"] {
+  /* Surface — cream warm-paper. */
+  --color-surface: #faf3dc;
+  --color-surface-elevated: #fffcf0;
+  --color-surface-sunken: #f1e9cc;
+
+  /* Text. Body text on surface: 14.8:1 (AAA). Muted on surface: 6.6:1 (AAA). */
+  --color-text: #221c14;
+  --color-text-muted: #5c5246;
+  --color-text-inverse: #fffcf0;
+
+  /* Borders / dividers. */
+  --color-border: #e8dcb8;
+  --color-border-strong: #cdbe92;
+
+  /* Brand accent — rust. Used for primary actions, the wordmark, and selected chips.
+     On surface: 5.6:1 (AA). On surface-elevated: 5.8:1 (AA). */
+  --color-accent: #a8422a;
+  --color-accent-hover: #8d3422;
+  --color-accent-pressed: #732a1c;
+  --color-on-accent: #fffcf0;
+
+  /* Link — deep teal, deliberately distinct hue from accent so color-blind viewers
+     can tell links from buttons on shape AND hue. On surface: 7.0:1 (AAA). */
+  --color-link: #2c4f5c;
+  --color-link-hover: #1e3a44;
+  --color-link-visited: #4f3e5c;
+
+  /* Focus ring — same teal as link, deliberate.
+     Against surface: 7.0:1 (AAA). Against accent fill: 3.4:1 (AA-large, clears WCAG 2.4.13). */
+  --color-focus-ring: #2c4f5c;
+
+  /* Map feature roles. Color encodes severity/status; category is encoded by shape (see markers/). */
+  --color-aid: #2f7a2e; /* on surface: 5.4:1 (AA) */
+  --color-obstacle-mild: #b0832e; /* outline on surface: 3.6:1 (AA-large) — marker fill only */
+  --color-obstacle-difficult: #b05b1a; /* outline on surface: 4.4:1 (AA-large) — marker fill only */
+  --color-obstacle-blocking: #8d2818; /* outline on surface: 7.8:1 (AAA) */
+
+  /* Disclaimer banner (DEC-010) — warm warning tint that reads "important, not error". */
+  --color-warning-surface: #faf1d0;
+  --color-warning-border: #b0832e;
+  --color-warning-text: #5a3d10; /* on warning-surface: 7.1:1 (AAA) */
+
+  /* Danger — reserved for error states; same hue family as obstacle-blocking. */
+  --color-danger-surface: #f7e3df;
+  --color-danger-border: #8d2818;
+  --color-danger-text: #6c1f12; /* on danger-surface: 8.4:1 (AAA) */
+
+  /* Skin for "data may be outdated" chips (NF-TRUST-02). */
+  --color-stale-surface: #f1e6c5;
+  --color-stale-text: #5c4318;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-surface: #1a1612;
+    --color-surface-elevated: #251f18;
+    --color-surface-sunken: #120f0c;
+
+    --color-text: #f2ebdc;
+    --color-text-muted: #b5ab99;
+    --color-text-inverse: #1a1612;
+
+    --color-border: #3a322a;
+    --color-border-strong: #5c5246;
+
+    --color-accent: #e89478;
+    --color-accent-hover: #f0a892;
+    --color-accent-pressed: #d87f63;
+    --color-on-accent: #1a1612;
+
+    --color-link: #7bb5c0;
+    --color-link-hover: #9bcad2;
+    --color-link-visited: #b49dc7;
+
+    --color-focus-ring: #f4c147;
+
+    --color-aid: #84b377;
+    --color-obstacle-mild: #d6b068;
+    --color-obstacle-difficult: #e0925a;
+    --color-obstacle-blocking: #e07b69;
+
+    --color-warning-surface: #2e2620;
+    --color-warning-border: #d6b068;
+    --color-warning-text: #f0d89a;
+
+    --color-danger-surface: #2e1a18;
+    --color-danger-border: #e07b69;
+    --color-danger-text: #f5b9ad;
+
+    --color-stale-surface: #2a2418;
+    --color-stale-text: #d6b068;
+  }
+}
+
+[data-theme="dark"] {
+  --color-surface: #1a1612;
+  --color-surface-elevated: #251f18;
+  --color-surface-sunken: #120f0c;
+
+  --color-text: #f2ebdc;
+  --color-text-muted: #b5ab99;
+  --color-text-inverse: #1a1612;
+
+  --color-border: #3a322a;
+  --color-border-strong: #5c5246;
+
+  --color-accent: #e89478;
+  --color-accent-hover: #f0a892;
+  --color-accent-pressed: #d87f63;
+  --color-on-accent: #1a1612;
+
+  --color-link: #7bb5c0;
+  --color-link-hover: #9bcad2;
+  --color-link-visited: #b49dc7;
+
+  --color-focus-ring: #f4c147;
+
+  --color-aid: #84b377;
+  --color-obstacle-mild: #d6b068;
+  --color-obstacle-difficult: #e0925a;
+  --color-obstacle-blocking: #e07b69;
+
+  --color-warning-surface: #2e2620;
+  --color-warning-border: #d6b068;
+  --color-warning-text: #f0d89a;
+
+  --color-danger-surface: #2e1a18;
+  --color-danger-border: #e07b69;
+  --color-danger-text: #f5b9ad;
+
+  --color-stale-surface: #2a2418;
+  --color-stale-text: #d6b068;
+}

@@ -1,0 +1,89 @@
+name: Data is wrong about a place
+description: A feature (ramp, restroom, signal, etc.) is mis-described in Scout's data.
+title: "[data] <dataset> — <approx location>"
+labels: ["data-discrepancy"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for flagging this. Some important context first:
+
+        - Scout surfaces **what DC's public datasets say**, with the
+          inspection year exposed so you can judge freshness
+          (`NF-TRUST-02`). Scout does **not** correct the underlying data
+          — the city does.
+        - Scout makes **no claim of completeness** (`NF-TRUST-04`). A
+          missing feature is not the same as a non-existent feature.
+        - An **in-app correction flow is planned** (`M3-F25`). Until it
+          ships, this issue is the right place to report a data
+          discrepancy — but we cannot fix DC's source-of-record from
+          here, and we file these so we hear you and so the M3 backlog
+          stays grounded in real reports.
+
+        If your report would otherwise expose a personal route or
+        address, please use an approximate textual location rather than
+        coordinates.
+
+  - type: dropdown
+    id: dataset
+    attributes:
+      label: Which dataset?
+      description: |
+        Pick the dataset whose record is wrong. If you're not sure,
+        choose "I'm not sure" and describe the feature below.
+      options:
+        - ADA Curb Ramp
+        - ADA Driveway
+        - ADA Audible Pedestrian Signal
+        - ADA Bus Stop
+        - ADA Median Cut-Through
+        - ADA Barrier in the Public Right-of-Way
+        - Accessible Parking Zone
+        - Refuge Restrooms (external API)
+        - Other / I'm not sure
+    validations:
+      required: true
+
+  - type: input
+    id: approx_location
+    attributes:
+      label: Approximate location
+      description: |
+        A textual description is preferred over coordinates — e.g.
+        "northeast corner of 14th & U NW" or "in front of Eastern
+        Market".
+      placeholder: "northeast corner of 14th & U NW"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_is_wrong
+    attributes:
+      label: What is wrong about this record?
+      description: |
+        Compare what Scout shows to what's actually there. If you can,
+        include the `inspected_year` Scout displays and roughly when you
+        last observed the feature in person.
+    validations:
+      required: true
+
+  - type: input
+    id: freshness_expectation
+    attributes:
+      label: When would you expect this kind of data to be re-inspected?
+      description: |
+        Helps us tell a "stale by years" problem apart from a "wrong on
+        the day it was inspected" problem.
+      placeholder: "Annually / every few years / on report"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: trust_ack
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand Scout surfaces DC's public data and cannot fix the source-of-record from here. An in-app correction flow is planned (`M3-F25`).
+          required: true
+        - label: I have used an approximate textual location rather than personal coordinates.
+          required: true

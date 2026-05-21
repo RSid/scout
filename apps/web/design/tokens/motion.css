@@ -1,0 +1,51 @@
+/*
+ * Scout motion tokens — M1 design system v1 (DEC-015)
+ *
+ * Two non-negotiables (NF-A11Y-04):
+ * 1. Honor `prefers-reduced-motion: reduce` — animations collapse to ~0 ms,
+ *    not removed entirely (a state change still needs to register).
+ * 2. No autoplaying motion. Map flyTo, panel slides, toast entrances all opt
+ *    out when reduced motion is requested.
+ */
+
+:root {
+  /* Durations. Tight enough that nothing feels laggy; loose enough to be
+     perceptible. */
+  --duration-instant: 0ms;
+  --duration-fast: 120ms; /* hover, focus */
+  --duration-medium: 200ms; /* button press, chip select */
+  --duration-slow: 320ms; /* modal enter, panel slide */
+
+  /* Easing. Mostly ease-out for "appearing" feel; reserve ease-in-out for
+     things that must come back (modal in/out). */
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --easing-symmetric: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-fast: 0.01ms;
+    --duration-medium: 0.01ms;
+    --duration-slow: 0.01ms;
+  }
+
+  /*
+   * Documented exception to apps/web/AGENTS.md "No !important":
+   * `prefers-reduced-motion` is the canonical case where the reduced-motion
+   * stylesheet MUST win over third-party CSS the app does not control
+   * (MapLibre's pan animations, react-aria's transitions, library defaults).
+   * Owning the cascade for third-party CSS is not possible; !important is the
+   * only mechanism. Source: WCAG 2.2.2 / WCAG 2.3.3 guidance and the standard
+   * `*, *::before, *::after` reduced-motion reset pattern.
+   */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

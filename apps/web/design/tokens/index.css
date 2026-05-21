@@ -1,0 +1,18 @@
+/*
+ * Single-import entry point for the design token layer.
+ *
+ * Consume from the frontend with:
+ *
+ *   @import "@/design/tokens/index.css";
+ *
+ * or via Tailwind's `@layer base` import in `app/globals.css`.
+ *
+ * Order matters: typography first (registers @font-face), then colors, then
+ * spacing/radius/elevation, then motion. Motion uses the reduced-motion media
+ * query and must come last so its universal-selector reset wins.
+ */
+
+@import "./typography.css";
+@import "./colors.css";
+@import "./spacing.css";
+@import "./motion.css";

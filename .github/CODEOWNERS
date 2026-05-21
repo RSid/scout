@@ -1,0 +1,32 @@
+# CODEOWNERS — Scout
+#
+# Routes review requests automatically when a PR touches these paths.
+# Branch protection on `main` requires at least one approving review
+# from a code owner before merge for non-maintainer contributors.
+#
+# Solo-maintainer status: today @RSid is the only maintainer. Per
+# DEC-017 and AGENTS.md "Commits and PRs", the solo-dev fast-path
+# self-merge is allowed; branch protection on `main` runs with
+# enforce_admins=false so the admin bypasses the review requirement.
+#
+# TODO: replace @RSid with @<org>/scout-maintainers once the repo is
+# moved to a GitHub Organization. Personal user accounts cannot host
+# Teams, so the team-alias plan in M1-T16 is blocked on that
+# migration — tracked as a follow-up issue.
+
+* @RSid
+
+/apps/backend/ @RSid
+/apps/web/     @RSid
+/scripts/      @RSid
+
+# pending M1-T05 — directory does not yet exist on disk; harmless to
+# list because GitHub silently ignores rules whose path doesn't match.
+/infra/        @RSid
+
+# Treat changes to the PRD, decisions log, and repo-meta as
+# maintainer-reviewed.
+/docs/         @RSid
+/.github/      @RSid
+/AGENTS.md     @RSid
+/CONTRIBUTING.md @RSid

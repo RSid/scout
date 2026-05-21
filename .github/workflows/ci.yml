@@ -1,0 +1,205 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Avoid stacking redundant runs on rapid pushes / force-pushes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+
+  # -------------------------------------------------------------------
+  # Backend: ruff -> mypy --strict -> pytest against a PostGIS service
+  # container. DEC-020 stub adapters keep tests deterministic; the live
+  # DB is wired up so that the next round of tests (M1-F03 onward) can
+  # exercise SQLAlchemy without changing CI plumbing.
+  # -------------------------------------------------------------------
+  backend:
+    name: backend (lint + types + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: scout
+          POSTGRES_USER: scout
+          POSTGRES_PASSWORD: scout
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U scout -d scout"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@localhost:5432/scout
+      SCOUT_NOMINATIM_USER_AGENT: scout-ci/0.1 (ci@scout.local)
+      SCOUT_ROUTING_PROVIDER: stub
+      SCOUT_GEOCODING_PROVIDER: stub
+      SCOUT_RESTROOMS_PROVIDER: stub
+      SCOUT_LOG_LEVEL: WARNING
+
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Sync deps
+        run: uv sync --frozen
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Mypy --strict
+        run: uv run mypy --strict scout
+
+      - name: Pytest
+        run: uv run pytest -ra --cov=scout --cov-report=term-missing
+
+  # -------------------------------------------------------------------
+  # Web: eslint -> vitest (jest-axe) -> playwright (@axe-core/playwright).
+  # Coverage thresholds enforced by vitest config (see apps/web/AGENTS.md).
+  # -------------------------------------------------------------------
+  web:
+    name: web (lint + unit + e2e + axe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Vitest + coverage
+        run: npm run test:coverage
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # Bust the cache when the lockfile bumps Playwright; otherwise reuse.
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright + axe
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # Docker build validation. Builds the full multi-stage runtime image
+  # so we catch Dockerfile drift before deploy time. No registry push.
+  # -------------------------------------------------------------------
+  docker-build:
+    name: docker build (runtime image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile
+          target: runtime
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # -------------------------------------------------------------------
+  # Supply-chain audits. Fails on high/critical advisories per
+  # AGENTS.md "Security and privacy posture". Dependabot handles the
+  # bumps; this job just catches the gap between bump cadence and disclosure.
+  # -------------------------------------------------------------------
+  audit:
+    name: audits (pip + npm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Don't block PRs on advisories that may already be queued for fix —
+    # log them, but mark the job as informational. Flip to strict once the
+    # surface area stabilizes.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Backend pip-audit
+        working-directory: apps/backend
+        run: |
+          uv export --frozen --no-dev --format requirements-txt > /tmp/requirements.txt
+          uv run --with pip-audit pip-audit --requirement /tmp/requirements.txt --strict
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Web npm audit
+        working-directory: apps/web
+        run: npm audit --omit=dev --audit-level=high
