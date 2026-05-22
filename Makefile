@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-down
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-down docker-reset-web-deps
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -105,6 +105,18 @@ docker-up: ## docker compose up (infra/docker-compose.yml)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
 	docker compose $(COMPOSE_FLAGS) up
 
+docker-up-interactive-map:
+	docker compose --project-directory . -f infra/docker-compose.yml \
+	run --rm --service-ports \
+	-e NEXT_PUBLIC_SCOUT_MAP_MODE=interactive web
+
 docker-down: ## docker compose down (infra/docker-compose.yml)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
 	docker compose $(COMPOSE_FLAGS) down
+
+docker-reset-web-deps: ## wipe web node_modules/.next volumes (pgdata untouched); use after deps change — then compose up --build
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	docker compose $(COMPOSE_FLAGS) stop web 2>/dev/null || true
+	docker compose $(COMPOSE_FLAGS) rm -sf web 2>/dev/null || true
+	docker volume rm -f scout_web-node_modules scout_web-next 2>/dev/null || true
+	@printf '%s\n' 'Next: docker compose $(COMPOSE_FLAGS) up --build   (Rebuild web image when package*.json changed; volumes re-seed from the image.)'

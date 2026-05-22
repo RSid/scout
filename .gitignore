@@ -33,6 +33,7 @@ coverage/
 apps/web/coverage/
 apps/web/test-results/
 apps/web/playwright-report/
+apps/web/scripts/inspect-artifacts/
 
 # Runtime cache (SCOUT_CACHE_DIR default)
 .scout-cache/

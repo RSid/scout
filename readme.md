@@ -7,6 +7,7 @@ Scout is an open source community webapp local to Washington DC intended to help
 - **Python ≥ 3.12** — [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
 - **Node ≥ 20 + pnpm** — needed once `apps/web/package.json` exists ([pnpm install](https://pnpm.io/installation)).
 - **pre-commit** — `brew install pre-commit` or `uv tool install pre-commit` ([install guide](https://pre-commit.com/#install)).
+- **go-pmtiles** - `brew install pmtiles`, used for working with (pmtiles archives)[https://github.com/protomaps/go-pmtiles]
 
 ## Getting started
 
