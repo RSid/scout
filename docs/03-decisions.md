@@ -245,6 +245,8 @@ flows; 3.1.5 (reading level) — keep all microcopy at lower-secondary reading l
 **Consequences.**
 - M1-F10 audit gates MVP launch.
 - CI gate via `@axe-core/playwright` runs on every PR.
+- See `docs/contributor/voice-and-copy.md` §3 for the concrete reading-level
+  numbers (FK ≤ 8 body, ≤ 6 microcopy) and how to test them before merging.
 
 ---
 
@@ -270,6 +272,9 @@ risk if data is wrong. Per OQ-07.
 - Onboarding modal needs strong accessibility (focus trap, screen reader
   announcement, skip path).
 - "Got it" state stored in `localStorage` only; no server identity needed.
+- See `docs/contributor/voice-and-copy.md` §8 for trust-copy tone rules and
+  the L1–L4 trust ladder that refines this two-layer pattern at the
+  copy level.
 
 ---
 

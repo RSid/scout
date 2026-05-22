@@ -4,5 +4,5 @@ export type LocaleMessages = Record<string, string>;
 
 export const en: LocaleMessages = {
   locale: "en",
-  scoutTitle: "Scout accessibility previews — DC",
+  scoutTitle: "Scout — walking routes and accessibility data for DC",
 };

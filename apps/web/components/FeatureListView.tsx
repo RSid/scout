@@ -24,7 +24,8 @@ export default function FeatureListView({ route, features }: Props) {
           Nearby features ({features.length})
         </h2>
         <p className="text-sm text-[color:var(--color-text-muted)]">
-          Expanded rows summarize condition and freshness for non-map readers.
+          A text version of what&apos;s on the map. Expand a row to see its condition
+          and last inspection year.
         </p>
       </header>
 
@@ -68,10 +69,10 @@ function FeatureRow({
           lon,
           lat,
         );
-        offsetText = `${formatApproxMeters(crossMetersRough)} from corridor`;
+        offsetText = `${formatApproxMeters(crossMetersRough)} from your route`;
       }
     } catch {
-      offsetText = "Distance approximation unavailable.";
+      offsetText = "Distance from route unavailable.";
     }
   }
 
@@ -88,7 +89,7 @@ function FeatureRow({
       ? feat.properties.inspected_year
       : null;
 
-  const summaryHeading = `${shape} · ${label} · ${condition} · ${offsetText || "~ distance unknown"}`;
+  const summaryHeading = `${shape} · ${label} · ${condition} · ${offsetText || "distance from route unknown"}`;
 
   return (
     <details className="rounded-tokenLg border border-border bg-surface-elevated text-[color:var(--color-text)]">
@@ -99,9 +100,9 @@ function FeatureRow({
       <div className="space-y-[var(--space-3)] border-t border-border px-[var(--space-4)] py-[var(--space-4)]">
         <p className="text-sm text-[color:var(--color-text-muted)]">{condition}</p>
         <p className="text-xs text-[color:var(--color-text-muted)]">
-          Corridor offset: <span aria-live="polite">{offsetText}</span>
+          Distance from route: <span aria-live="polite">{offsetText}</span>
         </p>
-        {inspectedYear !== null ? <p>{`Inspected in ${inspectedYear}`}</p> : null}
+        {inspectedYear !== null ? <p>{`Last inspected in ${inspectedYear}`}</p> : null}
         <button
           type="button"
           className="rounded-tokenMd border border-border bg-accent px-[var(--space-4)] py-[var(--space-3)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark"

@@ -4,6 +4,8 @@ import { en } from "./messages";
 
 describe("English UI strings scaffold", () => {
   it("exports locale metadata alongside marketing title", () => {
-    expect(`${en.locale} ${en.scoutTitle}`).toMatch(/Scout accessibility previews/);
+    expect(`${en.locale} ${en.scoutTitle}`).toMatch(
+      /walking routes and accessibility data/,
+    );
   });
 });

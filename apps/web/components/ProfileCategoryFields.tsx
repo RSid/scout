@@ -17,7 +17,7 @@ export default function ProfileCategoryFields({
 }: Props) {
   return (
     <fieldset className="space-y-[var(--space-3)]">
-      <legend className="sr-only">Categories to prioritize on the map</legend>
+      <legend className="sr-only">Accessibility categories to show on the map</legend>
       {categories.map((category) => {
         const checked = selections[category.id] ?? category.default_enabled;
         return (

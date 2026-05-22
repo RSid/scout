@@ -135,12 +135,19 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   and that it's a planning aid, not a guarantee — before I start planning a real trip.*
 - **Depends on:** —
 - **Acceptance criteria:**
-  - `/` route renders an about page with: project name, one-sentence pitch, data
-    sources (with links and last-updated dates), AGPL license link, GitHub link,
-    contact, and a prominent disclaimer block.
-  - The disclaimer block is announced as a `<section>` with `aria-labelledby` to a
-    visible "Important" heading; not stuffed in a footer.
-  - Page loads without JavaScript (server-rendered).
+  - `/` renders a focused, server-rendered landing with project name and one-sentence pitch,
+    a secondary navigation link to `/about`, and a primary CTA into `/plan`.
+  - `/about` renders the fuller about surface with: detailed pitch (mirrors `/`), data
+    sources (with originating links plus each dataset's bundled `lastInspectedYear`/`YEAR_INSPECTED`
+    rollup or labeled unknowns where no year exists yet), AGPL license link, GitHub link,
+    GitHub-managed contact/support links, and a prominent disclaimer landmark.
+  - The disclaimer landmark lives at `/about#disclaimer`, is voiced as `<section>`
+    labelled via `aria-labelledby` to a visible `h2` that names what the section covers
+    (e.g. "About Scout's data" — a bare "Important" heading is banned by
+    `docs/contributor/voice-and-copy.md` §12.5), and contains the verbatim
+    L1 copy from `NF-TRUST-01` (not relegated exclusively to footer chrome).
+  - Landing + about routes rely on Next.js Server Components (`DEC-001`) so substantive copy renders
+    from `app/page.tsx` and `app/about/page.tsx` without depending on hydrated client bundles.
 - **Accessibility notes:** WCAG 2.2 — 1.3.1 (info & relationships), 2.4.6 (headings/labels),
   3.1.1 (language), 1.4.3 (contrast AA).
 - **Estimate:** S
@@ -161,9 +168,11 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
     (Tab-focusable, Enter/Space activate).
   - A "Skip map" link at the top of the map allows keyboard users to jump past the
     map to the controls and list view.
-  - Map has `role="application"` with an explicit `aria-label` that describes it
-    ("Interactive map of Washington, DC; press Tab to access controls; press M then arrow
-    keys to pan").
+  - Map has `role="application"` with a short `aria-label` ("Interactive map of
+    Washington, DC" — kept ≤ 10 words and as a fragment per
+    `docs/contributor/voice-and-copy.md` §9.2), plus an `aria-describedby`
+    pointing to a separate keyboard-hint element ("Tab to reach map controls.
+    Press M then arrow keys to pan.").
 - **Accessibility notes:** WCAG 2.2 — 2.1.1 (keyboard), 2.4.1 (bypass blocks),
   4.1.2 (name/role/value), 1.4.13 (content on hover/focus).
 - **Estimate:** M
@@ -206,8 +215,11 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
     and clearly flags this fallback in the response (`fallback_profile_used: true`).
   - Endpoint caches results by rounded coordinates for 24 hours (in-memory LRU is
     fine for M1) to stay under ORS free-tier rate limits.
-  - All errors mapped to user-facing strings: "No route found," "Route service is
-    temporarily unavailable, please try again," etc.
+  - All errors mapped to user-facing strings following
+    `docs/contributor/voice-and-copy.md` §7.4 (name what happened, then say what
+    the reader can do; no "please try again," no exclamation marks, no blame).
+    Examples: "We couldn't find a route between those two points," "Routing is
+    taking longer than usual — you can wait or pick a closer destination."
 - **Accessibility notes:** All error messages are text and announced via an
   `aria-live="polite"` region. WCAG 2.2 — 3.3.1, 4.1.3.
 - **Estimate:** M
@@ -728,10 +740,16 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 
 ### §7.4 Liability and trust (NF-TRUST)
 
-- **NF-TRUST-01** A short disclaimer is present on the landing page and as a
-  collapsed-but-visible banner on the route view: "Scout is a planning aid based
-  on public data, some of which is years old. Always plan a fallback. Scout's
-  maintainers are not responsible for trip outcomes."
+- **NF-TRUST-01** Trust copy follows the L1–L4 trust ladder in
+  `docs/contributor/voice-and-copy.md` §8 (binding per DEC-021).
+  - **L1 (full disclosure)** lives at `/about#disclaimer`, linked prominently
+    from `/`: "Scout shows public accessibility data alongside walking routes.
+    Some of that data is years old, and the streets may have changed. Use Scout
+    to plan, and check what matters most before you go."
+  - **L2 (standing reminder)** appears as a dismissible-per-session banner on
+    the route view (per DEC-010): "Scout's accessibility data is from public
+    sources and may be out of date." with a self-describing link to L1
+    ("About this data").
 - **NF-TRUST-02** Every Feature shows its `inspected_year`. Features older than
   3 years show a `Data may be outdated` warning.
 - **NF-TRUST-03** Source attribution links from every Feature back to its

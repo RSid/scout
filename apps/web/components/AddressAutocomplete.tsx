@@ -72,7 +72,7 @@ export default function AddressAutocomplete({
           const fallback =
             error instanceof ScoutApiError
               ? error.message
-              : "Geocoder stalled — shorten the typed query.";
+              : "Address search isn't responding — try a shorter query.";
           announce(fallback);
           setSuggestions([]);
         }
@@ -111,23 +111,26 @@ export default function AddressAutocomplete({
         }
 
         onPickCoordinates([match.lon, match.lat]);
-        announce(`Pinned suggestion ${match.label}`);
+        announce(`Selected ${match.label}`);
         window.setTimeout(() => setInputValue(match.label));
       }}
     >
-      <Label className="block font-semibold">Places search</Label>
+      <Label className="block font-semibold">Search for an address</Label>
       <div className="flex flex-wrap gap-[var(--space-3)]">
         <Input
           className="min-h-tap flex-[1_1_260px] rounded-tokenMd border border-border bg-[color:var(--color-surface)] px-[var(--space-4)] py-[var(--space-3)] outline-none focus-visible:btn-accent-double-ring-dark"
-          placeholder="Type three letters to query OSM nominatim"
+          placeholder="Type an address (at least 3 letters)"
         />
-        <Button className="min-h-tap rounded-tokenMd border border-border px-[var(--space-5)]">
+        <Button
+          aria-label="Show suggestions"
+          className="min-h-tap rounded-tokenMd border border-border px-[var(--space-5)]"
+        >
           ⌄
         </Button>
       </div>
       <Popover className="max-h-[16rem] w-full rounded-tokenMd border border-border bg-[color:var(--color-surface-elevated)] shadow-modal">
         <Text slot="description" className="sr-only">
-          Each option maps to volunteered coordinates for map wiring.
+          Pick an address to set the next route point.
         </Text>
         <ListBox className="max-h-[220px]">
           {(item: AddrHit) => (
@@ -147,31 +150,29 @@ export default function AddressAutocomplete({
           className="inline-flex min-h-tap rounded-tokenMd border border-border px-[var(--space-6)] py-[var(--space-4)] focus-visible:btn-accent-double-ring-dark"
           onClick={() => {
             if (typeof navigator.geolocation === "undefined") {
-              announce("Geolocation is not exposed in this browser.");
+              announce("Your browser doesn't support location.");
               return;
             }
 
             navigator.geolocation.getCurrentPosition(
               ({ coords }) => {
-                announce(
-                  `Browser anchored ${coords.latitude.toFixed(3)}°, ${coords.longitude.toFixed(3)}°`,
-                );
+                announce("Got your location.");
                 onPickCoordinates([coords.longitude, coords.latitude]);
               },
               () => {
-                announce("Location permission declined.");
+                announce("Location permission was declined.");
               },
             );
           }}
         >
-          Use my location on click only
+          Use my location
         </button>
         {busy ? (
           <p
             className="text-sm text-[color:var(--color-text-muted)]"
             aria-live="polite"
           >
-            Debouncing nominatim…
+            Searching…
           </p>
         ) : null}
       </div>

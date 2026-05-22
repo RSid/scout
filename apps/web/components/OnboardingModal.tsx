@@ -52,10 +52,10 @@ export default function OnboardingModal() {
               id="scout-onboarding-heading"
               className="text-2xl font-semibold text-[color:var(--color-text)]"
             >
-              Meet Scout previews
+              Set up your accessibility profile
             </Dialog.Title>
             <p className="text-[color:var(--color-text-muted)]">
-              Three quick beats before plotting a District route.
+              Tell Scout which accessibility features matter to your route.
             </p>
           </header>
           <div
@@ -63,22 +63,22 @@ export default function OnboardingModal() {
             className="mt-[var(--space-5)] space-y-[var(--space-5)]"
           >
             <p className="text-[color:var(--color-text)]">
-              Scout overlays volunteered accessibility cues on top of public basemaps —
-              good for scouting a trip ahead of time, terrible as a realtime safety net.
+              Scout shows public accessibility data alongside walking routes in
+              Washington, DC. It&apos;s a planning aid, not a real-time safety guide.
             </p>
             <p className="text-[color:var(--color-text)]">
-              We pair shape + color cues with categories you pick below so color alone
-              never carries the signal.
+              Scout uses shape and color together for every feature on the map, so color
+              isn&apos;t the only signal.
             </p>
             <aside className="rounded-tokenMd bg-[color:var(--color-warning-surface)] p-[var(--space-5)] text-sm text-[color:var(--color-warning-text)]">
-              Data can be stale immediately after release. Crossing guards, elevators,
-              closures, police barricades aren&apos;t magically reflected unless someone
-              reports them. Always corroborate in the wild.
+              Scout&apos;s data comes from public datasets and can be out of date the
+              day it&apos;s released. Elevators, closures, and street changes may not
+              show up until the source is updated.
             </aside>
           </div>
           <section className="mt-[var(--space-6)] space-y-[var(--space-3)]">
             <h2 className="text-lg font-semibold text-[color:var(--color-text)]">
-              Choose categories before we continue
+              Choose what to highlight
             </h2>
             <div className="max-h-[40vh] overflow-y-auto rounded-tokenMd border border-border p-[var(--space-4)]">
               <ProfileCategoryFields
@@ -93,10 +93,10 @@ export default function OnboardingModal() {
               onClick={() => {
                 resetToDefaults();
                 persist();
-                announce("Category toggles snapped back to Scout defaults.");
+                announce("Categories reset to defaults.");
               }}
             >
-              Reset to defaults inline
+              Reset to defaults
             </button>
           </section>
           <div className="mt-[var(--space-8)] flex flex-wrap gap-[var(--space-4)] justify-end">
@@ -116,10 +116,10 @@ export default function OnboardingModal() {
                 onClick={() => {
                   persist();
                   markOnboardingComplete();
-                  announce("Saved preferences — welcome aboard.");
+                  announce("Saved your preferences.");
                 }}
               >
-                Save preference set
+                Save and continue
               </button>
             </Dialog.Close>
           </div>

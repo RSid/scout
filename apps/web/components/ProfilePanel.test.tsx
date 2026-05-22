@@ -62,7 +62,7 @@ describe("ProfilePanel", () => {
     );
 
     await waitFor(() =>
-      expect(screen.queryByText(/loading category catalog/i)).not.toBeInTheDocument(),
+      expect(screen.queryByText(/loading categories/i)).not.toBeInTheDocument(),
     );
     const triggers = screen.getAllByRole("button", {
       name: /^accessibility profile$/i,
