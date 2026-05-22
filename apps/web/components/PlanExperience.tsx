@@ -1,5 +1,6 @@
 "use client";
 
+import SkipLink from "@/components/a11y/SkipLink";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import BasemapView from "@/components/BasemapView";
 import FeatureListView from "@/components/FeatureListView";
@@ -177,7 +178,10 @@ export default function PlanExperience() {
       <AddressAutocomplete onPickCoordinates={handleCoordinates} />
 
       <div className="flex flex-col gap-[var(--space-10)] xl:flex-row-reverse xl:items-start">
-        <BasemapView corridor={corridorFeatures} route={routeFeature} />
+        <div className="relative w-full xl:max-w-xl">
+          <SkipLink preset="flow" href="#scout-route-list" label="Skip map" />
+          <BasemapView corridor={corridorFeatures} route={routeFeature} />
+        </div>
         <div className="flex-1">
           <FeatureListView route={routeFeature} features={corridorFeatures} />
         </div>

@@ -3,8 +3,7 @@
 # Stages:
 #   - deps-backend : install backend Python deps with uv (cached)
 #   - builder-web  : build Next.js standalone bundle with npm
-#   - builder-tiles: produce dc.pmtiles (placeholder until M1-F02 ships
-#                    scripts/build_pmtiles.sh — swap the RUN line then)
+#   - builder-tiles: downloads pmtiles CLI + runs scripts/build_pmtiles.sh → dc.pmtiles
 #   - dev-backend  : Compose dev target; expects source bind-mounted at /app/backend
 #   - dev-web      : Compose dev target; expects source bind-mounted at /app/web
 #   - runtime      : production image — backend + Next standalone + tiles
@@ -57,17 +56,38 @@ RUN npm run build
 
 
 # --------------------------------------------------------------------------
-# builder-tiles: produce /out/dc.pmtiles.
-# Placeholder until scripts/build_pmtiles.sh lands with M1-F02. Swap the
-# `RUN` line below to invoke the script and embed the real DC PMTiles file.
+# builder-tiles: reproducible DC bbox extract from Protomaps daily basemap.
 # --------------------------------------------------------------------------
 FROM debian:bookworm-slim AS builder-tiles
 
-WORKDIR /out
+ARG TARGETARCH
+ARG SCOUT_PROTOMAPS_BUILD_DATE=20260521
+ENV SCOUT_PROTOMAPS_BUILD_DATE="${SCOUT_PROTOMAPS_BUILD_DATE}" \
+    PMTILES_CLI_VERSION=1.30.2 \
+    PMTILES_SHA256_LINUX_AMD64=2cd3aa18868297fc88425038f794efdc0995e0275f4ca16fa496dd79e245a40c \
+    PMTILES_SHA256_LINUX_ARM64=804cdf071834e1156af554c1a26cc42b56b9cde5a2db9c6e3653d16fb846d5fa
+
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/* \
- && : > /out/dc.pmtiles
+ && case "${TARGETARCH}" in \
+      amd64) ARCH_TAG="_Linux_x86_64" ; EXPECTED_SHA256="${PMTILES_SHA256_LINUX_AMD64}" ;; \
+      arm64) ARCH_TAG="_Linux_arm64"    ; EXPECTED_SHA256="${PMTILES_SHA256_LINUX_ARM64}" ;; \
+      *) echo "builder-tiles: unsupported TARGETARCH=${TARGETARCH}" >&2 ; exit 1 ;; \
+    esac \
+ && curl -fsSL \
+      "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_CLI_VERSION}/go-pmtiles_${PMTILES_CLI_VERSION}${ARCH_TAG}.tar.gz" \
+      -o /tmp/go-pmtiles.tgz \
+ && echo "${EXPECTED_SHA256}  /tmp/go-pmtiles.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/go-pmtiles.tgz -C /usr/local/bin pmtiles \
+ && chmod +x /usr/local/bin/pmtiles \
+ && rm -f /tmp/go-pmtiles.tgz
+
+WORKDIR /scout
+COPY scripts/build_pmtiles.sh /scout/scripts/build_pmtiles.sh
+RUN chmod +x /scout/scripts/build_pmtiles.sh \
+ && mkdir -p /out \
+ && /scout/scripts/build_pmtiles.sh /out/dc.pmtiles --force
 
 
 # --------------------------------------------------------------------------
@@ -172,7 +192,7 @@ COPY --chown=scout:scout --from=builder-web /app/web/.next/standalone /app/web/
 COPY --chown=scout:scout --from=builder-web /app/web/.next/static     /app/web/.next/static
 COPY --chown=scout:scout --from=builder-web /app/web/public           /app/web/public
 
-# Tiles: placeholder until M1-F02 ships the real builder script.
+# Tiles: vector basemap served at /tiles/dc.pmtiles (range requests).
 COPY --chown=scout:scout --from=builder-tiles /out/dc.pmtiles /app/web/public/tiles/dc.pmtiles
 
 COPY --chown=scout:scout --chmod=0755 infra/start.sh /app/start.sh

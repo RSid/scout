@@ -24,6 +24,7 @@
     "maplibre-gl": "~4.7.1",
     "next": "~15.5.18",
     "pmtiles": "~4.3.2",
+    "protomaps-themes-base": "4.5.0",
     "react": "~18.3.1",
     "react-aria-components": "~1.17.0",
     "react-dom": "~18.3.1"
