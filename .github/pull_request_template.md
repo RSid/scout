@@ -42,16 +42,6 @@ test, explain why — and confirm you did not weaken it (AGENTS.md rule #2).
 
 -
 
-## Mocks introduced
-
-<!--
-Every mock must be visible per AGENTS.md rule #3. List each mock here with
-its `# MOCK:` (Python) or `// MOCK:` (TS) annotation site. Write "None" if
-no mocks were added.
--->
-
--
-
 ## Screenshots
 
 <!--
@@ -63,15 +53,11 @@ relevant. Axe report attachments are welcome for a11y-touching work.
 
 <!-- Things you noticed but intentionally did not touch in this PR. -->
 
--
-
----
+- ***
 
 ## Author checklist
 
 - [ ] PR title uses Conventional Commits and cites the ticket id.
-- [ ] Every mock in the diff is annotated with `# MOCK:` / `// MOCK:` and
-      listed under **Mocks introduced** above (AGENTS.md rule #3).
 - [ ] **New dependency?** I added the one-sentence justification (what
       need, what was rejected, why this) and ran the local security scan
       (`pip-audit` for Python, `npm audit --omit=dev` for Node). See
