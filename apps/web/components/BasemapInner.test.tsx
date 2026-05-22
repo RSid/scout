@@ -9,8 +9,15 @@ import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixt
 import { en } from "@/lib/i18n/messages";
 
 const stubs = vi.hoisted(() => {
-  // MOCK: MapLibre pulls WebGL; stub construction so axe can inspect the landmark wiring.
-  type MapInteractiveStub = { flushLoadHandlers: () => void };
+  // MOCK: MapLibre pulls WebGL; stub construction so the lifecycle invariants
+  // from #50 / #51 can be asserted without a real GL context. Tracks ctor
+  // count, per-source setData spies, isStyleLoaded gating, and resize calls.
+  type MapInteractiveStub = {
+    flushLoadHandlers: () => void;
+    isStyleLoaded: () => boolean;
+    sourceSetDataSpy: (id: string) => ReturnType<typeof vi.fn> | undefined;
+    resize: ReturnType<typeof vi.fn>;
+  };
   let instancesLocal: MapInteractiveStub[] = [];
 
   class NavigationControl {}
@@ -36,12 +43,24 @@ const stubs = vi.hoisted(() => {
 
   class MapStubCtor {
     readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    // Each source id has one stable stub object for the lifetime of the stub
+    // map, so production's `getSource(id).setData(...)` lands on the same spy
+    // call after call (matches the real MapLibre identity contract).
+    readonly sourceStubs = new Map<
+      string,
+      {
+        setData: ReturnType<typeof vi.fn>;
+        getClusterExpansionZoom: () => Promise<number>;
+      }
+    >();
+    styleLoaded = false;
 
     constructor() {
       instancesLocal.push(this);
     }
 
     flushLoadHandlers() {
+      this.styleLoaded = true;
       for (const fn of this.listeners.get("load") ?? []) {
         fn({});
       }
@@ -51,6 +70,14 @@ const stubs = vi.hoisted(() => {
       const queue = this.listeners.get(type);
       if (queue) queue.push(fn);
       else this.listeners.set(type, [fn]);
+    }
+
+    isStyleLoaded() {
+      return this.styleLoaded;
+    }
+
+    sourceSetDataSpy(id: string) {
+      return this.sourceStubs.get(id)?.setData;
     }
 
     readonly addControl = vi.fn();
@@ -64,9 +91,17 @@ const stubs = vi.hoisted(() => {
       removeEventListener: vi.fn(),
     });
 
-    readonly getSource = vi.fn(() => ({
-      getClusterExpansionZoom: () => Promise.reject(new Error("MOCK_CLUSTER")),
-    }));
+    readonly getSource = vi.fn((id: string) => {
+      let stub = this.sourceStubs.get(id);
+      if (!stub) {
+        stub = {
+          setData: vi.fn(),
+          getClusterExpansionZoom: () => Promise.reject(new Error("MOCK_CLUSTER")),
+        };
+        this.sourceStubs.set(id, stub);
+      }
+      return stub;
+    });
 
     readonly remove = vi.fn();
 
@@ -89,6 +124,11 @@ const stubs = vi.hoisted(() => {
     Popup,
   };
 });
+
+// MOCK: jsdom's ResizeObserver is a no-op stub from vitest.setup.ts; this
+// file overrides it per-test so the lifecycle test can fire a synthetic
+// resize callback and assert that BasemapInner forwards it to map.resize().
+const resizeObserverCallbacks: ResizeObserverCallback[] = [];
 
 vi.mock("maplibre-gl", () => {
   const maplib = {
@@ -119,6 +159,14 @@ async function flushMapLoads() {
 describe("BasemapInner", () => {
   beforeEach(() => {
     stubs.resetMaps();
+    resizeObserverCallbacks.length = 0;
+    vi.stubGlobal(
+      "ResizeObserver",
+      vi.fn().mockImplementation((cb: ResizeObserverCallback) => {
+        resizeObserverCallbacks.push(cb);
+        return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+      }),
+    );
   });
 
   afterEach(() => {
@@ -142,5 +190,92 @@ describe("BasemapInner", () => {
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
+  });
+
+  // Acceptance criteria carried forward from #50 into the follow-up #51:
+  // data prop changes must NOT recreate the MapLibre instance; they must push
+  // through getSource(id).setData. A synthetic ResizeObserver firing must call
+  // map.resize() so late layout passes are honoured. Each `it` exercises one
+  // behaviour, per AGENTS.md.
+  describe("lifecycle (#50 / #51)", () => {
+    it("keeps a single MapLibre instance and forwards new corridor data through cluster-points.setData", async () => {
+      const { rerender } = render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner
+            corridor={demoCorridorFeatures().slice(0, 1)}
+            route={DEMO_ROUTE}
+          />
+        </AnnounceProvider>,
+      );
+
+      expect(stubs.instances).toHaveLength(1);
+      await waitFor(() => {
+        expect(
+          stubs.instances[0].sourceSetDataSpy("cluster-points"),
+        ).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("keeps a single MapLibre instance and forwards new route data through route-line.setData", async () => {
+      const { rerender } = render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const reroute1: typeof DEMO_ROUTE = { ...DEMO_ROUTE, id: "reroute-1" };
+      const reroute2: typeof DEMO_ROUTE = { ...DEMO_ROUTE, id: "reroute-2" };
+
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={reroute1} />
+        </AnnounceProvider>,
+      );
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={reroute2} />
+        </AnnounceProvider>,
+      );
+
+      expect(stubs.instances).toHaveLength(1);
+      await waitFor(() => {
+        expect(stubs.instances[0].sourceSetDataSpy("route-line")).toHaveBeenCalledTimes(
+          2,
+        );
+      });
+    });
+
+    it("calls map.resize() when its container reports a new size", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const map = stubs.instances[0];
+      // Clear the synchronous + requestAnimationFrame resize calls the mount
+      // effect already issued; only the synthetic ResizeObserver fire should
+      // contribute to the assertion below.
+      map.resize.mockClear();
+
+      expect(resizeObserverCallbacks).toHaveLength(1);
+      resizeObserverCallbacks[0]([], {} as ResizeObserver);
+
+      expect(map.resize).toHaveBeenCalledTimes(1);
+    });
   });
 });
