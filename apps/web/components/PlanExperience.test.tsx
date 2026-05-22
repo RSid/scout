@@ -76,7 +76,7 @@ describe("PlanExperience", () => {
       </AnnounceProvider>,
     );
 
-    await screen.findByRole("heading", { name: /^corridor previews$/i });
+    await screen.findByRole("heading", { name: /^plan a walking route$/i });
 
     await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
 
@@ -90,7 +90,7 @@ describe("PlanExperience", () => {
       corridorSpy.mockRejectedValue(new Error("corridor unavailable"));
     });
 
-    it("announces deterministic fixtures when corridors fail", async () => {
+    it("announces a sample fallback when the corridor request fails", async () => {
       render(
         <AnnounceProvider>
           <ProfileProvider>
@@ -99,11 +99,11 @@ describe("PlanExperience", () => {
         </AnnounceProvider>,
       );
 
-      await screen.findByRole("heading", { name: /^corridor previews$/i });
+      await screen.findByRole("heading", { name: /^plan a walking route$/i });
 
       await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
 
-      await screen.findByText(/offline fixtures/i);
+      await screen.findByText(/showing a sample instead/i);
     });
   });
 });

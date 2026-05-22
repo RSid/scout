@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s · Scout DC",
   },
   description:
-    "Lightweight previews of wheelchair-first routing and volunteered accessibility cues.",
+    "Walking routes in Washington, DC, paired with public accessibility data.",
 };
 
 export default function RootLayout({

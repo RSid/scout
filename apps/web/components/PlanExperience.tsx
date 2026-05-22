@@ -102,19 +102,19 @@ export default function PlanExperience() {
 
     if (anchorA === null) {
       setAnchorA(point);
-      announce("Pinned start suggestion — pick an ending address next.");
+      announce("Start set. Now pick a destination.");
       return;
     }
 
     if (anchorB === null) {
       setAnchorB(point);
-      announce("Pinned destination — reloading corridor slices.");
+      announce("Destination set. Loading accessibility data near your route.");
       return;
     }
 
     setAnchorA(point);
     setAnchorB(null);
-    announce("Restarting route anchors with a fresh start suggestion.");
+    announce("Route reset. Now pick a destination.");
   }
 
   useEffect(() => {
@@ -135,12 +135,12 @@ export default function PlanExperience() {
       .then((payload) => {
         setCorridorFeatures(payload.features);
         announce(
-          `Fetched ${String(payload.features.length)} volunteered cues in ${payload.meta.time_taken_ms.toFixed(0)} ms.`,
+          `Found ${String(payload.features.length)} accessibility features along your route.`,
         );
       })
       .catch(() => {
         setCorridorFeatures(demoCorridorFeatures());
-        announce("Corridor request failed — swapped in offline fixtures.");
+        announce("Couldn't load the latest features. Showing a sample instead.");
       });
 
     return () => controller.abort();
@@ -157,11 +157,11 @@ export default function PlanExperience() {
             id="scout-plan-heading"
             className="text-3xl font-semibold text-[color:var(--color-text)]"
           >
-            Corridor previews
+            Plan a walking route
           </h1>
           <p className="max-w-2xl text-[color:var(--color-text-muted)]">
-            Pick two nominatim suggestions to swap the LineString scaffold, otherwise
-            the deterministic demo corridor remains.
+            Pick a start and a destination. Until you do, Scout shows a sample route
+            across DC.
           </p>
         </div>
         <ProfilePanel />
@@ -169,7 +169,9 @@ export default function PlanExperience() {
 
       <RouteSummary
         distanceLabel={formatApproxMeters(distanceLabelMeters)}
-        warnings={["Heuristic distance until hosted routing merges into M1-F04."]}
+        warnings={[
+          "Approximate distance — Scout's full routing is still in development.",
+        ]}
       />
 
       <AddressAutocomplete onPickCoordinates={handleCoordinates} />

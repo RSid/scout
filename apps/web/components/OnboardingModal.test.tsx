@@ -62,7 +62,9 @@ describe("OnboardingModal", () => {
       </AnnounceProvider>,
     );
 
-    await screen.findByRole("heading", { name: /^meet scout previews$/i });
+    await screen.findByRole("heading", {
+      name: /^set up your accessibility profile$/i,
+    });
 
     await user.click(screen.getByRole("button", { name: /^not now$/i }));
 

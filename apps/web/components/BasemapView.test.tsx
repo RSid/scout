@@ -21,7 +21,7 @@ describe("BasemapView", () => {
       <BasemapView corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />,
     );
 
-    expect(screen.getByRole("heading", { name: /Basemap scaffold/i })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Map placeholder/i })).toBeVisible();
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);

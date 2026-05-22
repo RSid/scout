@@ -27,10 +27,10 @@ export default function RouteSummary({
         </div>
       </dl>
       <div className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
-        Important notes:
+        About this route
       </div>
       <ul className="mt-[var(--space-2)] list-disc space-y-1 pl-[var(--space-5)]">
-        <li>Powered by volunteered accessibility data snapshots.</li>
+        <li>Built from public accessibility data.</li>
         {warnings.map((item, index) => (
           <li key={`${index}:${item.slice(0, 64)}`}>{item}</li>
         ))}

@@ -46,7 +46,7 @@ paths are unchanged.
 
 | Path | What's there |
 | --- | --- |
-| `http://localhost:3000/`        | Landing page — pitch, disclaimer, link into planner. |
+| `http://localhost:3000/`        | Landing page — pitch + CTA to planner (full disclaimer/data sources live on `/about`). |
 | `http://localhost:3000/plan`    | The map + corridor planner (M1-F04 / M1-F05). Most interactive surface. |
 | `http://localhost:3000/about`   | About Scout. |
 | `http://localhost:3000/privacy` | Privacy notice. |

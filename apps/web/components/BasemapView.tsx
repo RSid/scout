@@ -36,13 +36,13 @@ function BasemapSkeleton() {
         id="scout-map-placeholder-title"
         className="text-lg font-semibold text-[color:var(--color-text)]"
       >
-        Basemap scaffold (stubbed)
+        Map placeholder
       </h2>
       <p className="max-w-[var(--measure-body)] text-[color:var(--color-text-muted)]">
-        Set NEXT_PUBLIC_SCOUT_MAP_MODE=&quot;interactive&quot; locally to mount
-        MapLibre.
+        The interactive map is in stub mode. Developers: set
+        <code>NEXT_PUBLIC_SCOUT_MAP_MODE=interactive</code> locally to load MapLibre.
       </p>
-      <noscript>JavaScript is required for the interactive Scout map.</noscript>
+      <noscript>JavaScript is needed to load Scout&apos;s interactive map.</noscript>
     </section>
   );
 }

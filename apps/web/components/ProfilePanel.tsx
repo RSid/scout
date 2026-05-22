@@ -37,7 +37,7 @@ export default function ProfilePanel() {
             id="profile-dialog-description"
             className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]"
           >
-            Decide which volunteered categories tint the corridor map and list layouts.
+            Pick which categories to show on the map and in the feature list.
           </p>
           {isReady ? (
             <>
@@ -55,7 +55,7 @@ export default function ProfilePanel() {
                     className="inline-flex min-h-tap justify-center rounded-tokenMd bg-accent px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark"
                     onClick={() => {
                       persist();
-                      announce("Accessibility profile saved to this browser.");
+                      announce("Profile saved to this browser.");
                     }}
                   >
                     Save
@@ -67,7 +67,7 @@ export default function ProfilePanel() {
                   onClick={() => {
                     resetToDefaults();
                     persist();
-                    announce("Category toggles restored to Scout defaults.");
+                    announce("Categories reset to defaults.");
                   }}
                 >
                   Reset to defaults
@@ -76,7 +76,7 @@ export default function ProfilePanel() {
             </>
           ) : (
             <p role="status" className="mt-[var(--space-5)]">
-              Loading category catalog…
+              Loading categories…
             </p>
           )}
         </Dialog.Content>
