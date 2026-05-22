@@ -13,6 +13,10 @@ dependencies = [
     "pydantic-settings>=2.14.1",
     "shapely>=2.1.2",
     "sqlalchemy[asyncio]>=2.0.48",
+    # Pinned ahead of fastapi[standard]'s default to clear PYSEC-2026-161
+    # (see CI audit job). Keep this constraint until the FastAPI release
+    # that re-pins starlette transitively.
+    "starlette>=1.0.1",
 ]
 
 [dependency-groups]
