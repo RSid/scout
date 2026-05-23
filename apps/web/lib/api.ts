@@ -1,8 +1,8 @@
 import type { GeoJSON } from "geojson";
 
-/** Server-side callers use relative `/api`; browser dev usually targets FastAPI `:8000`. */
+/** Server-side callers use relative `/api`; browser dev points at the host-published FastAPI port (`:8080` by default, overridable via `SCOUT_BACKEND_HOST_PORT`). Name must match `infra/docker-compose.yml` `NEXT_PUBLIC_SCOUT_API_BASE_URL`. */
 export function apiBase(): string {
-  return process.env.NEXT_PUBLIC_SCOUT_API_URL ?? "";
+  return process.env.NEXT_PUBLIC_SCOUT_API_BASE_URL ?? "";
 }
 
 export class ScoutApiError extends Error {

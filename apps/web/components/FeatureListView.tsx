@@ -15,7 +15,12 @@ type Props = Readonly<{
 
 export default function FeatureListView({ route, features }: Props) {
   return (
-    <section aria-labelledby="feature-list-heading" className="space-y-4">
+    <section
+      id="scout-route-list"
+      aria-labelledby="feature-list-heading"
+      className="space-y-4"
+      tabIndex={-1}
+    >
       <header>
         <h2
           id="feature-list-heading"

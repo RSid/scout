@@ -16,3 +16,14 @@
     }
   }
 }
+
+/* MapLibre 4.x leaves attribution links un-decorated by default
+ * (`.maplibregl-ctrl-attrib a { text-decoration: none }`), which trips
+ * axe's `link-in-text-block` rule (WCAG 2.4.4) because the links are
+ * neither high-contrast nor distinguishable by styling from surrounding
+ * attribution text. Restore the underline with a higher-specificity
+ * selector so it beats MapLibre's own rule regardless of CSS bundling
+ * order. The hover state (underline + color: inherit) is left intact. */
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner a {
+  text-decoration: underline;
+}

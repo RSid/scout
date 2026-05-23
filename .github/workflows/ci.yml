@@ -124,8 +124,24 @@ jobs:
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Build DC PMTiles (Playwright interactive map)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          PMTILES_CLI_VERSION=1.30.2
+          curl -fsSL \
+            "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_CLI_VERSION}/go-pmtiles_${PMTILES_CLI_VERSION}_Linux_x86_64.tar.gz" \
+            -o /tmp/go-pmtiles.tgz
+          echo "2cd3aa18868297fc88425038f794efdc0995e0275f4ca16fa496dd79e245a40c  /tmp/go-pmtiles.tgz" | sha256sum -c -
+          sudo tar -xzf /tmp/go-pmtiles.tgz -C /usr/local/bin pmtiles
+          sudo chmod +x /usr/local/bin/pmtiles
+          rm -f /tmp/go-pmtiles.tgz
+          ./scripts/build_pmtiles.sh --force
+
       - name: Playwright + axe
         run: npm run e2e
+        env:
+          NEXT_PUBLIC_SCOUT_MAP_MODE: interactive
 
       - name: Upload Playwright report
         if: failure()

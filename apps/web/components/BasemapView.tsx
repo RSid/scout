@@ -30,7 +30,7 @@ function BasemapSkeleton() {
   return (
     <section
       aria-labelledby="scout-map-placeholder-title"
-      className="relative flex min-h-[min(70vh,_640px)] w-full flex-col items-center justify-center gap-3 rounded-tokenLg border border-dashed border-border bg-surface-elevated px-6 text-center"
+      className="relative flex min-h-[640px] w-full flex-col items-center justify-center gap-3 rounded-tokenLg border border-dashed border-border bg-surface-elevated px-6 text-center"
     >
       <h2
         id="scout-map-placeholder-title"

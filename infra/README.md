@@ -14,6 +14,14 @@ deploy machinery is deferred — see [issue
 | `start.sh` | Production entrypoint — runs Alembic, uvicorn, and the Next standalone server side-by-side. |
 | `.dockerignore` | Keeps caches, lockable outputs, and editor cruft out of every build context. |
 
+## DC vector tiles (`dc.pmtiles`)
+
+The web image bundles a Protomaps PMTiles extract for the District (DEC-002).
+The Dockerfile `builder-tiles` stage runs [`scripts/build_pmtiles.sh`](../scripts/build_pmtiles.sh)
+with the `SCOUT_PROTOMAPS_BUILD_DATE` pin baked into that stage. Locally, install the
+[`pmtiles` CLI](https://github.com/protomaps/go-pmtiles/releases) and run the same script
+to materialize [`apps/web/public/tiles/dc.pmtiles`](../apps/web/public/tiles/README.md).
+
 ## Quickstart
 
 From the repo root:
@@ -107,6 +115,37 @@ browser-side fetches to the new host port.
 docker compose -f infra/docker-compose.yml down -v   # drops the pgdata volume
 make docker-up                                       # re-runs alembic via the backend lifespan
 ```
+
+## Troubleshooting
+
+| Symptom | Likely cause | First thing to try |
+| --- | --- | --- |
+| Page shows "The interactive map is in stub mode." | `infra/docker-compose.yml` pins `NEXT_PUBLIC_SCOUT_MAP_MODE: stub` for the `web` service. | Build `apps/web/public/tiles/dc.pmtiles` (see [tiles/README](../apps/web/public/tiles/README.md)), then override the env var for the run: `docker compose --project-directory . -f infra/docker-compose.yml run --rm --service-ports -e NEXT_PUBLIC_SCOUT_MAP_MODE=interactive web`. |
+| `Module not found: <pkg>` in the `web` container after editing `package.json` | The `web-node_modules` named volume keeps the old `node_modules` across rebuilds. | `make docker-reset-web-deps && docker compose --project-directory . -f infra/docker-compose.yml up --build` (see next section). |
+| `pmtiles: command not found` or `HTTP error: 404` from `scripts/build_pmtiles.sh` | The `pmtiles` CLI isn't on `$PATH`, or the pinned daily build has rotated off `build.protomaps.com`. | See [apps/web/public/tiles/README — Troubleshooting](../apps/web/public/tiles/README.md#troubleshooting). |
+| `CORS header 'Access-Control-Allow-Origin' missing` in the browser for `/api/*` | Backend `SCOUT_CORS_ALLOWLIST_CSV` is empty or doesn't include the web origin (port mismatch with `SCOUT_WEB_HOST_PORT`). | Compose interpolates the dev origin from `SCOUT_WEB_HOST_PORT`; if you set that override **after** the backend container started, recreate it: `docker compose --project-directory . -f infra/docker-compose.yml up -d --force-recreate backend`. |
+| Firefox shows `NS_ERROR_CONNECTION_REFUSED` at `https://localhost:3000` | HTTPS-Only Mode upgrades the URL before the request lands. | Use `http://localhost:3000` — the dev stack has no TLS terminator. |
+
+## Resetting web `node_modules` (Compose)
+
+The `web` service bind-mounts `apps/web/` for hot reload, **but overlays
+`node_modules` and `.next` with Docker named volumes** so Linux binaries stay
+inside the container. That means **`npm install` on your Mac only fixes your
+machine** — it never updates those volumes.
+
+When you change `apps/web/package.json` / lockfile or see `Module not found`
+for an installed dependency in Docker, recreate the volumes and rebuild:
+
+```bash
+make docker-reset-web-deps
+docker compose --project-directory . -f infra/docker-compose.yml up --build
+```
+
+(`make docker-up` does not pass `--build`; add it after dependency changes.)
+
+If volume names differ (non-default Compose project name), inspect
+`docker volume ls` and remove the `*-web-node_modules` and `*-web-next`
+entries manually while containers are stopped.
 
 ## Production image (runtime stage)
 
