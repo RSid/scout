@@ -14,6 +14,7 @@ const stubs = vi.hoisted(() => {
   // count, per-source setData spies, isStyleLoaded gating, and resize calls.
   type MapInteractiveStub = {
     readonly listeners: Map<string, Array<(...args: unknown[]) => void>>;
+    readonly constructorOptions: { keyboard?: boolean } | undefined;
     flushLoadHandlers: () => void;
     isStyleLoaded: () => boolean;
     sourceSetDataSpy: (id: string) => ReturnType<typeof vi.fn> | undefined;
@@ -57,7 +58,10 @@ const stubs = vi.hoisted(() => {
     >();
     styleLoaded = false;
 
-    constructor() {
+    readonly constructorOptions: { keyboard?: boolean } | undefined;
+
+    constructor(options?: { keyboard?: boolean }) {
+      this.constructorOptions = options;
       instancesLocal.push(this);
     }
 
@@ -201,6 +205,18 @@ describe("BasemapInner", () => {
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
+  });
+
+  it("enables MapLibre keyboard handling so the M+arrow pan hint is accurate (M1-F02.S2)", async () => {
+    render(
+      <AnnounceProvider>
+        <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+      </AnnounceProvider>,
+    );
+
+    await flushMapLoads();
+
+    expect(stubs.instances[0]?.constructorOptions?.keyboard).toBe(true);
   });
 
   // Acceptance criteria carried forward from #50 into the follow-up #51:
