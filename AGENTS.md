@@ -113,6 +113,13 @@ scout/
   `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `perf`, `ci`, `build`.
   Examples: `feat(backend): add /api/route caching (M1-F04)`,
   `fix(web): focus trap loop in profile panel (M1-F06)`.
+- **Branches for automation.** Prefer `{type}/{ticket-id}-{slug}`
+  (`feat/m1-f04-route-cache`): local helpers derive ticket/decision IDs from the
+  **branch name** via `scripts/new-issue.sh`, `scripts/gh-pr.sh`, and the
+  `prepare-commit-msg` hook documented in `scripts/AGENTS.md` (configure with
+  `pre-commit install` — it now installs both `commit` **and**
+  `prepare-commit-msg`; add `-t prepare-commit-msg` explicitly if hooks were
+  installed before those stages existed).
 - **One PR, one concern.** A scaffold PR doesn't also refactor unrelated
   modules. Found an unrelated bug? File an issue or open a separate PR.
 - **PR description template:**
