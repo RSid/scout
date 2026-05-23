@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
 import respx  # MOCK: stubs outbound HTTPS for ORS to keep tests offline-safe.
-from httpx import AsyncClient
 
-from scout.clients.routing.openrouteservice import OpenRouteServiceProvider
+from scout.clients.routing.constants import FALLBACK_PROFILE_WARNING
+from scout.clients.routing.openrouteservice import (
+    OpenRouteServiceProvider,
+    routing_cache_key,
+)
 from scout.config import Settings
+from scout.errors import RouteNotFoundError, RouteServiceUnavailableError
 
 
 @pytest.mark.asyncio
@@ -43,9 +48,9 @@ async def test_openrouteservice_adapter_success() -> None:
         cors_allowlist_csv="",
     )
 
-    async with AsyncClient(base_url="https://scout.test") as client:
+    async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
-        result = await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.9, 39.0])
+        result = await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
 
         assert result.fallback_profile_used is False
         assert result.distance_meters == pytest.approx(987.65)
@@ -82,7 +87,80 @@ async def test_openrouteservice_adapter_fallback() -> None:
         cors_allowlist_csv="",
     )
 
-    async with AsyncClient(base_url="https://scout.test") as client:
+    async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
-        result = await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.9, 39.0])
+        result = await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+
         assert result.fallback_profile_used is True
+        assert FALLBACK_PROFILE_WARNING in result.warnings
+
+
+def test_openrouteservice_routing_cache_keys_differ_across_profiles() -> None:
+    coords = [-77.0, 38.9, -76.92, 39.0]
+
+    assert routing_cache_key("wheelchair", coords) != routing_cache_key(
+        "foot-walking",
+        coords,
+    )
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_openrouteservice_connect_timeout_is_route_unavailable() -> None:
+    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    respx.post(wheelchair_url).mock(side_effect=httpx.ConnectTimeout("timeout"))
+
+    settings = Settings(
+        database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
+        routing_provider="openrouteservice",
+        ors_api_key="unit-test-token",
+        ors_base_url="https://api.openrouteservice.org",
+        cors_allowlist_csv="",
+    )
+
+    async with httpx.AsyncClient(base_url="https://scout.test") as client:
+        adapter = OpenRouteServiceProvider(settings=settings, client=client)
+        with pytest.raises(RouteServiceUnavailableError):
+            await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_openrouteservice_rate_limit_is_route_unavailable() -> None:
+    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    respx.post(wheelchair_url).respond(429)
+
+    settings = Settings(
+        database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
+        routing_provider="openrouteservice",
+        ors_api_key="unit-test-token",
+        ors_base_url="https://api.openrouteservice.org",
+        cors_allowlist_csv="",
+    )
+
+    async with httpx.AsyncClient(base_url="https://scout.test") as client:
+        adapter = OpenRouteServiceProvider(settings=settings, client=client)
+        with pytest.raises(RouteServiceUnavailableError):
+            await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_openrouteservice_both_profiles_404_raises_not_found() -> None:
+    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    foot_url = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson"
+    respx.post(wheelchair_url).respond(404)
+    respx.post(foot_url).respond(404)
+
+    settings = Settings(
+        database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
+        routing_provider="openrouteservice",
+        ors_api_key="token",
+        ors_base_url="https://api.openrouteservice.org",
+        cors_allowlist_csv="",
+    )
+
+    async with httpx.AsyncClient(base_url="https://scout.test") as client:
+        adapter = OpenRouteServiceProvider(settings=settings, client=client)
+        with pytest.raises(RouteNotFoundError):
+            await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])

@@ -9,5 +9,9 @@ from scout.clients.routing.types import RoutingComputation
 
 class RoutingProvider(Protocol):
     async def walking_wheelchair_route(
-        self, frm: list[float], to: list[float]
+        self,
+        frm: list[float],
+        to: list[float],
+        *,
+        profile: str = "wheelchair",
     ) -> RoutingComputation: ...

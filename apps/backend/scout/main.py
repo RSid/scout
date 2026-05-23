@@ -20,6 +20,7 @@ from scout.api.health import router as health_router
 from scout.api.restrooms import router as restrooms_router
 from scout.api.route import router as routing_router
 from scout.api.route_features import router as route_features_router
+from scout.clients import get_routing_provider
 from scout.config import (
     Settings,
     cors_origin_list,
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = resolved
         client = httpx.AsyncClient(timeout=30.0)
         app.state.http = client
+        app.state.routing_provider = get_routing_provider(resolved, client)
         try:
             if not scout_under_test():
                 init_engine_and_session(resolved.database_url)
