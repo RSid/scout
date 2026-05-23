@@ -1,0 +1,15 @@
+# Compose overlay — phone / LAN testing (GitHub issue #46).
+#
+# Use with base stack:
+#   docker compose --project-directory . \
+#     -f infra/docker-compose.yml -f infra/docker-compose.mobile.yml up
+#
+# Unsets NEXT_PUBLIC_SCOUT_API_BASE_URL so the browser hits same-origin `/api/*`.
+# Sets SCOUT_BACKEND_INTERNAL_URL so `apps/web/next.config.ts` rewrites `/api/*`
+# to the FastAPI service on the Compose bridge (`backend:8080`).
+
+services:
+  web:
+    environment:
+      NEXT_PUBLIC_SCOUT_API_BASE_URL: ""
+      SCOUT_BACKEND_INTERNAL_URL: http://backend:8080

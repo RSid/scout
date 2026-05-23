@@ -27,7 +27,7 @@ make docker-up                       # http://localhost:3000  +  :8080
 make docker-down
 ```
 
-See `infra/README.md` for the Compose layout and `CONTRIBUTING.md` for the
+See `infra/README.md` for the Compose layout (including **[Testing on a phone](infra/README.md#testing-on-a-phone)** — issue #46) and `CONTRIBUTING.md` for the
 end-to-end dev loop. `make help` lists every shortcut (lint, tests,
 Compose, ingest dry-run, …). Copy `.env.example` to `.env` and adjust
 `SCOUT_*` variables when you need host-side overrides.

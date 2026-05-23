@@ -1,6 +1,6 @@
 import type { GeoJSON } from "geojson";
 
-/** Server-side callers use relative `/api`; browser dev points at the host-published FastAPI port (`:8080` by default, overridable via `SCOUT_BACKEND_HOST_PORT`). Name must match `infra/docker-compose.yml` `NEXT_PUBLIC_SCOUT_API_BASE_URL`. */
+/** Browser dev normally points at the host-published FastAPI port (`NEXT_PUBLIC_SCOUT_API_BASE_URL` in `infra/docker-compose.yml`; unset for same-origin `/api/*`). Same-origin builds pair with `infra/docker-compose.mobile.yml` + `SCOUT_BACKEND_INTERNAL_URL` so `apps/web/next.config.ts` rewrites `/api/*` → `http://backend:8080/api/*`. Server Components may use relative `/api`. */
 export function apiBase(): string {
   return process.env.NEXT_PUBLIC_SCOUT_API_BASE_URL ?? "";
 }

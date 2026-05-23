@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-down docker-reset-web-deps
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-down docker-reset-web-deps dev-mobile-lan dev-mobile-tunnel
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -120,3 +120,9 @@ docker-reset-web-deps: ## wipe web node_modules/.next volumes (pgdata untouched)
 	docker compose $(COMPOSE_FLAGS) rm -sf web 2>/dev/null || true
 	docker volume rm -f scout_web-node_modules scout_web-next 2>/dev/null || true
 	@printf '%s\n' 'Next: docker compose $(COMPOSE_FLAGS) up --build   (Rebuild web image when package*.json changed; volumes re-seed from the image.)'
+
+dev-mobile-lan: ## Compose + overlay for LAN HTTP phone testing (`docker-compose.mobile.yml`); see infra/README.md
+	@"$(ROOT)/scripts/dev-mobile-lan.sh"
+
+dev-mobile-tunnel: ## detached Compose + cloudflared quick tunnel for HTTPS phone testing (geolocation/PWA parity)
+	@"$(ROOT)/scripts/dev-mobile-tunnel.sh"
