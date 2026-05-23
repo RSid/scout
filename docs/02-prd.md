@@ -160,7 +160,7 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **User value:** *So that I have a familiar map of DC to orient on before I do anything.*
 - **Depends on:** —
 - **Acceptance criteria:**
-  - `/map` renders a MapLibre GL JS map centered on DC (38.9072° N, 77.0369° W) at a
+  - `/plan` renders a MapLibre GL JS map centered on DC (38.9072° N, 77.0369° W) at a
     sensible zoom (z=12).
   - Basemap is a self-hosted Protomaps PMTiles file, served from the same origin as
     the app to avoid third-party tile request costs.
@@ -932,9 +932,11 @@ reference it.
 - **OQ-02** ~~Bake data file into the Docker image vs. mount as a volume?~~
   **RESOLVED** by DEC-019: data lives in the sibling PG VM, not in the app
   image. App image carries only code + Alembic migrations + PMTiles.
-- **OQ-03** Where do we host PMTiles? Same container? Separate static bucket?
-  **Default: same container** for M1 (zero-budget). Move to R2/Backblaze if
-  bandwidth ever becomes an issue.
+- **OQ-03** ~~Where do we host PMTiles? Same container? Separate static bucket?~~
+  **RESOLVED** for M1: same-origin static delivery from `apps/web/public/tiles/dc.pmtiles`,
+  built by `scripts/build_pmtiles.sh` and baked into the Docker image (see infra
+  `Dockerfile`; PR #53 for the MapLibre wiring). Move to R2/Backblaze only if
+  bandwidth becomes an issue.
 - **OQ-04** "Rest/seating spots" data source — DC doesn't publish a comprehensive
   bench dataset. **Options:** (a) OSM `amenity=bench` via Overpass, ingest
   alongside DC data; (b) defer to M3 and rely entirely on user submissions;

@@ -91,6 +91,11 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
     });
     mapRef.current = map;
 
+    // PLAYWRIGHT: expose MapLibre instance for asserting zoom deltas in e2e; never in production bundles.
+    if (process.env.NODE_ENV !== "production") {
+      window.scoutMap = map;
+    }
+
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
@@ -261,6 +266,9 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
       popup.remove();
       map.remove();
       mapRef.current = null;
+      if (process.env.NODE_ENV !== "production") {
+        delete window.scoutMap;
+      }
     };
   }, [announce]);
 

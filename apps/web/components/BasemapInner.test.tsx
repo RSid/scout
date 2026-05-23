@@ -13,10 +13,12 @@ const stubs = vi.hoisted(() => {
   // from #50 / #51 can be asserted without a real GL context. Tracks ctor
   // count, per-source setData spies, isStyleLoaded gating, and resize calls.
   type MapInteractiveStub = {
+    readonly listeners: Map<string, Array<(...args: unknown[]) => void>>;
     flushLoadHandlers: () => void;
     isStyleLoaded: () => boolean;
     sourceSetDataSpy: (id: string) => ReturnType<typeof vi.fn> | undefined;
     resize: ReturnType<typeof vi.fn>;
+    easeTo: ReturnType<typeof vi.fn>;
   };
   let instancesLocal: MapInteractiveStub[] = [];
 
@@ -66,7 +68,15 @@ const stubs = vi.hoisted(() => {
       }
     }
 
-    on(type: string, fn: (...args: unknown[]) => void) {
+    on(
+      type: string,
+      layerOrFn: string | ((...args: unknown[]) => void),
+      fnMaybe?: (...args: unknown[]) => void,
+    ) {
+      const fn =
+        typeof layerOrFn === "function"
+          ? layerOrFn
+          : (fnMaybe ?? ((): void => undefined));
       const queue = this.listeners.get(type);
       if (queue) queue.push(fn);
       else this.listeners.set(type, [fn]);
@@ -96,7 +106,8 @@ const stubs = vi.hoisted(() => {
       if (!stub) {
         stub = {
           setData: vi.fn(),
-          getClusterExpansionZoom: () => Promise.reject(new Error("MOCK_CLUSTER")),
+          /* Resolve so cluster taps exercise map.easeTo (reduced-motion branch). */
+          getClusterExpansionZoom: () => Promise.resolve(14),
         };
         this.sourceStubs.set(id, stub);
       }
@@ -276,6 +287,56 @@ describe("BasemapInner", () => {
       resizeObserverCallbacks[0]([], {} as ResizeObserver);
 
       expect(map.resize).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("prefers-reduced-motion (M1-F02.S5)", () => {
+    // MOCK: matchMedia gates motion branches in BasemapInner at map mount time.
+    beforeEach(() => {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn((query: string) => ({
+          matches: query === "(prefers-reduced-motion: reduce)",
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      );
+    });
+
+    it("clusters easeTo snaps without easing when prefers-reduced-motion is set", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const mapStub = stubs.instances[0];
+      const handlers = mapStub.listeners.get("click") ?? [];
+      const clustersHandler = handlers[0]!;
+      clustersHandler({
+        features: [
+          {
+            geometry: { type: "Point" },
+            properties: { cluster_id: 1 },
+          },
+        ],
+        lngLat: { lng: -77.03, lat: 38.9 },
+      });
+
+      await waitFor(() => {
+        expect(mapStub.easeTo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            animate: false,
+            duration: 0,
+          }),
+        );
+      });
     });
   });
 });
