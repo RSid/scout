@@ -27,3 +27,17 @@
 .maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner a {
   text-decoration: underline;
 }
+
+/* MapLibre navigation controls ship their own outline; tie it to our focus
+ * token so light/dark both meet DEC-009 / WCAG contrast expectations. Higher
+ * specificity than MapLibre defaults so bundling order does not regress a11y. */
+.maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .maplibregl-ctrl-group button:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--color-surface);
+  }
+}
