@@ -52,6 +52,18 @@ class Settings(BaseSettings):
     )
     cache_dir: str = Field(default="./.scout-cache")
     log_level: str = Field(default="INFO")
+    trust_proxy_headers: bool = Field(
+        default=False,
+        description="Trust edge IP headers — enable only behind a terminating proxy.",
+    )
+    client_ip_header: str = Field(
+        default="X-Forwarded-For",
+        description=(
+            "When trust_proxy_headers is True: HTTP header with the original client "
+            "IP (e.g. X-Forwarded-For, Cf-Connecting-IP, True-Client-IP, X-Real-IP)."
+        ),
+    )
+    rate_limit_enabled: bool = Field(default=True)
 
 
 def cors_origin_list(csv: str) -> list[str]:

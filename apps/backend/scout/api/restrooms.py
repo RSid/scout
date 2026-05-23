@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 
 from scout.api.deps import HttpDepends, SettingsDepends
 from scout.clients import get_restrooms_provider
 from scout.clients.restrooms.protocol import RestroomsProvider
 from scout.data.schema import RestroomsResponse
 from scout.errors import InvalidInputError
+from scout.security.rate_limit import POLICIES, limiter
 
 router = APIRouter(tags=["routing"])
 
@@ -24,8 +26,12 @@ async def restrooms_dependency(
 RestroomsDependency = Annotated[RestroomsProvider, Depends(restrooms_dependency)]
 
 
-@router.get("/restrooms")
-async def list_restrooms(bbox: str, provider: RestroomsDependency) -> RestroomsResponse:
+@router.get("/restrooms", response_model=RestroomsResponse)
+@limiter.limit(POLICIES["restrooms_get"])
+async def list_restrooms(
+    request: Request, bbox: str, provider: RestroomsDependency
+) -> JSONResponse:
+    del request
     parts = [p.strip() for p in bbox.split(",")]
     if len(parts) != 4:
         raise InvalidInputError(message="bbox expects west,south,east,north")
@@ -41,7 +47,8 @@ async def list_restrooms(bbox: str, provider: RestroomsDependency) -> RestroomsR
     raw_features = geojson_fc.get("features", [])
     if not isinstance(raw_features, list):
         raw_features = []
-    return RestroomsResponse(
+    body = RestroomsResponse(
         type="FeatureCollection",
         features=[dict(f) if isinstance(f, dict) else f for f in raw_features],
     )
+    return JSONResponse(status_code=200, content=body.model_dump(mode="json"))
