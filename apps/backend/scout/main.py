@@ -29,6 +29,7 @@ from scout.config import (
 from scout.data.session import close_engine, init_engine_and_session
 from scout.errors import register_exception_handlers
 from scout.runtime_flags import scout_under_test
+from scout.security.rate_limit import install_rate_limiter
 
 LOGGER = logging.getLogger("scout")
 
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="0.1.0",
     )
     register_exception_handlers(app)
+    install_rate_limiter(app, resolved)
 
     origins = cors_origin_list(resolved.cors_allowlist_csv)
     if origins:
