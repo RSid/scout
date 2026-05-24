@@ -1,7 +1,6 @@
 """Geocoder protocol and Scout-domain result type (DEC-020, DEC-022).
 
-Adapters speak Scout-domain `AddressHit` upward; vendor wire shapes
-(Photon `Feature`s, Nominatim `place_id` dicts, etc.) stop at the
+Adapters speak Scout-domain `AddressHit` upward; vendor wire shapes stop at the
 adapter boundary.
 """
 

@@ -14,7 +14,9 @@ import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixt
 import { fetchCorridorFeatures, type CorridorResponse } from "@/lib/api";
 
 import { formatApproxMeters, roughDistanceMeters } from "@/lib/geo";
+import type { AddressHit } from "@/lib/providers/geocoding";
 import { useProfile } from "@/lib/profile";
+
 import { useEffect, useMemo, useState } from "react";
 
 import type { GeoJSON } from "geojson";
@@ -34,6 +36,7 @@ function distanceAlongFallbackRoute(
     if (!head || !tail || head.length < 2 || tail.length < 2) {
       continue;
     }
+
     const lon0 = head[0];
     const lat0 = head[1];
     const lon1 = tail[0];
@@ -46,6 +49,7 @@ function distanceAlongFallbackRoute(
     ) {
       continue;
     }
+
     total += roughDistanceMeters(lon0, lat0, lon1, lat1);
   }
 
@@ -56,8 +60,9 @@ export default function PlanExperience() {
   const announce = useAnnounce();
   const { categories, selections, isReady } = useProfile();
 
-  const [anchorA, setAnchorA] = useState<[number, number] | null>(null);
-  const [anchorB, setAnchorB] = useState<[number, number] | null>(null);
+  const [startHit, setStartHit] = useState<AddressHit | null>(null);
+  const [destinationHit, setDestinationHit] = useState<AddressHit | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   const [corridorFeatures, setCorridorFeatures] = useState<
     CorridorResponse["features"]
@@ -79,43 +84,40 @@ export default function PlanExperience() {
   }, [categories, isReady, selections]);
 
   const routeFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
-    if (anchorA !== null && anchorB !== null) {
+    if (startHit !== null && destinationHit !== null) {
       return {
         type: "Feature",
         geometry: {
           type: "LineString",
-          coordinates: [anchorA, anchorB],
+          coordinates: [
+            [startHit.lon, startHit.lat],
+            [destinationHit.lon, destinationHit.lat],
+          ],
         },
-        properties: { source: "dual-picks" },
+        properties: { source: "planner-points" },
       };
     }
 
     return DEMO_ROUTE;
-  }, [anchorA, anchorB]);
+  }, [startHit, destinationHit]);
 
   const distanceLabelMeters =
-    anchorA !== null && anchorB !== null
-      ? roughDistanceMeters(anchorA[0], anchorA[1], anchorB[0], anchorB[1])
+    startHit !== null && destinationHit !== null
+      ? roughDistanceMeters(
+          startHit.lon,
+          startHit.lat,
+          destinationHit.lon,
+          destinationHit.lat,
+        )
       : distanceAlongFallbackRoute(DEMO_ROUTE);
 
-  function handleCoordinates(coords: readonly [number, number]) {
-    const point: [number, number] = [coords[0], coords[1]];
+  function handlePickStart(hit: AddressHit) {
+    setStartHit(hit);
+    announce("Starting point saved.");
+  }
 
-    if (anchorA === null) {
-      setAnchorA(point);
-      announce("Start set. Now pick a destination.");
-      return;
-    }
-
-    if (anchorB === null) {
-      setAnchorB(point);
-      announce("Destination set. Loading accessibility data near your route.");
-      return;
-    }
-
-    setAnchorA(point);
-    setAnchorB(null);
-    announce("Route reset. Now pick a destination.");
+  function handlePickDestination(hit: AddressHit) {
+    setDestinationHit(hit);
   }
 
   useEffect(() => {
@@ -161,8 +163,8 @@ export default function PlanExperience() {
             Plan a walking route
           </h1>
           <p className="max-w-2xl text-[color:var(--color-text-muted)]">
-            Pick a start and a destination. Until you do, Scout shows a sample route
-            across DC.
+            Pick a start and a destination. Until you set both points, Scout shows a
+            sample route across DC.
           </p>
         </div>
         <ProfilePanel />
@@ -175,7 +177,29 @@ export default function PlanExperience() {
         ]}
       />
 
-      <AddressAutocomplete onPickCoordinates={handleCoordinates} />
+      <fieldset
+        aria-labelledby="scout-planner-heading"
+        id="scout-route-planner"
+        className="space-y-[var(--space-8)] border-0 p-0"
+      >
+        <legend id="scout-planner-heading" className="sr-only">
+          Plan a route
+        </legend>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          showUseMyLocation
+          userLocation={userLocation}
+          onPick={handlePickStart}
+          onUserLocationAcquired={(coords) => setUserLocation([coords[0], coords[1]])}
+        />
+        <AddressAutocomplete
+          id="scout-destination"
+          label="Destination"
+          userLocation={userLocation}
+          onPick={handlePickDestination}
+        />
+      </fieldset>
 
       <div className="flex flex-col gap-[var(--space-10)] xl:flex-row-reverse xl:items-start">
         <div className="relative w-full xl:max-w-xl">

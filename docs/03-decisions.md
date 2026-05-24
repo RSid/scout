@@ -560,8 +560,8 @@ clients/
 │   └── stub.py              # in-process fake for tests
 ├── geocoding/
 │   ├── __init__.py
-│   ├── protocol.py          # GeocodingProvider Protocol
-│   ├── nominatim.py
+│   ├── protocol.py          # GeocodingProvider Protocol + AddressHit
+│   ├── photon.py            # PhotonProvider (DEC-022)
 │   └── stub.py
 ├── restrooms/
 │   ├── __init__.py
@@ -577,8 +577,8 @@ client-side service.
 
 **Provider selection.** `get_provider()` returns the concrete impl based on a
 single env var per concern (`SCOUT_ROUTING_PROVIDER`, default
-`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `nominatim`; etc.).
-Tests use `stub`. Production uses the real impl. Swap is one env var.
+`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `photon` per `DEC-022`;
+etc.). Tests use `stub`. Production uses the real impl. Swap is one env var.
 
 **Interface design rules.**
 

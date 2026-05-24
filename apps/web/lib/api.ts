@@ -1,5 +1,7 @@
 import type { GeoJSON } from "geojson";
 
+import type { AddressHit } from "@/lib/providers/geocoding/protocol";
+
 /** Server-side callers use relative `/api`; browser dev points at the host-published FastAPI port (`:8080` by default, overridable via `SCOUT_BACKEND_HOST_PORT`). Name must match `infra/docker-compose.yml` `NEXT_PUBLIC_SCOUT_API_BASE_URL`. */
 export function apiBase(): string {
   return process.env.NEXT_PUBLIC_SCOUT_API_BASE_URL ?? "";
@@ -21,12 +23,6 @@ async function safeReadJson(resp: Response): Promise<unknown> {
   } catch {
     return null;
   }
-}
-
-function coordinateFromUnknown(value: unknown): number | null {
-  const asNumber =
-    typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
-  return Number.isFinite(asNumber) ? asNumber : null;
 }
 
 function parseUpstreamError(payload: unknown): ScoutApiError {
@@ -124,6 +120,97 @@ export async function fetchCategories(signal?: AbortSignal): Promise<ApiCategory
   return categories;
 }
 
+function parseAddressHit(raw: unknown): AddressHit | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+  const rec = raw as Record<string, unknown>;
+  if (
+    typeof rec["id"] !== "string" ||
+    typeof rec["label"] !== "string" ||
+    typeof rec["lon"] !== "number" ||
+    typeof rec["lat"] !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id: rec["id"],
+    label: rec["label"],
+    lon: rec["lon"],
+    lat: rec["lat"],
+  };
+}
+
+/**
+ * Forward geocode via the Scout backend (`DEC-022`). The browser never calls
+ * a geocoder upstream directly; this wrapper is the only path from a
+ * React component to address suggestions.
+ */
+export async function searchGeocode(
+  query: string,
+  options?: { limit?: number | undefined },
+  signal?: AbortSignal,
+): Promise<readonly AddressHit[]> {
+  const params = new URLSearchParams({ q: query.trim() });
+  if (typeof options?.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+
+  const resp = await fetch(`${apiBase()}/api/geocode/search?${params.toString()}`, {
+    signal,
+    cache: "no-store",
+  });
+
+  const body = await safeReadJson(resp);
+  if (!resp.ok) {
+    throw parseUpstreamError(body);
+  }
+  if (typeof body !== "object" || body === null) {
+    throw new ScoutApiError("Geocode payload malformed.", "GEOCODE_FAILED");
+  }
+
+  const hitsUnknown = (body as { hits?: unknown }).hits;
+  if (!Array.isArray(hitsUnknown)) {
+    throw new ScoutApiError("Geocode payload malformed.", "GEOCODE_FAILED");
+  }
+
+  return hitsUnknown.reduce<AddressHit[]>((acc, raw) => {
+    const parsed = parseAddressHit(raw);
+    if (parsed !== null) {
+      acc.push(parsed);
+    }
+    return acc;
+  }, []);
+}
+
+/** Reverse geocode via the Scout backend (`DEC-022`). */
+export async function reverseGeocode(
+  lon: number,
+  lat: number,
+  signal?: AbortSignal,
+): Promise<AddressHit> {
+  const params = new URLSearchParams({ lon: String(lon), lat: String(lat) });
+
+  const resp = await fetch(`${apiBase()}/api/geocode/reverse?${params.toString()}`, {
+    signal,
+    cache: "no-store",
+  });
+
+  const body = await safeReadJson(resp);
+  if (!resp.ok) {
+    throw parseUpstreamError(body);
+  }
+  if (typeof body !== "object" || body === null) {
+    throw new ScoutApiError("Geocode payload malformed.", "GEOCODE_FAILED");
+  }
+
+  const hit = parseAddressHit((body as { hit?: unknown }).hit);
+  if (hit === null) {
+    throw new ScoutApiError("Geocode payload malformed.", "GEOCODE_FAILED");
+  }
+  return hit;
+}
+
 export interface CorridorResponse {
   type: "FeatureCollection";
   features: GeoJSON.Feature[];
@@ -179,71 +266,4 @@ export async function fetchCorridorFeatures(
   }
 
   return body as CorridorResponse;
-}
-
-export async function reverseGeocodeNominatim(
-  query: string,
-  signal?: AbortSignal,
-): Promise<GeoJSON.Point[]> {
-  const params = new URLSearchParams({
-    q: query,
-    format: "jsonv2",
-    limit: "5",
-  });
-
-  const url = `/search?${params.toString()}`;
-
-  /**
-   * M1 scaffold calls OSM nominatim directly with debounced UX in the widget.
-   * Browsers block cross-origin reads without CORS headers; deployments should swap in `/api/geocode`.
-   */
-
-  const nominatimBase =
-    process.env.NEXT_PUBLIC_NOMINATIM_URL ?? "https://nominatim.openstreetmap.org";
-
-  try {
-    const resp = await fetch(`${nominatimBase}${url}`, {
-      signal,
-      headers: {
-        "Accept-Language": "en-US",
-      },
-    });
-
-    if (!resp.ok) {
-      throw new ScoutApiError("Geocode lookup failed.", "GEOCODE_FAILED");
-    }
-
-    const body = await safeReadJson(resp);
-    if (!Array.isArray(body)) {
-      return [];
-    }
-
-    return body.reduce<GeoJSON.Point[]>((acc, candidate) => {
-      if (typeof candidate !== "object" || candidate === null) {
-        return acc;
-      }
-
-      const rec = candidate as Record<string, unknown>;
-      const lon = coordinateFromUnknown(rec.lon ?? rec.lng ?? rec.longitude ?? rec.Lng);
-      const lat = coordinateFromUnknown(rec.lat ?? rec.latitude ?? rec.Lat);
-
-      if (lon === null || lat === null) {
-        return acc;
-      }
-
-      acc.push({ type: "Point", coordinates: [lon, lat] });
-
-      return acc;
-    }, []);
-  } catch (error) {
-    if (process.env.NEXT_PUBLIC_SCOUT_STUB_GEOCODE === "1") {
-      // MOCK: deterministic suggestions for deterministic Playwright without live geocode egress.
-      return [
-        { type: "Point", coordinates: [-77.0366, 38.8949] },
-        { type: "Point", coordinates: [-77.025, 38.905] },
-      ];
-    }
-
-    throw error instanceof Error ? error : new ScoutApiError("Geocoder error.");
-  }
 }

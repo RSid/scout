@@ -133,10 +133,9 @@ def _compose_hit_id(props: dict[str, Any], lon: float, lat: float) -> str:
 def _compose_hit_label(props: dict[str, Any], lon: float, lat: float) -> str:
     """Build the human-readable suggestion text.
 
-    Photon does not return a pre-formatted `display_name` (Nominatim
-    does); we assemble one from the most useful fields. Order chosen so
-    that named places (Dupont Circle) and street addresses (1400 U St)
-    both read naturally.
+    Photon does not return a pre-formatted `display_name`. We assemble one
+    from the most useful fields. Order chosen so that named places
+    (Dupont Circle) and street addresses (1400 U St) both read naturally.
     """
 
     name = _str_or_none(props.get("name"))

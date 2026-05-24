@@ -92,7 +92,7 @@ infra/
 - HTTP health check on `/api/health`. Health check must tolerate the cold-
   start window during which `alembic upgrade head` runs.
 - Secrets (set via `flyctl secrets set`): `SCOUT_DATABASE_URL` (pointing to
-  `scout-pg.internal:5432`), `SCOUT_ORS_API_KEY`, `SCOUT_NOMINATIM_USER_AGENT`.
+  `scout-pg.internal:5432`), `SCOUT_ORS_API_KEY`, `SCOUT_PHOTON_USER_AGENT`.
 
 ### fly.postgres.toml (the sibling Postgres VM)
 
@@ -145,7 +145,7 @@ Document the bootstrap sequence:
 5. Wait for PG to be healthy (`flyctl checks list --app scout-pg`).
 6. `flyctl apps create scout`
 7. `flyctl secrets set SCOUT_DATABASE_URL='postgresql+asyncpg://scout:...@scout-pg.internal:5432/scout' --app scout`
-8. `flyctl secrets set SCOUT_ORS_API_KEY=... SCOUT_NOMINATIM_USER_AGENT='scout/0.1 (contact@...)' --app scout`
+8. `flyctl secrets set SCOUT_ORS_API_KEY=... SCOUT_PHOTON_USER_AGENT='scout/0.1 (contact@...)' --app scout`
 9. `flyctl deploy --config infra/fly.app.toml --app scout`  (this runs
    `alembic upgrade head`)
 10. `flyctl ssh console --app scout -C 'python scripts/ingest_dc.py'` to load

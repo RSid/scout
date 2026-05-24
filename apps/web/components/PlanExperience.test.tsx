@@ -4,7 +4,7 @@ import * as scoutApi from "@/lib/api";
 import { axe } from "jest-axe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 import { AnnounceProvider } from "./a11y/AnnounceProvider";
 import PlanExperience from "./PlanExperience";
@@ -45,6 +45,7 @@ describe("PlanExperience", () => {
 
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_SCOUT_MAP_MODE", "stub");
+    vi.stubEnv("NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER", "stub");
     void stubCategoriesPayload(PLAN_SAMPLE);
 
     const corridorPayload: CorridorResponse = {
@@ -65,6 +66,34 @@ describe("PlanExperience", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     window.localStorage.clear();
+  });
+
+  it("shows start and destination combobox controls in landmark order", async () => {
+    const { container } = render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+
+    const plannerRegion = screen.getByRole("group", { name: /plan a route/i });
+    const planner = within(plannerRegion);
+
+    const start = planner.getByRole("combobox", { name: /starting point/i });
+    const destination = planner.getByRole("combobox", { name: /destination/i });
+
+    expect(
+      start.compareDocumentPosition(destination) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
+
+    const results = await axe(container);
+
+    expect(results.violations).toStrictEqual([]);
   });
 
   it("pulls corridor slices once profile categories are ready", async () => {

@@ -31,9 +31,10 @@ export default function PrivacyPage() {
             third-party analytics, advertising scripts, or social-media widgets.
           </li>
           <li>
-            <strong>The address you type</strong> is sent to OpenStreetMap&apos;s
-            Nominatim service when you search for a place. It&apos;s used to find
-            coordinates and isn&apos;t stored by Scout.
+            <strong>The address you type</strong> is sent to Scout&apos;s backend to
+            find matching coordinates. The backend looks them up via Photon, an
+            open-source OpenStreetMap geocoder hosted by Komoot. Scout doesn&apos;t
+            store the address.
           </li>
           <li>
             <strong>Route requests</strong> (start and destination coordinates) are sent

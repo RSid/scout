@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     )
     geocoding_provider: str = Field(
         default="photon",
-        description="geocoding adapter: photon | stub (DEC-022 replaced nominatim)",
+        description="geocoding adapter: photon | stub",
     )
     restrooms_provider: str = Field(
         default="refuge",

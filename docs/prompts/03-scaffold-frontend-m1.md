@@ -154,10 +154,13 @@ apps/web/
 ### Address autocomplete (`<AddressAutocomplete/>`)
 
 - Implements the WAI-ARIA combobox pattern (1.2 authoring practices).
-- Debounces 500 ms; max 1 request/sec to Nominatim (server-side proxy if needed
-  to share a rate budget — talk to the backend agent about a `/api/geocode`
-  endpoint if it's not in M1 — for M1 it's OK to call Nominatim directly with
-  the client-side debounce).
+- Debounces 500 ms. **The browser never calls a geocoder upstream
+  directly** (per `DEC-022` — see also `AGENTS.md` rule #12 on third-party
+  TOS). All geocoding flows through Scout's backend `/api/geocode/*`
+  endpoints; the frontend's `backendGeocodingProvider` is the only
+  transport. (An earlier draft of this prompt suggested calling Nominatim
+  directly from the client for M1 — that pattern violates the OSMF
+  Nominatim Acceptable Use Policy and has been removed.)
 - "Use my location" button calls `navigator.geolocation` only on click.
 
 ### Onboarding modal (`<OnboardingModal/>`)
