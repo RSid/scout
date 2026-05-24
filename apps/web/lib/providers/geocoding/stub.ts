@@ -76,7 +76,7 @@ export const stubGeocodingProvider: GeocodingProvider = {
     // "Use my location" cannot mistake this fixture for a real reverse-geocode
     // result. Flip NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER=backend (or run
     // `make docker-up-realistic-run`) to hit Scout's `/api/geocode/reverse`
-    // (Photon upstream via the backend adapter, per DEC-022) instead.
+    // (via Scout's backend per DEC-022) instead.
     return {
       id: "stub-reverse-1",
       label:

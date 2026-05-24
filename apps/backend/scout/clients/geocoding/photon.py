@@ -20,12 +20,11 @@ import httpx
 
 from scout.clients.geocoding.protocol import AddressHit, GeocodingProvider
 from scout.config import Settings
+from scout.data.region import DC_BBOX_LON_LAT
 from scout.errors import UpstreamUnavailableError
 
-# Rough Washington, DC bounding box (west, south, east, north).
-# Photon `bbox` filters results to this box; the same coords appear on
-# the frontend stub for parity.
-DC_BBOX = "-77.119,38.792,-76.909,38.996"
+# Photon upstream `bbox` query param expects west,south,east,north as one string.
+_DC_BBOX_PARAM = ",".join(f"{coord}" for coord in DC_BBOX_LON_LAT)
 
 _MAX_LIMIT = 10
 _HTTP_TIMEOUT_SECONDS = 5.0
@@ -45,7 +44,7 @@ class PhotonProvider(GeocodingProvider):
             "q": trimmed,
             "limit": capped_limit,
             "lang": "en",
-            "bbox": DC_BBOX,
+            "bbox": _DC_BBOX_PARAM,
         }
         return await self._fetch_features("/api", params)
 
@@ -116,18 +115,13 @@ def _photon_feature_to_hit(feature: object) -> AddressHit | None:
 
 
 def _compose_hit_id(props: dict[str, Any], lon: float, lat: float) -> str:
-    """Stable id for keyboard-selection in the frontend combobox.
-
-    Prefer OSM identity (`{type}-{id}` is unique across the OSM planet);
-    fall back to coordinates when Photon omits the OSM ids on a synthetic
-    record (rare, but observed in dev fixtures).
-    """
+    """Stable combobox key: OSM type+id when present, else quantized coords."""
 
     osm_type = props.get("osm_type")
     osm_id = props.get("osm_id")
     if isinstance(osm_type, str) and isinstance(osm_id, (int, str)):
-        return f"photon-{osm_type}-{osm_id}"
-    return f"photon-{lon:.5f}-{lat:.5f}"
+        return f"{osm_type}-{osm_id}"
+    return f"coord-{lon:.5f}-{lat:.5f}"
 
 
 def _compose_hit_label(props: dict[str, Any], lon: float, lat: float) -> str:

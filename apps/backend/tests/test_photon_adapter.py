@@ -15,13 +15,13 @@ import pytest
 import respx
 
 from scout.clients.geocoding.photon import (
-    DC_BBOX,
     PhotonProvider,
     _compose_hit_id,
     _compose_hit_label,
 )
 from scout.clients.geocoding.protocol import AddressHit
 from scout.config import Settings
+from scout.data.region import DC_BBOX_LON_LAT
 from scout.errors import UpstreamUnavailableError
 
 _BASE = "https://photon.example.invalid"
@@ -71,7 +71,7 @@ async def test_search_translates_features_to_address_hits() -> None:
     )
     assert hits == [
         AddressHit(
-            id="photon-N-51184",
+            id="N-51184",
             label=expected_label,
             lon=-77.0434,
             lat=38.9095,
@@ -92,7 +92,8 @@ async def test_search_sends_dc_bbox_and_capped_limit() -> None:
         await adapter.search("anywhere", limit=999)
 
     sent_url = unquote(str(route.calls.last.request.url))
-    assert DC_BBOX in sent_url
+    expected_bbox_param = ",".join(f"{c}" for c in DC_BBOX_LON_LAT)
+    assert expected_bbox_param in sent_url
     assert "limit=10" in sent_url
     assert "lang=en" in sent_url
 
@@ -163,4 +164,4 @@ def test_label_combines_housenumber_and_street() -> None:
 def test_id_falls_back_to_coordinates_when_osm_metadata_missing() -> None:
     fallback = _compose_hit_id({}, lon=-77.123456, lat=38.987654)
 
-    assert fallback == "photon--77.12346-38.98765"
+    assert fallback == "coord--77.12346-38.98765"

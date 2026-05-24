@@ -47,3 +47,38 @@ def test_reverse_rejects_out_of_range_coords() -> None:
         resp = client.get("/api/geocode/reverse", params={"lon": 200.0, "lat": 0.0})
 
     assert resp.status_code == 422
+
+
+def _assert_hit_shape(hit: dict[str, object]) -> None:
+    assert isinstance(hit["id"], str)
+    assert isinstance(hit["label"], str)
+    assert isinstance(hit["lon"], (float, int))
+    assert isinstance(hit["lat"], (float, int))
+    assert set(hit.keys()) == {"id", "label", "lon", "lat"}
+
+
+def test_search_response_shape_is_pinned() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/api/geocode/search", params={"q": "Dupont", "limit": 5})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body.keys()) == {"hits"}
+    hits = body["hits"]
+    assert isinstance(hits, list)
+    assert hits
+    for item in hits:
+        assert isinstance(item, dict)
+        _assert_hit_shape(item)
+
+
+def test_reverse_response_shape_is_pinned() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/api/geocode/reverse", params={"lon": -77.04, "lat": 38.9})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body.keys()) == {"hit"}
+    hit = body["hit"]
+    assert isinstance(hit, dict)
+    _assert_hit_shape(hit)
