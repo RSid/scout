@@ -1,0 +1,55 @@
+# Compose overlay — "realistic" local run that exercises real third-party
+# providers instead of the in-process stubs (`make docker-up-realistic-run`).
+#
+# Usage (prefer the Makefile target):
+#   make docker-up-realistic-run
+#
+# Equivalent raw invocation:
+#   docker compose --project-directory . \
+#     -f infra/docker-compose.yml \
+#     -f infra/docker-compose.realistic.yml \
+#     up
+#
+# Maintenance contract (see scripts/AGENTS.md "Tool registry"):
+#   Whenever a new third-party integration lands (new vendor adapter under
+#   apps/backend/scout/clients/<concern>/ or apps/web/lib/providers/<concern>/),
+#   add the env-var flip here so this overlay continues to exercise every
+#   real call path the app can make. The whole point of this file is "one
+#   command that touches everything we ship to prod."
+#
+# Prerequisites a human must satisfy before the stack is useful:
+#   1. .env (repo root) defines SCOUT_ORS_API_KEY — without it the backend
+#      adapter will 401 on every routing call. Free dev keys come from
+#      https://openrouteservice.org/dev/#/signup.
+#   2. apps/web/public/tiles/dc.pmtiles exists (run `scripts/build_pmtiles.sh`
+#      once) — otherwise the interactive MapLibre basemap will render empty.
+#   3. SCOUT_PHOTON_USER_AGENT in .env is a descriptive UA. The Photon
+#      upstream policy is light on rate-limit text but heavy on "be fair";
+#      a descriptive UA makes it possible for upstream operators to reach
+#      us if we ever misbehave.
+#
+# Geocoding posture (DEC-022):
+#   The frontend NEVER calls a geocoder upstream directly. AddressAutocomplete
+#   talks to our backend's `/api/geocode/*`, which routes through the Photon
+#   adapter. Default upstream is `photon.komoot.io` (Komoot's free community
+#   endpoint, designed for autocomplete; fair-use only). The Fly-deploy
+#   follow-up PR brings up a self-hosted Photon machine and flips
+#   SCOUT_PHOTON_BASE_URL — no app code changes.
+
+services:
+  backend:
+    environment:
+      SCOUT_ROUTING_PROVIDER: openrouteservice
+      SCOUT_GEOCODING_PROVIDER: photon
+      SCOUT_RESTROOMS_PROVIDER: refuge
+      # Pulled from the host .env at compose-resolve time. Empty value means
+      # the backend will surface an explicit "missing key" error on first
+      # routing request, which is the desired loud failure mode.
+      SCOUT_ORS_API_KEY: "${SCOUT_ORS_API_KEY:-}"
+
+  web:
+    environment:
+      NEXT_PUBLIC_SCOUT_MAP_MODE: interactive
+      # Frontend always goes through our backend for geocoding now (DEC-022);
+      # the only meaningful values are `backend` (default) and `stub`.
+      NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: backend

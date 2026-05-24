@@ -63,7 +63,7 @@ services:
       # Compose-network DSN — inside the bridge, `db` resolves to the
       # PostGIS container. The host-side override lives in `.env.example`.
       SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
-      SCOUT_NOMINATIM_USER_AGENT: "scout-dev/0.1 (compose)"
+      SCOUT_PHOTON_USER_AGENT: "scout-dev/0.1 (compose)"
       # Provider stubs let the stack boot without external secrets.
       SCOUT_ROUTING_PROVIDER: stub
       SCOUT_GEOCODING_PROVIDER: stub
@@ -102,7 +102,10 @@ services:
       # new host port (not the container port 8080), hence the interpolation.
       NEXT_PUBLIC_SCOUT_API_BASE_URL: "http://localhost:${SCOUT_BACKEND_HOST_PORT:-8080}"
       NEXT_PUBLIC_SCOUT_MAP_MODE: stub
-      NEXT_PUBLIC_SCOUT_STUB_GEOCODE: "1"
+      # Per DEC-022 the frontend's only geocoder transports are `backend`
+      # (calls our own /api/geocode/*) and `stub`. The stubbed stack here
+      # keeps the in-process stub for offline dev.
+      NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: "stub"
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
       - ./apps/web:/app/web

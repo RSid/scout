@@ -31,8 +31,8 @@ class Settings(BaseSettings):
         description="routing adapter: openrouteservice | stub",
     )
     geocoding_provider: str = Field(
-        default="nominatim",
-        description="geocoding adapter: nominatim | stub",
+        default="photon",
+        description="geocoding adapter: photon | stub (DEC-022 replaced nominatim)",
     )
     restrooms_provider: str = Field(
         default="refuge",
@@ -40,12 +40,17 @@ class Settings(BaseSettings):
     )
     ors_base_url: str = Field(default="https://api.openrouteservice.org")
     ors_api_key: str | None = Field(default=None)
-    nominatim_base_url: str = Field(
-        default="https://nominatim.openstreetmap.org",
+    photon_base_url: str = Field(
+        default="https://photon.komoot.io",
+        description=(
+            "Photon endpoint. Default is Komoot's upstream community service "
+            "(fair-use); production flips this to the self-hosted Fly machine "
+            "added in the DEC-022 follow-up PR."
+        ),
     )
-    nominatim_user_agent: str = Field(
+    photon_user_agent: str = Field(
         default="scout-dev/0.1 (+https://example.invalid)",
-        description="Required polite User-Agent string for public Nominatim.",
+        description="Polite User-Agent string emitted on every Photon request.",
     )
     refuge_base_url: str = Field(
         default="https://www.refugerestrooms.org/api/v1",

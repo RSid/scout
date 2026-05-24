@@ -172,7 +172,7 @@ takeable; none of them require a re-architecture.
 | Cold-start latency annoys users | `min_machines_running = 1` on Fly (still free with caveats) | Reserve a small always-on machine |
 | Tile bandwidth costs (if we ever hit them) | Front Fly with a Cloudflare proxy (free tier, caches PMTiles ranges) | Move PMTiles to R2/Backblaze + CDN |
 | ORS rate limit hit | Self-host ORS in a sibling Fly VM | Pay for an ORS Pro key |
-| Geocoding rate limit hit | Self-host Photon (DC extract is small) | Use Mapbox/Stadia geocoding |
+| Geocoding capacity ceiling (Photon) | Move from upstream `photon.komoot.io` to self-hosted Photon on a sibling Fly VM (per `DEC-022`'s phased rollout) | Use Mapbox/Stadia geocoding |
 | Postgres I/O ceiling | Bigger Fly PG plan | Move to Neon/Supabase if cheaper |
 | Email volume (M3+) | Cloudflare Email Workers / Mailchannels free | Postmark/Resend |
 | Analytics privacy without spend | Plausible self-hosted | Plausible Cloud |
@@ -204,26 +204,17 @@ no passwords ever.
 
 ---
 
-## DEC-008 — Geocoding: Nominatim (OSM), DC-bounded, with strict rate limits
+## DEC-008 — *Superseded by DEC-022.* (Original: Geocoding via Nominatim public API.)
 
-**Context.** Address autocomplete is in M1.
-
-**Options considered.**
-- **Google Places Autocomplete.** Paid above small free tier. Rejected.
-- **Mapbox Geocoding.** Paid above. Rejected.
-- **Photon (self-hosted, on OSM data).** Heavy to host.
-- **Nominatim public API.** Free, but usage policy: < 1 req/sec, bulk usage
-  must self-host.
-
-**Decision.** Nominatim public API with 500 ms client debounce + server rate
-limit (max 1 req/sec). Document self-hosting if usage warrants.
-
-**Rationale.**
-- Lowest ops cost in M1. DC has comprehensive OSM coverage so quality is good.
-
-**Consequences.**
-- If we ever blow Nominatim's policy, we self-host Photon (lighter than
-  self-hosting Nominatim). Pre-document the runbook.
+**Status.** Superseded by `DEC-022` (Geocoding via Photon through the Scout
+backend). The original rationale assumed a 500 ms client debounce plus server
+rate limit was sufficient to stay inside the OSMF Nominatim Acceptable Use
+Policy. On re-reading the policy
+(<https://operations.osmfoundation.org/policies/nominatim/>) the *Auto-complete
+search* clause categorically prohibits using the public Nominatim service for
+autocomplete, regardless of debounce or rate limit. Moving the call server-side
+does not cure that — the prohibition is on the use case, not on the request
+origin. See `DEC-022` for the replacement.
 
 ---
 
@@ -652,6 +643,112 @@ shipping code; conflicts are resolved by updating the code to match the guide.
   block previously-shipped copy.
 - When the guide and a `DEC-` decision conflict, the `DEC-` decision wins
   per the decisions-log convention.
+
+---
+
+## DEC-022 — Geocoding: Photon through the Scout backend (supersedes DEC-008)
+
+**Context.** `DEC-008` chose the public Nominatim service for address
+autocomplete with a 500 ms client debounce and a server rate limit. While
+implementing `M1-F03` we shipped the call as a *direct* browser-to-Nominatim
+`fetch`. Re-reading the
+[OSMF Nominatim Acceptable Use Policy](https://operations.osmfoundation.org/policies/nominatim/)
+surfaced three problems with our path:
+
+1. The policy's *Auto-complete search* clause categorically forbids using the
+   public Nominatim service for autocomplete — "you must not implement such a
+   service on the client side using the API." The 500 ms debounce addresses
+   the separate 1-req/sec cap, not this prohibition. Moving the call
+   server-side would not fix it either; the policy bars the use case.
+2. The policy requires a descriptive `User-Agent` ("stock User-Agents as set
+   by http libraries will not do"). Browser `fetch` cannot set the
+   `User-Agent` header, so the browser-direct path could not comply on the UA
+   rule either.
+3. The 1-req/sec cap was being enforced per *user IP*, not per Scout — a
+   functional side-effect of the browser-direct path, not a defense of it.
+
+We had also drifted from `DEC-008`'s own wording ("Nominatim public API with
+500 ms client debounce **+ server rate limit**"), which implied the call went
+through our backend.
+
+**Options considered.** *(Confidence levels reflect the
+implementing-agent's read at decision time, not a guarantee.)*
+
+- **Self-hosted Photon, backend-proxied** *(chosen)* — purpose-built OSS
+  autocomplete engine on OSM data; no autocomplete prohibition; we own UA,
+  cache, rate-limit, and attribution surface. Already pre-blessed as the
+  upgrade lever in `DEC-006`. ~85% confidence.
+- **Komoot's hosted Photon at `photon.komoot.io`** — same engine, no infra,
+  "low-volume / fair use" upstream policy. Adopted as the *dev / soft-launch*
+  endpoint while self-hosting on Fly is staged in a follow-up PR. ~55%
+  confidence on long-term suitability; sufficient for M1's friend-of-author
+  soft-launch (`DEC-PEND-E`).
+- **Mapbox Geocoding.** Best-in-class autocomplete, generous free tier.
+  Rejected: conflicts with `DEC-002`'s deliberate avoidance of Mapbox
+  vendor lock-in, and is a commercial logging surface for user-typed
+  addresses (privacy posture under `NF-PRIV-*` is meant to avoid this).
+- **MapTiler / Stadia / Geoapify.** Same shape as Mapbox; same trade-offs at
+  a smaller scale; same `DEC-002`-adjacent concerns. Rejected.
+- **Backend-proxy current Nominatim path (UA + server rate-limit), no
+  engine change.** Fixes the UA and rate-attribution problems but does
+  *not* address the autocomplete prohibition. Half-measure; rejected.
+- **Drop autocomplete; one-shot geocode on submit.** Compliant but a UX
+  regression for the disabled-user audience the PRD targets. Rejected.
+
+**Decision.** Geocoding is served by **Photon**, accessed *only* via the
+Scout backend through the `GeocodingProvider` adapter (`DEC-020`). The
+frontend never talks to a geocoding upstream directly. The rollout is two
+phased PRs:
+
+1. **This PR (`M1-F03` completion):** Backend adapter targets Photon;
+   `GET /api/geocode/search` and `GET /api/geocode/reverse` endpoints land
+   with per-IP rate limits and Pydantic schemas. Frontend's geocoding
+   provider switches to `backend` (calls our own API). `SCOUT_PHOTON_BASE_URL`
+   defaults to `https://photon.komoot.io` so `make docker-up-realistic-run`
+   exercises real Photon traffic without a local index build.
+2. **Follow-up PR (Fly-deploy ticket):** Self-host Photon on a sibling Fly
+   machine with a DC-scoped search index (built via the Nominatim → Photon
+   import path documented in `infra/runbooks/photon-deploy.md`, authored
+   alongside that PR). Production flips `SCOUT_PHOTON_BASE_URL` to the
+   internal Fly hostname. No application code changes.
+
+**Rationale.**
+- Photon is purpose-built for autocomplete; Nominatim's own docs note
+  autocomplete isn't supported by that engine. Right tool for the use case.
+- Backend-proxying centralizes the rate-limit, UA, attribution, and
+  (future) cache concerns where we can enforce them. Browsers cannot.
+- The two-phase rollout gets us out of the TOS violation today while
+  keeping the Fly-deploy work to a self-contained PR.
+- The `GeocodingProvider` adapter shape from `DEC-020` is unchanged at the
+  application boundary; this DEC is an engine/transport swap, not an API
+  contract change. Frontend callers continue to consume `AddressHit`.
+
+**Consequences.**
+- `apps/backend/scout/clients/geocoding/nominatim.py` is removed; replaced
+  by `photon.py`. Settings rename `SCOUT_NOMINATIM_*` → `SCOUT_PHOTON_*`.
+  `SCOUT_GEOCODING_PROVIDER` default flips `nominatim` → `photon`.
+- `apps/web/lib/providers/geocoding/nominatim.ts` is removed; replaced by
+  `backend.ts` which calls `/api/geocode/*` via `lib/api.ts`. The
+  `NEXT_PUBLIC_NOMINATIM_URL` env var goes away; the frontend no longer
+  knows or cares what engine the backend uses.
+- The new endpoints get a `geocode_get` rate-limit policy (already
+  reserved in `scout/security/rate_limit.py`'s `POLICIES` table).
+- Caching on the backend is intentionally **not** added in this PR;
+  Photon responses are fast and the 500 ms client debounce already absorbs
+  duplicate keystrokes per user. If upstream Photon becomes a bottleneck
+  (concurrent unique queries across users), add a small TTL cache in a
+  follow-up — the adapter is the right home for it.
+- Attribution: the basemap (PMTiles / OSM) already carries the OSM
+  attribution; no additional surface is required for Photon since it
+  serves OSM data and Photon's own license terms inherit OSM's ODbL.
+- The `OSMF Acceptable Use Policy` no longer binds Scout's geocoding
+  traffic in either phase. The upstream `photon.komoot.io` "fair use"
+  expectation does bind us until phase 2 lands; the soft-launch traffic
+  profile is well below any reasonable fair-use ceiling.
+- Closes `OQ-06` (Nominatim rate-limit handling).
+- Adds a new repo guardrail (`AGENTS.md` rule #12) requiring agents to
+  read and respect third-party API terms of use, and to surface
+  ambiguity with emphasis. The drift this DEC corrects is the case study.
 
 ---
 

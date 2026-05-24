@@ -9,6 +9,68 @@ Scout is an open source community webapp local to Washington DC intended to help
 - **pre-commit** — `brew install pre-commit` or `uv tool install pre-commit` ([install guide](https://pre-commit.com/#install)).
 - **go-pmtiles** - `brew install pmtiles`, used for working with (pmtiles archives)[https://github.com/protomaps/go-pmtiles]
 
+### API Keys
+
+Only **OpenRouteService** needs a real signup. Photon (geocoding) and
+Refuge Restrooms are keyless, and the Protomaps basemap extract is built
+by a script. You can skip this entire section if you only ever run
+`make docker-up` (the default boots a stack with every third-party adapter
+stubbed — no outbound calls). The credentials below are required for
+`make docker-up-realistic-run`, production deploys, and manual verification
+against live providers.
+
+Create your local env file first, then fill in the values below:
+
+```bash
+cp .env.example .env
+```
+
+1. **OpenRouteService** (`SCOUT_ORS_API_KEY`) — required for real routing.
+   - Sign up at <https://openrouteservice.org/dev/#/signup>, confirm your
+     email, sign in, and request a token from the dashboard. The free
+     **Standard** plan is plenty for local dev (a few thousand directions
+     requests/day, ~40 req/min).
+   - Tokens can take a few minutes to activate after issuance.
+   - Paste the token into `.env`:
+
+     ```
+     SCOUT_ORS_API_KEY=eyJ...your-token-here
+     ```
+
+   - The backend surfaces a clear "missing key" error on the first
+     `/api/route` call if this is left blank.
+
+2. **Photon geocoding** (`SCOUT_PHOTON_USER_AGENT`) — no key. Scout's
+   backend talks to Photon (Komoot's open-source OSM-backed geocoder) for
+   address autocomplete; the browser never calls a geocoder directly
+   (`DEC-022`). The default upstream is Komoot's community endpoint at
+   `https://photon.komoot.io`, which is "fair use" only.
+   - Set a descriptive `User-Agent` in `.env` so upstream operators can
+     reach you before any block:
+
+     ```
+     SCOUT_PHOTON_USER_AGENT=scout-dev/0.1 (you@example.com)
+     ```
+
+   - To point at a self-hosted Photon (e.g. once the `DEC-022` follow-up
+     PR adds the Fly machine), override `SCOUT_PHOTON_BASE_URL`. No app
+     code change required.
+
+3. **Refuge Restrooms** — no key, no signup. The default
+   `SCOUT_REFUGE_BASE_URL` in `.env.example` is the public API
+   (<https://www.refugerestrooms.org/api/v1>). Nothing further to do.
+
+4. **Protomaps basemap tiles** — no key. Run `scripts/build_pmtiles.sh`
+   once after cloning to populate `apps/web/public/tiles/dc.pmtiles` for
+   the interactive MapLibre basemap (requires the `pmtiles` CLI from the
+   prerequisites above).
+
+Once `.env` has the values above, boot the live stack:
+
+```bash
+make docker-up-realistic-run
+```
+
 ## Getting started
 
 ```bash

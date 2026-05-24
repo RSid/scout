@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-down docker-reset-web-deps
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -101,14 +101,28 @@ ingest: ## dry-run DC ingest (scripts/ingest_dc.py) when present
 		echo 'skipping ingest: scripts/ingest_dc.py not present yet (M1-F11 / M1-T03)'; \
 	fi
 
-docker-up: ## docker compose up (infra/docker-compose.yml)
+docker-up: ## docker compose up — all third parties stubbed (alias: docker-up-stubbed-run)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
 	docker compose $(COMPOSE_FLAGS) up
 
-docker-up-interactive-map:
-	docker compose --project-directory . -f infra/docker-compose.yml \
-	run --rm --service-ports \
-	-e NEXT_PUBLIC_SCOUT_MAP_MODE=interactive web
+docker-up-stubbed-run: docker-up ## alias of docker-up — boots stack with stub providers (no outbound calls)
+
+# NOTE (Photon / geocoding, DEC-022): the realistic stack points at
+# Komoot's hosted Photon (`photon.komoot.io`), a community endpoint with
+# "fair use" expectations. Set SCOUT_PHOTON_USER_AGENT in .env to something
+# like "scout-dev/0.1 (you@example.com)" before running so upstream
+# operators can reach you. The Fly-deploy follow-up PR brings up a
+# self-hosted Photon and flips SCOUT_PHOTON_BASE_URL — no code change.
+#
+# This target is the canonical "exercise every external integration we ship
+# to prod" entry point. When a new vendor adapter lands, flip the relevant
+# env var in infra/docker-compose.realistic.yml so this target stays
+# representative (see scripts/AGENTS.md "Tool registry").
+docker-up-realistic-run: ## docker compose up with real Photon/ORS/Refuge — interactive map + live 3rd-party calls
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	@test -f "$(ROOT)/infra/docker-compose.realistic.yml" || { echo 'missing infra/docker-compose.realistic.yml'; exit 1; }
+	@test -f "$(ROOT)/apps/web/public/tiles/dc.pmtiles" || printf '%s\n' 'note: apps/web/public/tiles/dc.pmtiles is missing — the interactive basemap will render empty until you run scripts/build_pmtiles.sh.'
+	docker compose $(COMPOSE_FLAGS) -f "$(ROOT)/infra/docker-compose.realistic.yml" up
 
 docker-down: ## docker compose down (infra/docker-compose.yml)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }

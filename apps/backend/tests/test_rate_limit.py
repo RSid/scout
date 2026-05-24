@@ -83,6 +83,16 @@ def test_restrooms_rate_limit() -> None:
     assert resp.status_code == 429
 
 
+def test_geocode_search_rate_limit() -> None:
+    with TestClient(app) as client:
+        for _ in range(30):
+            r = client.get("/api/geocode/search", params={"q": "Dupont"})
+            assert r.status_code == 200, r.text
+        resp = client.get("/api/geocode/search", params={"q": "Dupont"})
+    assert resp.status_code == 429
+    assert resp.json()["error"]["code"] == "RATE_LIMIT"
+
+
 def test_health_exempt_under_load(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fast_probe(session: Any) -> tuple[bool, int | None]:  # noqa: ARG001
         return True, 0

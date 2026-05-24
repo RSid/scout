@@ -1,10 +1,15 @@
-"""Expose concrete adapter constructors (DEC-020 entrypoint)."""
+"""Expose concrete adapter constructors (DEC-020 entrypoint).
+
+The factory functions below are the *only* place that imports a concrete
+vendor adapter. Application code consumes the Protocol type and lets the
+factory pick the impl based on a single env var per concern.
+"""
 
 from __future__ import annotations
 
 import httpx
 
-from scout.clients.geocoding.nominatim import NominatimProvider
+from scout.clients.geocoding.photon import PhotonProvider
 from scout.clients.geocoding.protocol import GeocodingProvider
 from scout.clients.geocoding.stub import StubGeocodingProvider
 from scout.clients.restrooms.protocol import RestroomsProvider
@@ -29,7 +34,7 @@ def get_geocoding_provider(
 ) -> GeocodingProvider:
     if settings.geocoding_provider.lower() == "stub":
         return StubGeocodingProvider()
-    return NominatimProvider(settings=settings, client=client)
+    return PhotonProvider(settings=settings, client=client)
 
 
 def get_restrooms_provider(

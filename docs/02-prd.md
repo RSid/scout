@@ -72,7 +72,8 @@ them personally.**
 2. First-time only: a brief, dismissible onboarding modal explains data freshness and
    asks the user to pick their accessibility preferences (Profile). Default is "all
    categories on."
-3. User enters a start address and a destination address (autocomplete via Nominatim).
+3. User enters a start address and a destination address (autocomplete via Scout's
+   backend `/api/geocode/*`, served by Photon — see `DEC-022`).
 4. User taps "Find route."
 5. Backend calls ORS wheelchair profile to get a walking route LineString.
 6. Backend computes the corridor (LineString buffered by 30 m) and returns the route
@@ -187,8 +188,11 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Depends on:** M1-F02
 - **Acceptance criteria:**
   - Two text inputs labeled "Starting point" and "Destination."
-  - Autocomplete suggestions fetched from Nominatim, scoped to DC bounding box, no
-    more than one request per 500 ms of typing (debounced).
+  - Autocomplete suggestions fetched from Scout's backend `/api/geocode/search`
+    (served by Photon via the `GeocodingProvider` adapter; see `DEC-022`),
+    scoped to the DC bounding box inside the adapter, no more than one
+    request per 500 ms of typing (debounced client-side). The browser never
+    calls an upstream geocoder directly.
   - "Use my location" button next to "Starting point" that uses the Geolocation API
     only after explicit user click (no auto-prompt on page load).
   - Suggestions are a proper ARIA combobox: `role="combobox"`, `aria-expanded`,
@@ -946,9 +950,12 @@ reference it.
   `amenity=drinking_water`. DC has a public cooling center dataset that's
   seasonal. **Recommendation:** OSM `drinking_water` for M1; add seasonal cooling
   centers in M2 when summer matters.
-- **OQ-06** Address autocomplete — Nominatim's usage policy requires < 1 req/sec
-  per server. **Action:** debounce 500 ms client-side AND rate-limit server-side;
-  pre-load DC street centerlines as a local fallback.
+- **OQ-06** Address autocomplete — *RESOLVED* by `DEC-022`. Nominatim's
+  Acceptable Use Policy categorically forbids using the public service for
+  autocomplete, so Scout's geocoding now flows through our backend's
+  `/api/geocode/*` endpoint backed by Photon (Komoot's hosted endpoint in
+  M1, self-hosted on Fly in the follow-up PR). The 500 ms client debounce
+  and server-side rate limit remain. See `DEC-022` for the full rationale.
 - **OQ-07** Liability: should the disclaimer be a click-through ("I understand")
   before first use, or just always-visible? **Recommendation:** always-visible
   banner + a one-time onboarding modal. No click-through gates feel patronizing.

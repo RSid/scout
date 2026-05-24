@@ -11,7 +11,8 @@ Public API endpoints and default policies (env-specific tuning deferred to ops):
 | /api/route-features         | POST   | POLICIES["route_features_post"]  |
 | /api/restrooms              | GET    | POLICIES["restrooms_get"]        |
 | /api/categories             | GET    | POLICIES["categories_get"]       |
-| /api/geocode (future M1-F03)| GET    | POLICIES["geocode_get"]          |
+| /api/geocode/search         | GET    | POLICIES["geocode_get"]          |
+| /api/geocode/reverse        | GET    | POLICIES["geocode_get"]          |
 | /api/health                 | GET    | exempt — orchestrator probes     |
 
 Cheap metadata endpoints may tighten or widen limits with an explicit rationale
