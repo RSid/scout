@@ -122,8 +122,9 @@ make docker-up                                       # re-runs alembic via the b
 | --- | --- | --- |
 | Page shows "The interactive map is in stub mode." | `infra/docker-compose.yml` pins `NEXT_PUBLIC_SCOUT_MAP_MODE: stub` for the `web` service. | Build `apps/web/public/tiles/dc.pmtiles` (see [tiles/README](../apps/web/public/tiles/README.md)), then override the env var for the run: `docker compose --project-directory . -f infra/docker-compose.yml run --rm --service-ports -e NEXT_PUBLIC_SCOUT_MAP_MODE=interactive web`. |
 | `Module not found: <pkg>` in the `web` container after editing `package.json` | The `web-node_modules` named volume keeps the old `node_modules` across rebuilds. | `make docker-reset-web-deps && docker compose --project-directory . -f infra/docker-compose.yml up --build` (see next section). |
+| `ModuleNotFoundError: No module named '<pkg>'` in `backend` after `uv add` / lockfile bump (often manifests in the browser as `"CORS request did not succeed. Status code: (null)"` because the container is crash-looping and the connection is refused) | The `scout-backend:dev` image bakes `/app/.venv`; bind-mounted source imports the new dep, the stale venv doesn't have it, uvicorn dies on import, compose restarts on a loop. | Confirm with `docker logs scout-backend`; then `make docker-reset-backend-deps && docker compose --project-directory . -f infra/docker-compose.yml up --build` (see "Resetting backend Python deps" below). |
 | `pmtiles: command not found` or `HTTP error: 404` from `scripts/build_pmtiles.sh` | The `pmtiles` CLI isn't on `$PATH`, or the pinned daily build has rotated off `build.protomaps.com`. | See [apps/web/public/tiles/README — Troubleshooting](../apps/web/public/tiles/README.md#troubleshooting). |
-| `CORS header 'Access-Control-Allow-Origin' missing` in the browser for `/api/*` | Backend `SCOUT_CORS_ALLOWLIST_CSV` is empty or doesn't include the web origin (port mismatch with `SCOUT_WEB_HOST_PORT`). | Compose interpolates the dev origin from `SCOUT_WEB_HOST_PORT`; if you set that override **after** the backend container started, recreate it: `docker compose --project-directory . -f infra/docker-compose.yml up -d --force-recreate backend`. |
+| `CORS header 'Access-Control-Allow-Origin' missing` in the browser for `/api/*` (with a real HTTP status — `200`/`4xx`/`5xx` — visible in DevTools) | Backend `SCOUT_CORS_ALLOWLIST_CSV` is empty or doesn't include the web origin (port mismatch with `SCOUT_WEB_HOST_PORT`). | Compose interpolates the dev origin from `SCOUT_WEB_HOST_PORT`; if you set that override **after** the backend container started, recreate it: `docker compose --project-directory . -f infra/docker-compose.yml up -d --force-recreate backend`. (If the status is `(null)`, see the `ModuleNotFoundError` row above first — the backend may not be running at all.) |
 | Firefox shows `NS_ERROR_CONNECTION_REFUSED` at `https://localhost:3000` | HTTPS-Only Mode upgrades the URL before the request lands. | Use `http://localhost:3000` — the dev stack has no TLS terminator. |
 
 ## Resetting web `node_modules` (Compose)
@@ -146,6 +147,37 @@ docker compose --project-directory . -f infra/docker-compose.yml up --build
 If volume names differ (non-default Compose project name), inspect
 `docker volume ls` and remove the `*-web-node_modules` and `*-web-next`
 entries manually while containers are stopped.
+
+## Resetting backend Python deps (Compose)
+
+Unlike `web`, the `backend` service has no named volume for its virtualenv
+— `/app/.venv` is **baked into the `scout-backend:dev` image** by the
+`deps-backend` build stage (which runs `uv sync --frozen`). The bind mount
+at `/app/apps/backend` only swaps in fresh source code; it does not touch
+the venv.
+
+That means **after any change to `apps/backend/pyproject.toml` /
+`uv.lock`** (most commonly via `uv add`), an existing `scout-backend:dev`
+image will have a stale venv. Symptom: `docker compose ... up` boots the
+container, uvicorn imports the new code, hits
+`ModuleNotFoundError: No module named '<new-pkg>'`, the container exits 1,
+Compose restarts it on a loop, and every `/api/*` browser fetch fails with
+"connection refused" (which Firefox prints as
+`"CORS request did not succeed. Status code: (null)"`).
+
+Fix:
+
+```bash
+make docker-reset-backend-deps
+docker compose --project-directory . -f infra/docker-compose.yml up --build
+```
+
+`make docker-reset-backend-deps` stops + removes the `backend` container
+and drops the `scout-backend:dev` image; the subsequent `--build` rebuilds
+the image, so `/app/.venv` is refreshed from the current lockfile.
+
+(`pgdata` and `web-*` volumes are untouched — only the backend image goes
+away.)
 
 ## Production image (runtime stage)
 

@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -134,3 +134,14 @@ docker-reset-web-deps: ## wipe web node_modules/.next volumes (pgdata untouched)
 	docker compose $(COMPOSE_FLAGS) rm -sf web 2>/dev/null || true
 	docker volume rm -f scout_web-node_modules scout_web-next 2>/dev/null || true
 	@printf '%s\n' 'Next: docker compose $(COMPOSE_FLAGS) up --build   (Rebuild web image when package*.json changed; volumes re-seed from the image.)'
+
+# Backend deps (slowapi, httpx, etc.) live in the image-baked /app/.venv,
+# not a named volume — so the only way to refresh them is to drop the image
+# and rebuild. Symptom that this is the target you want: container crash-loops
+# with `ModuleNotFoundError` after a `uv add` / lockfile bump.
+docker-reset-backend-deps: ## drop scout-backend:dev image so next up rebuilds /app/.venv; use after backend deps change
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	docker compose $(COMPOSE_FLAGS) stop backend 2>/dev/null || true
+	docker compose $(COMPOSE_FLAGS) rm -sf backend 2>/dev/null || true
+	docker image rm -f scout-backend:dev 2>/dev/null || true
+	@printf '%s\n' 'Next: docker compose $(COMPOSE_FLAGS) up --build   (Rebuilds scout-backend:dev so /app/.venv picks up new uv.lock entries.)'
