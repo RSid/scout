@@ -99,6 +99,61 @@ export default function AboutPage() {
         </section>
 
         <section
+          aria-labelledby="online-services-heading"
+          className="space-y-[var(--space-5)]"
+        >
+          <h2
+            id="online-services-heading"
+            className="text-2xl font-semibold text-[color:var(--color-text)]"
+          >
+            Search &amp; routing services
+          </h2>
+          <p className="text-[color:var(--color-text-muted)]">
+            Scout relies on external services where needed for search and routing. Typed
+            addresses never go straight from your browser to a geocoder lookup; they go
+            to Scout&apos;s backend first. For transparency, here are the services we
+            rely on today:
+          </p>
+          <ul className="list-disc space-y-[var(--space-2)] pl-[var(--space-6)] text-[color:var(--color-text)]">
+            <li>
+              <strong>Geocoding (address search):</strong>{" "}
+              <Link
+                href="https://github.com/komoot/photon"
+                className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Photon
+              </Link>
+              , an open-source engine over{" "}
+              <Link
+                href="https://www.openstreetmap.org/copyright"
+                className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                OpenStreetMap
+              </Link>{" "}
+              data. Some environments use a hosted instance (for example Komoot&apos;s
+              community endpoint); Scout may switch to its own Photon deployment without
+              changing what you experience in the app.
+            </li>
+            <li>
+              <strong>Walking routes:</strong>{" "}
+              <Link
+                href="https://openrouteservice.org/"
+                className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                OpenRouteService
+              </Link>
+              , which computes wheelchair-aware directions over OpenStreetMap.
+            </li>
+          </ul>
+        </section>
+
+        <section
           id="disclaimer"
           aria-labelledby="disclaimer-heading"
           className="space-y-[var(--space-4)] rounded-tokenLg border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] p-[var(--space-6)] text-[color:var(--color-warning-text)]"

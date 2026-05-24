@@ -31,20 +31,30 @@ export default function PrivacyPage() {
             third-party analytics, advertising scripts, or social-media widgets.
           </li>
           <li>
-            <strong>The address you type</strong> is sent to Scout&apos;s backend to
-            find matching coordinates. The backend looks them up via Photon, an
-            open-source OpenStreetMap geocoder hosted by Komoot. Scout doesn&apos;t
-            store the address.
+            <strong>The address you type</strong> is sent to Scout&apos;s servers so we
+            can match it to coordinates. Scout doesn&apos;t store what you typed.
           </li>
           <li>
-            <strong>Route requests</strong> (start and destination coordinates) are sent
-            to OpenRouteService to compute the route. They aren&apos;t stored by Scout.
+            <strong>Coordinates from your plan</strong> (start and destination) flow
+            through Scout to calculate walking directions. They aren&apos;t stored by
+            Scout.
           </li>
           <li>
             <strong>Your IP address</strong> appears in Scout&apos;s server logs (used
             to catch abuse), kept for no more than seven days, then deleted.
           </li>
         </ul>
+        <p className="text-[color:var(--color-text-muted)]">
+          For the names of the geographic lookup and routing services Scout uses — and
+          links if you want to read more — see{" "}
+          <Link
+            href="/about"
+            className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+          >
+            About Scout
+          </Link>
+          .
+        </p>
       </section>
 
       <section
