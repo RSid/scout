@@ -32,6 +32,27 @@ end-to-end dev loop. `make help` lists every shortcut (lint, tests,
 Compose, ingest dry-run, …). Copy `.env.example` to `.env` and adjust
 `SCOUT_*` variables when you need host-side overrides.
 
+### Connect with a GUI (Beekeeper Studio, TablePlus, DBeaver, …)
+
+Once the stack is up (`make docker-up`), Postgres/PostGIS is exposed on your
+machine. In your SQL client choose a **PostgreSQL** connection.
+
+| Setting | Typical value |
+| --- | --- |
+| Host | `127.0.0.1` or `localhost` |
+| Port | `5432` by default (`SCOUT_DB_HOST_PORT` in `.env` if you remapped it; see `.env.example`) |
+| Database | `scout` |
+| User | `scout` |
+| Password | `scout` |
+| SSL | Off |
+
+In **Beekeeper Studio**: *New Connection* → **PostgreSQL**, then paste the settings above (`Save` connects without SSL).
+
+`db` and port `5432` inside Compose are only for containers on the Compose
+network. From your laptop, use **localhost + the published host port** (the one
+Docker maps into the VM), not hostname `db`. If connecting fails, confirm the
+containers are healthy and adjust `SCOUT_DB_HOST_PORT` if another Postgres on
+5432 conflicts.
 ## Reporting issues
 
 Use the GitHub Issues tab. You'll see two structured templates:
