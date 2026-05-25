@@ -89,6 +89,20 @@ AI agents work in this repo. They override comfort or speed.
     `scripts/AGENTS.md` before reconstructing a `gh` / `fly` / `docker`
     call by hand. If a recurring operation is missing, add a script and a
     registry row in the same PR.
+12. **Always read and respect the terms of use for any third-party API you
+    call.** Before adding or modifying a call to an external service
+    (geocoding, routing, tiles, email, analytics — anything reachable over the
+    public internet), locate and read its acceptable-use / terms-of-service
+    page. If you believe the proposed usage may violate those terms, **or if
+    you can't find authoritative terms with confidence**, stop and surface the
+    concern to the human reviewer with emphasis: call it out in the PR
+    description (under a "Third-party TOS review" heading) *and* in your
+    reply, not buried in a code comment. Do not proceed past ambiguity here.
+    The asymmetric cost of a TOS violation (account ban, IP block, legal
+    exposure, having to ship a hot-fix from a violation incident) far
+    outweighs the cost of one clarifying question. This rule has teeth:
+    `DEC-022` exists because we silently drifted past Nominatim's
+    autocomplete clause; future drift is preventable, not survivable.
 
 ## Repo layout
 

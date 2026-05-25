@@ -42,6 +42,24 @@ Frontend conventions. Read `../../AGENTS.md` first.
 - `index.ts` barrel files only at directory boundaries that genuinely benefit
   from one. Avoid them as a default.
 
+## User-facing copy (voice)
+
+The authoritative guide is
+**[`docs/contributor/voice-and-copy.md`](../../docs/contributor/voice-and-copy.md)** —
+read it before writing any string a user will see. The bullets below are the
+non-negotiable highlights for frontend changes:
+
+- Prefer **plain language** over vendor or stack jargon on routes most people use
+  (planner, Privacy, disclaimers, onboarding). Describe what Scout does in user terms:
+  lookup coordinates; calculate walking directions — not upstream brand names unless
+  the About page is the venue for that disclosure.
+- **Third-party tools and service names** belong on **`/about` (About Scout)** when we
+  need accountability and outbound links — not sprinkled across Privacy or incidental
+  UI. Privacy should stay high-level about data flows and point readers to About for the
+  proper-name list (`docs/02-prd.md` `NF-PRIV-*` disclosures still bind; Legal-style
+  pages can summarize flows and defer detail).
+- Align longer-form product voice with **`docs/01-one-pager.md`** (tone, audience).
+
 ## Accessibility (code-level)
 
 The full spec is PRD §7.1. Code-level rules:

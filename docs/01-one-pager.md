@@ -100,6 +100,15 @@ residents; caregivers planning a route for someone else; visitors to DC.
 - **Open-source health**: code, data ingestion scripts, and a "how to add your own
   city" guide are public under AGPL-3.0.
 
+## Voice & user-facing copy
+
+- Write for partially-mobile DC residents — clear, respectful, jargon-light.
+- On marketing-style and policy pages, avoid product or engine names unless they help
+  comprehension. **Technical partners and stacks** belong on the **`/about` About Scout page**
+  for transparency (with links): geocoders, routers, attribution. **Privacy** should
+  describe flows in plain terms and defer the proper-name rundown to About.
+- Implementation detail for contributors: **`apps/web/AGENTS.md`** expands this rule for TS/React work.
+
 ## Constraints
 
 - **Zero budget.** Hosting on Fly.io free tier; tiles via self-hosted Protomaps; routing

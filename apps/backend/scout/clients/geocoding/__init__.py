@@ -1,1 +1,1 @@
-"""Geocoding providers resolve human-entered searches (future `/api/geocode`)."""
+"""Geocoding providers resolve human-entered searches (`/api/geocode/*`)."""
