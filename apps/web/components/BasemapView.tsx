@@ -20,10 +20,18 @@ export default function BasemapView({ corridor, route }: BasemapProps) {
     process.env.NEXT_PUBLIC_SCOUT_MAP_MODE === "stub" ? "stub" : "interactive";
 
   if (mapMode === "stub") {
-    return <BasemapSkeleton />;
+    return (
+      <div data-testid="scout-basemap-region">
+        <BasemapSkeleton />
+      </div>
+    );
   }
 
-  return <LoadedMap corridor={corridor} route={route} />;
+  return (
+    <div data-testid="scout-basemap-region">
+      <LoadedMap corridor={corridor} route={route} />
+    </div>
+  );
 }
 
 function BasemapSkeleton() {

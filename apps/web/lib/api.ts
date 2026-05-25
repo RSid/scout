@@ -267,3 +267,122 @@ export async function fetchCorridorFeatures(
 
   return body as CorridorResponse;
 }
+
+/** Parsed from `features[0].properties` on `POST /api/route` (M1-F04). */
+export interface RouteSummaryPayload {
+  distanceMeters: number;
+  durationSeconds: number;
+  fallbackProfileUsed: boolean;
+  warnings: readonly string[];
+}
+
+/** Successful `fetchRoute` return value — line geometry + summary for UI. */
+export interface RouteComputeResult {
+  line: GeoJSON.Feature<GeoJSON.LineString>;
+  summary: RouteSummaryPayload;
+  response: GeoJSON.FeatureCollection & {
+    features: GeoJSON.Feature<GeoJSON.LineString>[];
+  };
+}
+
+function parseRouteWarnings(raw: unknown): readonly string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.filter((item): item is string => typeof item === "string");
+}
+
+/** `POST /api/route` — wheelchair walking directions (M1-F04 wire contract). */
+export async function fetchRoute(
+  payload: {
+    from: readonly [lon: number, lat: number];
+    to: readonly [lon: number, lat: number];
+    profile?: "wheelchair";
+  },
+  signal?: AbortSignal,
+): Promise<RouteComputeResult> {
+  const resp = await fetch(`${apiBase()}/api/route`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: [...payload.from],
+      to: [...payload.to],
+      profile: payload.profile ?? "wheelchair",
+    }),
+    cache: "no-store",
+    signal,
+  });
+
+  const body = await safeReadJson(resp);
+  if (!resp.ok) {
+    throw parseUpstreamError(body);
+  }
+
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    (body as { type?: unknown }).type !== "FeatureCollection"
+  ) {
+    throw new ScoutApiError("Route payload malformed.");
+  }
+
+  const featuresUnknown = (body as { features?: unknown }).features;
+  if (!Array.isArray(featuresUnknown) || featuresUnknown.length === 0) {
+    throw new ScoutApiError("Route geometry missing.");
+  }
+
+  const first = featuresUnknown[0];
+  if (
+    typeof first !== "object" ||
+    first === null ||
+    typeof (first as { type?: unknown }).type !== "string" ||
+    (first as GeoJSON.Feature).type !== "Feature"
+  ) {
+    throw new ScoutApiError("Route feature malformed.");
+  }
+
+  const geometry = (first as GeoJSON.Feature).geometry;
+  if (
+    geometry === null ||
+    typeof geometry !== "object" ||
+    geometry.type !== "LineString" ||
+    !Array.isArray(geometry.coordinates) ||
+    geometry.coordinates.length < 2
+  ) {
+    throw new ScoutApiError("Route LineString malformed.");
+  }
+
+  const props = (first as GeoJSON.Feature).properties;
+  const rec =
+    typeof props === "object" && props !== null
+      ? (props as Record<string, unknown>)
+      : {};
+
+  const distanceMeters = rec["distance_meters"];
+  const durationSeconds = rec["duration_seconds"];
+  const fallbackProfileUsed = rec["fallback_profile_used"];
+  const warnings = parseRouteWarnings(rec["warnings"]);
+
+  if (
+    typeof distanceMeters !== "number" ||
+    typeof durationSeconds !== "number" ||
+    typeof fallbackProfileUsed !== "boolean"
+  ) {
+    throw new ScoutApiError("Route summary properties malformed.");
+  }
+
+  const line = first as GeoJSON.Feature<GeoJSON.LineString>;
+
+  const summary: RouteSummaryPayload = {
+    distanceMeters,
+    durationSeconds,
+    fallbackProfileUsed,
+    warnings,
+  };
+
+  const response = body as GeoJSON.FeatureCollection & {
+    features: GeoJSON.Feature<GeoJSON.LineString>[];
+  };
+
+  return { line, summary, response };
+}

@@ -62,6 +62,52 @@ async def test_openrouteservice_adapter_success() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_openrouteservice_adapter_reads_feature_property_summary() -> None:
+    """Real ORS v2 directions/<profile>/geojson puts
+    summary on features[0].properties."""
+
+    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    respx.post(wheelchair_url).respond(
+        200,
+        json={
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "coordinates": [[-77.0, 38.9], [-76.92, 39.0]],
+                        "type": "LineString",
+                    },
+                    "properties": {
+                        "way_points": [0, 1],
+                        "summary": {"distance": 829.0, "duration": 565.4},
+                    },
+                }
+            ],
+            "metadata": {"engine": {"version": "9.x"}},
+        },
+    )
+
+    settings = Settings(
+        database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
+        routing_provider="openrouteservice",
+        ors_api_key="unit-test-token",
+        ors_base_url="https://api.openrouteservice.org",
+        cors_allowlist_csv="",
+    )
+
+    async with httpx.AsyncClient(base_url="https://scout.test") as client:
+        adapter = OpenRouteServiceProvider(settings=settings, client=client)
+        result = await adapter.walking_route(
+            [-77.0, 38.9], [-76.92, 39.0], profile="wheelchair"
+        )
+
+        assert result.distance_meters == pytest.approx(829.0)
+        assert result.duration_seconds == pytest.approx(565.4)
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_openrouteservice_adapter_fallback() -> None:
     wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
     foot_url = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson"

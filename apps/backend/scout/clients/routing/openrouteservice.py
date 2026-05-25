@@ -185,17 +185,30 @@ class OpenRouteServiceProvider(RoutingProvider):
         if not isinstance(features_any, list) or len(features_any) == 0:
             raise RouteNotFoundError()
 
+        # ORS Directions GeoJSON puts `summary` on `features[0].properties.summary`
+        # (`https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/`).
+        # Older mocks placed it on `metadata.summary` or top-level `properties.summary`;
+        # we keep those as fallbacks so existing fixtures still parse.
         summary: dict[str, Any] | None = None
-        metadata = body.get("metadata")
-        if isinstance(metadata, dict):
-            maybe_summary = metadata.get("summary")
-            if isinstance(maybe_summary, dict):
-                summary = maybe_summary
-        top_props = body.get("properties")
-        if summary is None and isinstance(top_props, dict):
-            maybe_summary_top = top_props.get("summary")
-            if isinstance(maybe_summary_top, dict):
-                summary = maybe_summary_top
+        first_feature = features_any[0]
+        if isinstance(first_feature, dict):
+            feature_props = first_feature.get("properties")
+            if isinstance(feature_props, dict):
+                maybe_feature_summary = feature_props.get("summary")
+                if isinstance(maybe_feature_summary, dict):
+                    summary = maybe_feature_summary
+        if summary is None:
+            metadata = body.get("metadata")
+            if isinstance(metadata, dict):
+                maybe_summary = metadata.get("summary")
+                if isinstance(maybe_summary, dict):
+                    summary = maybe_summary
+        if summary is None:
+            top_props = body.get("properties")
+            if isinstance(top_props, dict):
+                maybe_summary_top = top_props.get("summary")
+                if isinstance(maybe_summary_top, dict):
+                    summary = maybe_summary_top
 
         distance_meters = float(summary.get("distance", 0.0)) if summary else 0.0
         duration_seconds = float(summary.get("duration", 0.0)) if summary else 0.0
