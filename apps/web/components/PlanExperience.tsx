@@ -5,21 +5,29 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import BasemapView from "@/components/BasemapView";
 import FeatureListView from "@/components/FeatureListView";
 import ProfilePanel from "@/components/ProfilePanel";
-import RouteSummary from "@/components/RouteSummary";
+import RouteSummary, { type RouteSummaryMode } from "@/components/RouteSummary";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
 import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
 
-import { fetchCorridorFeatures, type CorridorResponse } from "@/lib/api";
+import {
+  fetchCorridorFeatures,
+  fetchRoute,
+  type CorridorResponse,
+  type RouteSummaryPayload,
+} from "@/lib/api";
+import {
+  en,
+  routeAnnouncementApproxFallback,
+  routeAnnouncementLoaded,
+} from "@/lib/i18n/messages";
 
-import { formatApproxMeters, roughDistanceMeters } from "@/lib/geo";
+import { roughDistanceMeters } from "@/lib/geo";
 import type { AddressHit } from "@/lib/providers/geocoding";
 import { useProfile } from "@/lib/profile";
 
-import { useEffect, useMemo, useState } from "react";
-
-import type { GeoJSON } from "geojson";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function distanceAlongFallbackRoute(
   route: GeoJSON.Feature<GeoJSON.LineString>,
@@ -56,6 +64,34 @@ function distanceAlongFallbackRoute(
   return total;
 }
 
+function straightLinePreview(
+  start: AddressHit,
+  destination: AddressHit,
+): GeoJSON.Feature<GeoJSON.LineString> {
+  return {
+    type: "Feature",
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [start.lon, start.lat],
+        [destination.lon, destination.lat],
+      ],
+    },
+    properties: { source: "planner-straight-preview" },
+  };
+}
+
+type RouteFetchSlice =
+  | { kind: "unset" }
+  | { kind: "loading"; routeKey: string }
+  | {
+      kind: "ok";
+      routeKey: string;
+      line: GeoJSON.Feature<GeoJSON.LineString>;
+      summary: RouteSummaryPayload;
+    }
+  | { kind: "error"; routeKey: string };
+
 export default function PlanExperience() {
   const announce = useAnnounce();
   const { categories, selections, isReady } = useProfile();
@@ -67,6 +103,12 @@ export default function PlanExperience() {
   const [corridorFeatures, setCorridorFeatures] = useState<
     CorridorResponse["features"]
   >(() => demoCorridorFeatures());
+
+  const [routeFetch, setRouteFetch] = useState<RouteFetchSlice>({ kind: "unset" });
+  /** Ignores stale `fetchRoute` settles when endpoints change faster than upstream responds. */
+  const desiredRouteKeyRef = useRef<string | null>(null);
+
+  const demoApproxMeters = useMemo(() => distanceAlongFallbackRoute(DEMO_ROUTE), []);
 
   const enabledCategories = useMemo(() => {
     if (!isReady) {
@@ -83,25 +125,14 @@ export default function PlanExperience() {
       .map((category) => category.id);
   }, [categories, isReady, selections]);
 
-  const routeFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
-    if (startHit !== null && destinationHit !== null) {
-      return {
-        type: "Feature",
-        geometry: {
-          type: "LineString",
-          coordinates: [
-            [startHit.lon, startHit.lat],
-            [destinationHit.lon, destinationHit.lat],
-          ],
-        },
-        properties: { source: "planner-points" },
-      };
-    }
+  const routeKey =
+    startHit !== null && destinationHit !== null
+      ? `${startHit.id}→${destinationHit.id}`
+      : null;
 
-    return DEMO_ROUTE;
-  }, [startHit, destinationHit]);
+  desiredRouteKeyRef.current = routeKey;
 
-  const distanceLabelMeters =
+  const straightLineMeters =
     startHit !== null && destinationHit !== null
       ? roughDistanceMeters(
           startHit.lon,
@@ -109,7 +140,136 @@ export default function PlanExperience() {
           destinationHit.lon,
           destinationHit.lat,
         )
-      : distanceAlongFallbackRoute(DEMO_ROUTE);
+      : demoApproxMeters;
+
+  useEffect(() => {
+    if (routeKey === null || startHit === null || destinationHit === null) {
+      setRouteFetch({ kind: "unset" });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const keyed = routeKey;
+
+    setRouteFetch({ kind: "loading", routeKey: keyed });
+
+    void fetchRoute(
+      {
+        from: [startHit.lon, startHit.lat],
+        to: [destinationHit.lon, destinationHit.lat],
+      },
+      controller.signal,
+    )
+      .then((payload) => {
+        if (desiredRouteKeyRef.current !== keyed) {
+          return;
+        }
+
+        setRouteFetch({
+          kind: "ok",
+          routeKey: keyed,
+          line: payload.line,
+          summary: payload.summary,
+        });
+
+        let line = routeAnnouncementLoaded(
+          payload.summary.distanceMeters,
+          payload.summary.durationSeconds,
+        );
+
+        if (payload.summary.fallbackProfileUsed === true) {
+          line = `${line} ${en.routeAnnouncementWheelchairFallback}`;
+        }
+
+        announce(line);
+      })
+      .catch((reason: unknown) => {
+        const aborted = reason instanceof DOMException && reason.name === "AbortError";
+
+        const maybeErr = reason as { name?: string | undefined };
+
+        const alsoAbort =
+          typeof maybeErr.name === "string" && maybeErr.name === "AbortError";
+
+        if (aborted || alsoAbort) {
+          return;
+        }
+
+        if (desiredRouteKeyRef.current !== keyed) {
+          return;
+        }
+
+        setRouteFetch({ kind: "error", routeKey: keyed });
+        announce(routeAnnouncementApproxFallback());
+      });
+
+    return () => controller.abort();
+  }, [announce, destinationHit, routeKey, startHit]);
+
+  const routeFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
+    if (startHit === null || destinationHit === null) {
+      return DEMO_ROUTE;
+    }
+
+    if (
+      routeFetch.kind === "ok" &&
+      routeFetch.routeKey === routeKey &&
+      routeKey !== null
+    ) {
+      return routeFetch.line;
+    }
+
+    return straightLinePreview(startHit, destinationHit);
+  }, [destinationHit, routeFetch, routeKey, startHit]);
+
+  const summaryModel = useMemo((): Readonly<{
+    mode: RouteSummaryMode;
+    summary: RouteSummaryPayload | null;
+    approxMeters: number;
+  }> => {
+    if (routeKey === null || startHit === null || destinationHit === null) {
+      return {
+        mode: "sample",
+        summary: null,
+        approxMeters: demoApproxMeters,
+      };
+    }
+
+    const pending = {
+      mode: "pending" as const,
+      summary: null,
+      approxMeters: straightLineMeters,
+    };
+
+    switch (routeFetch.kind) {
+      case "unset":
+      case "loading":
+        return pending;
+      case "error":
+        return routeFetch.routeKey === routeKey
+          ? {
+              mode: "approx-fallback",
+              summary: null,
+              approxMeters: straightLineMeters,
+            }
+          : pending;
+      case "ok":
+        return routeFetch.routeKey === routeKey
+          ? {
+              mode: "live",
+              summary: routeFetch.summary,
+              approxMeters: routeFetch.summary.distanceMeters,
+            }
+          : pending;
+    }
+  }, [
+    demoApproxMeters,
+    destinationHit,
+    routeFetch,
+    routeKey,
+    startHit,
+    straightLineMeters,
+  ]);
 
   function handlePickStart(hit: AddressHit) {
     setStartHit(hit);
@@ -171,10 +331,9 @@ export default function PlanExperience() {
       </header>
 
       <RouteSummary
-        distanceLabel={formatApproxMeters(distanceLabelMeters)}
-        warnings={[
-          "Approximate distance — Scout's full routing is still in development.",
-        ]}
+        mode={summaryModel.mode}
+        summary={summaryModel.summary}
+        approximateDistanceMeters={summaryModel.approxMeters}
       />
 
       <fieldset

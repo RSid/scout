@@ -1,40 +1,178 @@
 "use client";
 
+import type { RouteSummaryPayload } from "@/lib/api";
+import { en } from "@/lib/i18n/messages";
+
+export type RouteSummaryMode = "live" | "approx-fallback" | "sample" | "pending";
+
 type RouteSummaryProps = Readonly<{
-  distanceLabel: string;
-  warnings: readonly string[];
+  summary: RouteSummaryPayload | null;
+  mode: RouteSummaryMode;
+  /** Straight-line approximation distance in meters (`roughDistanceMeters` / segment sum). */
+  approximateDistanceMeters: number;
 }>;
 
-export default function RouteSummary({
-  distanceLabel,
+/** Human-readable meters or kilometers (rounded) for the summary row */
+export function formatRouteDistanceLine(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) {
+    throw new RangeError("meters must be a finite positive number.");
+  }
 
-  warnings,
+  if (meters < 1000) {
+    const rounded = Math.round(meters);
+    const unit = rounded === 1 ? "meter" : "meters";
+    return `${String(rounded)} ${unit}`;
+  }
+
+  const km = meters / 1000;
+  const label = km >= 100 ? String(Math.round(km)) : String(Math.round(km * 10) / 10);
+
+  const unitLabel = Number(label) === 1 ? "kilometer" : "kilometers";
+  return `${label} ${unitLabel}`;
+}
+
+/** Whole minutes ≥ 1 for walking time rows */
+export function formatWalkingMinutes(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    throw new RangeError("seconds must be finite and non-negative.");
+  }
+
+  if (seconds === 0) {
+    return "";
+  }
+
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return `${String(minutes)} ${minutes === 1 ? "minute" : "minutes"}`;
+}
+
+export default function RouteSummary({
+  summary,
+  mode,
+  approximateDistanceMeters,
 }: RouteSummaryProps) {
+  const distanceCandidate =
+    mode === "live" && summary !== null
+      ? summary.distanceMeters
+      : approximateDistanceMeters;
+
+  const distanceHuman = formatRouteDistanceLine(distanceCandidate);
+
+  const walkingDisplay =
+    mode === "pending"
+      ? en.routeSummaryPendingWalkingTime
+      : mode === "live" && summary !== null && summary.durationSeconds > 0
+        ? formatWalkingMinutes(summary.durationSeconds)
+        : null;
+
+  const showFallbackSentence = mode === "live" && summary?.fallbackProfileUsed === true;
+
+  const warningItems =
+    summary?.warnings.map((warning, index) => ({
+      key: `${index}:${String(warning).slice(0, 96)}`,
+      text: String(warning),
+    })) ?? [];
+
+  const profileDescription =
+    mode === "approx-fallback" || mode === "sample" || mode === "pending"
+      ? "—"
+      : en.routeProfileWheelchair;
+
   return (
-    <div
-      role="region"
-      aria-label="Walking route approximation"
+    <section
+      aria-labelledby="scout-route-summary-heading"
+      aria-label={en.routeSummaryAriaLabel}
+      data-testid="scout-route-summary"
       className="rounded-tokenLg border border-border bg-surface-elevated p-[var(--space-5)] shadow-modal"
     >
-      <dl className="space-y-[var(--space-3)]">
+      <h2
+        id="scout-route-summary-heading"
+        className="text-xl font-semibold text-[color:var(--color-text)]"
+      >
+        {en.routeSummaryHeading}
+      </h2>
+
+      {mode === "pending" ? (
+        <p className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
+          {en.routeSummaryPendingHint}
+        </p>
+      ) : null}
+
+      {mode === "approx-fallback" ? (
+        <p className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
+          {en.routeApproxFallbackExplanation}
+        </p>
+      ) : null}
+
+      {mode === "sample" ? (
+        <p className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
+          Pick start and destination to calculate walking directions. Until then, Scout
+          shows a sample route across DC.
+        </p>
+      ) : null}
+
+      <dl className="mt-[var(--space-5)] space-y-[var(--space-4)]">
         <div>
           <dt className="text-sm font-semibold text-[color:var(--color-text-muted)]">
-            Distance approximation
+            {en.routeDistanceLabel}
           </dt>
-          <dd className="text-3xl font-bold text-[color:var(--color-text)]">
-            {distanceLabel}
+          <dd className="text-2xl font-bold text-[color:var(--color-text)]">
+            {distanceHuman}
+          </dd>
+        </div>
+
+        <div>
+          <dt className="text-sm font-semibold text-[color:var(--color-text-muted)]">
+            {en.routeDurationLabel}
+          </dt>
+          <dd className="text-2xl font-bold text-[color:var(--color-text)]">
+            {walkingDisplay ?? (
+              <span className="text-lg font-semibold normal-case text-[color:var(--color-text-muted)]">
+                {mode === "sample"
+                  ? "Available after routing"
+                  : "Unavailable for this preview"}
+              </span>
+            )}
+          </dd>
+        </div>
+
+        <div>
+          <dt className="text-sm font-semibold text-[color:var(--color-text-muted)]">
+            {en.routeProfileLabel}
+          </dt>
+          <dd className="text-lg font-semibold text-[color:var(--color-text)]">
+            {profileDescription}
           </dd>
         </div>
       </dl>
-      <div className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
-        About this route
-      </div>
-      <ul className="mt-[var(--space-2)] list-disc space-y-1 pl-[var(--space-5)]">
-        <li>Built from public accessibility data.</li>
-        {warnings.map((item, index) => (
-          <li key={`${index}:${item.slice(0, 64)}`}>{item}</li>
-        ))}
-      </ul>
-    </div>
+
+      {showFallbackSentence ? (
+        <p className="mt-[var(--space-5)] text-sm text-[color:var(--color-text)]">
+          {en.routeProfileFallbackNote}
+        </p>
+      ) : null}
+
+      {warningItems.length > 0 ? (
+        <div className="mt-[var(--space-5)]">
+          <p
+            id="scout-route-warnings-heading"
+            className="text-sm font-semibold text-[color:var(--color-text-muted)]"
+          >
+            {en.routeWarningsNoticesHeading}
+          </p>
+          <ul
+            aria-labelledby="scout-route-warnings-heading"
+            className="mt-[var(--space-3)] flex flex-wrap gap-2"
+          >
+            {warningItems.map((warning) => (
+              <li key={warning.key}>
+                <span className="inline-flex max-w-full rounded-tokenSm border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] px-[var(--space-3)] py-[var(--space-2)] text-sm font-medium text-[color:var(--color-warning-text)]">
+                  {warning.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
   );
 }

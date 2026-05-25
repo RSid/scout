@@ -7,6 +7,7 @@ import {
   fetchCategories,
   fetchCorridorFeatures,
   fetchHealth,
+  fetchRoute,
   reverseGeocode,
   searchGeocode,
 } from "./api";
@@ -159,6 +160,157 @@ describe("fetchCorridorFeatures", () => {
         categories: ["curb_ramps"],
       }),
     ).rejects.toThrow(/malformed/i);
+  });
+});
+
+describe("fetchRoute", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("parses FeatureCollection LineString and summary props", async () => {
+    // MOCK: POST /api/route happy path shape (M1-F04).
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          ({
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "LineString",
+                  coordinates: [
+                    [-77.04, 38.89],
+                    [-77.03, 38.9],
+                  ],
+                },
+                properties: {
+                  distance_meters: 850.25,
+                  duration_seconds: 600,
+                  fallback_profile_used: false,
+                  warnings: ["narrow sidewalk"],
+                },
+              },
+            ],
+          }) satisfies Record<string, unknown>,
+      } satisfies Partial<Response>),
+    );
+
+    const result = await fetchRoute({
+      from: [-77.05, 38.91],
+      to: [-77.04, 38.92],
+    });
+
+    expect(result.summary.distanceMeters).toBeCloseTo(850.25);
+    expect(result.summary.durationSeconds).toBe(600);
+    expect(result.summary.fallbackProfileUsed).toBe(false);
+    expect(result.summary.warnings).toStrictEqual(["narrow sidewalk"]);
+    expect(result.line.geometry.type).toBe("LineString");
+    expect(result.response.type).toBe("FeatureCollection");
+  });
+
+  it("posts from, to, and default profile wheelchair", async () => {
+    // MOCK: request body envelope.
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-1, -1],
+                [-2, -2],
+              ],
+            },
+            properties: {
+              distance_meters: 1,
+              duration_seconds: 1,
+              fallback_profile_used: false,
+              warnings: [],
+            },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await fetchRoute({
+      from: [-77.0, 38.9],
+      to: [-77.01, 38.91],
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0] as unknown as [
+      unknown,
+      { method?: string; body?: string },
+    ];
+
+    expect(String(opts.method)).toBe("POST");
+    expect(JSON.parse(String(opts.body))).toStrictEqual({
+      from: [-77.0, 38.9],
+      to: [-77.01, 38.91],
+      profile: "wheelchair",
+    });
+  });
+
+  it("throws ScoutApiError on 4xx with backend envelope", async () => {
+    // MOCK: error branch for route unavailable.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: {
+            code: "ROUTE_NOT_FOUND",
+            message: "We couldn't find a route between those two points.",
+          },
+        }),
+      } satisfies Partial<Response>),
+    );
+
+    await expect(
+      fetchRoute({ from: [-77.0, 38.9], to: [-77.01, 38.91] }),
+    ).rejects.toMatchObject({
+      message: "We couldn't find a route between those two points.",
+      code: "ROUTE_NOT_FOUND",
+    });
+  });
+
+  it("throws when summary properties are malformed", async () => {
+    // MOCK: FeatureCollection passes but numeric summary fields missing.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () =>
+          ({
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "LineString",
+                  coordinates: [
+                    [-1, -1],
+                    [-2, -2],
+                  ],
+                },
+                properties: { bogus: true },
+              },
+            ],
+          }) satisfies Record<string, unknown>,
+      } satisfies Partial<Response>),
+    );
+
+    await expect(
+      fetchRoute({ from: [-77.0, 38.9], to: [-77.01, 38.91] }),
+    ).rejects.toThrow(ScoutApiError);
   });
 });
 

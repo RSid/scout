@@ -131,7 +131,7 @@ export default function AboutPage() {
             >
               OpenRouteService
             </Link>
-            , which computes wheelchair-aware directions over{" "}
+            , which computes mobility-aware directions over{" "}
             <Link
               href="https://www.openstreetmap.org/copyright"
               className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"

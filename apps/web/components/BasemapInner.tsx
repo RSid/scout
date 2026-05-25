@@ -10,14 +10,67 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import { useEffect, useMemo, useRef } from "react";
 
-const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
-
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
-import { colorVar } from "@/design/tokens/colors";
+import { resolveColorToken } from "@/design/tokens/colors";
 
 import type { CorridorResponse } from "@/lib/api";
 import { en } from "@/lib/i18n/messages";
+
+const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+function lngLatBoundsForRoute(
+  line: GeoJSON.LineString,
+): maplibregl.LngLatBoundsLike | null {
+  const coords = line.coordinates;
+  if (!Array.isArray(coords) || coords.length < 2) {
+    return null;
+  }
+
+  let minLon = Infinity;
+  let minLat = Infinity;
+  let maxLon = -Infinity;
+  let maxLat = -Infinity;
+  let seen = false;
+
+  for (const coord of coords) {
+    const lon = coord[0];
+    const lat = coord[1];
+    if (lon === undefined || lat === undefined) {
+      continue;
+    }
+
+    seen = true;
+    minLon = Math.min(minLon, lon);
+    maxLon = Math.max(maxLon, lon);
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  if (!seen) {
+    return null;
+  }
+
+  return [
+    [minLon, minLat],
+    [maxLon, maxLat],
+  ];
+}
+
+function fitMapViewportToRoute(map: maplibregl.Map, line: GeoJSON.LineString): void {
+  const fitted = lngLatBoundsForRoute(line);
+  if (fitted === null) {
+    return;
+  }
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  map.fitBounds(fitted, {
+    padding: 48,
+    maxZoom: 16,
+    animate: reduceMotion === false,
+    duration: reduceMotion ? 0 : 600,
+  });
+}
 
 type BasemapInnerProps = Readonly<{
   corridor: CorridorResponse["features"];
@@ -131,11 +184,20 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
           "line-join": "round",
         },
         paint: {
-          "line-color": colorVar("accent"),
+          "line-color": resolveColorToken("accent"),
           "line-width": 5,
           "line-opacity": prefersReducedMotion ? 0.9 : 0.92,
         },
       });
+
+      const initialRoute = routeRef.current;
+      if (
+        initialRoute !== null &&
+        initialRoute.geometry.coordinates.length >= 2 &&
+        typeof window !== "undefined"
+      ) {
+        fitMapViewportToRoute(map, initialRoute.geometry);
+      }
 
       map.addSource("cluster-points", {
         type: "geojson",
@@ -151,9 +213,9 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
         source: "cluster-points",
         filter: ["has", "point_count"],
         paint: {
-          "circle-color": colorVar("text-muted"),
+          "circle-color": resolveColorToken("text-muted"),
           "circle-radius": ["step", ["get", "point_count"], 12, 10, 16, 20, 20],
-          "circle-stroke-color": colorVar("surface"),
+          "circle-stroke-color": resolveColorToken("surface"),
           "circle-stroke-width": 2,
         },
       });
@@ -169,8 +231,8 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
             "match",
             ["coalesce", ["get", "scout_kind"], "obstacle"],
             "aid",
-            colorVar("aid"),
-            colorVar("obstacle-mild"),
+            resolveColorToken("aid"),
+            resolveColorToken("obstacle-mild"),
           ],
           "circle-opacity": [
             "match",
@@ -179,7 +241,7 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
             0.94,
             0.9,
           ],
-          "circle-stroke-color": colorVar("surface"),
+          "circle-stroke-color": resolveColorToken("surface"),
           "circle-stroke-width": 2,
         },
       });
@@ -284,6 +346,14 @@ export default function BasemapInner({ corridor, route }: BasemapInnerProps) {
     const src = map.getSource("route-line") as maplibregl.GeoJSONSource | undefined;
     const data = route ? featureCollection([route]) : EMPTY_FC;
     src?.setData?.(data);
+
+    if (
+      typeof window !== "undefined" &&
+      route !== null &&
+      route.geometry.coordinates.length >= 2
+    ) {
+      fitMapViewportToRoute(map, route.geometry);
+    }
   }, [route]);
 
   return (

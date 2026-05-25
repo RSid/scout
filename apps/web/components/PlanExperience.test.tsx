@@ -1,8 +1,11 @@
-import type { ApiCategory, CorridorResponse } from "@/lib/api";
+import type { ApiCategory, CorridorResponse, RouteComputeResult } from "@/lib/api";
 import * as scoutApi from "@/lib/api";
+import type { GeoJSON } from "geojson";
 
 import { axe } from "jest-axe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 
@@ -40,8 +43,126 @@ const PLAN_SAMPLE: ApiCategory[] = [
   },
 ];
 
+const ROUTE_LINE: GeoJSON.Feature<GeoJSON.LineString> = {
+  type: "Feature",
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-77.0415, 38.895],
+      [-77.0312, 38.9074],
+      [-77.0122, 38.9175],
+    ],
+  },
+  properties: {},
+};
+
+const ROUTE_OK_PAYLOAD: RouteComputeResult = {
+  line: ROUTE_LINE,
+  summary: {
+    distanceMeters: 930,
+    durationSeconds: 720,
+    fallbackProfileUsed: false,
+    warnings: ["narrow crossing ahead"],
+  },
+  response: { type: "FeatureCollection", features: [ROUTE_LINE] },
+};
+
 describe("PlanExperience", () => {
   let corridorSpy: ReturnType<typeof vi.spyOn>;
+  let routeSpy: ReturnType<typeof vi.spyOn>;
+
+  /** Reuses keyboard affordances exercised in Playwright `/plan`; drives stub geocoder hits only. */
+  async function keyboardPickBothAddresses(user: UserEvent): Promise<void> {
+    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+
+    const plannerRegion = screen.getByRole("group", { name: /plan a route/i });
+    const planner = within(plannerRegion);
+
+    const start = planner.getByRole("combobox", { name: /starting point/i });
+
+    await user.type(start, "1400");
+
+    await waitFor(
+      () =>
+        expect((start as HTMLInputElement).value.trim().length).toBeGreaterThanOrEqual(
+          4,
+        ),
+      { timeout: 20_000 },
+    );
+
+    // DEBOUNCE_MS=500 in AddressAutocomplete; stub returns exactly one hit for "1400".
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/1 suggestion/i),
+    );
+
+    const suggestionButtons = within(plannerRegion).getAllByRole("button", {
+      name: /show suggestions/i,
+    });
+
+    await user.click(suggestionButtons[0]!);
+
+    await user.keyboard("{ArrowDown}");
+
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /1400 U Street/i })).toBeVisible(),
+    );
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(
+      () =>
+        expect(
+          (start as HTMLInputElement).value.toLowerCase().includes("1400 u street"),
+        ).toBe(true),
+      { timeout: 20_000 },
+    );
+
+    const destination = planner.getByRole("combobox", { name: /destination/i });
+
+    await user.click(destination);
+
+    await user.clear(destination);
+
+    await user.type(destination, "Dupont");
+
+    await waitFor(
+      () =>
+        expect(
+          (destination as HTMLInputElement).value.trim().length,
+        ).toBeGreaterThanOrEqual(6),
+      { timeout: 20_000 },
+    );
+
+    // Stub expands to both fixture hits for "Dupont"-style queries — expect two rows.
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/2 suggestion/i),
+    );
+
+    const suggestionButtonsAfter = within(plannerRegion).getAllByRole("button", {
+      name: /show suggestions/i,
+    });
+
+    await user.click(suggestionButtonsAfter[1]!);
+
+    await user.keyboard("{ArrowDown}");
+
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /Dupont Circle/i })).toBeVisible(),
+    );
+
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{Enter}");
+
+    await waitFor(
+      () =>
+        expect(
+          (destination as HTMLInputElement).value
+            .toLowerCase()
+            .includes("dupont circle"),
+        ).toBe(true),
+      { timeout: 20_000 },
+    );
+  }
 
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_SCOUT_MAP_MODE", "stub");
@@ -58,11 +179,14 @@ describe("PlanExperience", () => {
       .spyOn(scoutApi, "fetchCorridorFeatures")
       .mockResolvedValue(corridorPayload);
 
+    routeSpy = vi.spyOn(scoutApi, "fetchRoute").mockResolvedValue(ROUTE_OK_PAYLOAD);
+
     window.localStorage.clear();
   });
 
   afterEach(() => {
     corridorSpy.mockRestore();
+    routeSpy.mockRestore();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     window.localStorage.clear();
@@ -112,6 +236,62 @@ describe("PlanExperience", () => {
     const results = await axe(baseElement);
 
     expect(results.violations).toStrictEqual([]);
+  });
+
+  it("renders routed distance, duration, and warnings once both endpoints are chosen", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    const { container } = render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    await keyboardPickBothAddresses(user);
+
+    await waitFor(() => expect(routeSpy).toHaveBeenCalled());
+
+    expect(await screen.findByText("930 meters")).toBeVisible();
+
+    expect(screen.getByText("12 minutes")).toBeVisible();
+
+    expect(screen.getByText(/narrow crossing ahead/i)).toBeVisible();
+
+    const results = await axe(container);
+
+    expect(results.violations).toStrictEqual([]);
+  }, 60_000);
+
+  describe("route retrieval errors", () => {
+    beforeEach(() => {
+      routeSpy.mockRejectedValue(
+        new scoutApi.ScoutApiError("We couldn't compute a walking route."),
+      );
+    });
+
+    it("shows straight-line approximation copy when routing fails", async () => {
+      const user = userEvent.setup({ delay: null });
+
+      render(
+        <AnnounceProvider>
+          <ProfileProvider>
+            <PlanExperience />
+          </ProfileProvider>
+        </AnnounceProvider>,
+      );
+
+      await keyboardPickBothAddresses(user);
+
+      await waitFor(() => expect(routeSpy).toHaveBeenCalled());
+
+      expect(
+        await screen.findByText(
+          /straight-line approximation while routing is unavailable/i,
+        ),
+      ).toBeVisible();
+    }, 60_000);
   });
 
   describe("corridor retrieval errors", () => {

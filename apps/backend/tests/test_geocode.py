@@ -46,7 +46,8 @@ def test_reverse_rejects_out_of_range_coords() -> None:
     with TestClient(app) as client:
         resp = client.get("/api/geocode/reverse", params={"lon": 200.0, "lat": 0.0})
 
-    assert resp.status_code == 422
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_INPUT"
 
 
 def _assert_hit_shape(hit: dict[str, object]) -> None:
