@@ -11,13 +11,14 @@ class StubRoutingProvider(RoutingProvider):
     def __init__(self, *, force_fallback: bool = False) -> None:
         self._force_fallback = force_fallback
 
-    async def walking_wheelchair_route(
+    async def walking_route(
         self,
         frm: list[float],
         to: list[float],
         *,
-        profile: str = "wheelchair",
-    ) -> RoutingComputation:  # noqa: ARG002
+        profile: str,
+    ) -> RoutingComputation:
+        del profile
         line_geom = {
             "type": "LineString",
             "coordinates": [[frm[0], frm[1]], [to[0], to[1]]],

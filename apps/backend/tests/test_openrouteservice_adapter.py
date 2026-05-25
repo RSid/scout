@@ -50,7 +50,9 @@ async def test_openrouteservice_adapter_success() -> None:
 
     async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
-        result = await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+        result = await adapter.walking_route(
+            [-77.0, 38.9], [-76.92, 39.0], profile="wheelchair"
+        )
 
         assert result.fallback_profile_used is False
         assert result.distance_meters == pytest.approx(987.65)
@@ -89,7 +91,9 @@ async def test_openrouteservice_adapter_fallback() -> None:
 
     async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
-        result = await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+        result = await adapter.walking_route(
+            [-77.0, 38.9], [-76.92, 39.0], profile="wheelchair"
+        )
 
         assert result.fallback_profile_used is True
         assert FALLBACK_PROFILE_WARNING in result.warnings
@@ -121,7 +125,9 @@ async def test_openrouteservice_connect_timeout_is_route_unavailable() -> None:
     async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
         with pytest.raises(RouteServiceUnavailableError):
-            await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+            await adapter.walking_route(
+                [-77.0, 38.9], [-76.92, 39.0], profile="wheelchair"
+            )
 
 
 @pytest.mark.asyncio
@@ -141,7 +147,9 @@ async def test_openrouteservice_rate_limit_is_route_unavailable() -> None:
     async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
         with pytest.raises(RouteServiceUnavailableError):
-            await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+            await adapter.walking_route(
+                [-77.0, 38.9], [-76.92, 39.0], profile="wheelchair"
+            )
 
 
 @pytest.mark.asyncio
@@ -163,4 +171,6 @@ async def test_openrouteservice_both_profiles_404_raises_not_found() -> None:
     async with httpx.AsyncClient(base_url="https://scout.test") as client:
         adapter = OpenRouteServiceProvider(settings=settings, client=client)
         with pytest.raises(RouteNotFoundError):
-            await adapter.walking_wheelchair_route([-77.0, 38.9], [-76.92, 39.0])
+            await adapter.walking_route(
+                [-77.0, 38.9], [-76.92, 39.0], profile="wheelchair"
+            )

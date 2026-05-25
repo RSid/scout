@@ -1,4 +1,10 @@
-"""Wheelchair-first walking routes via adapters (DEC-020)."""
+"""Walking routes via DEC-020 routing adapters.
+
+The wire field is `profile` (PRD §6.1 M1-F04). M1 accepts only
+`profile="wheelchair"`; future stories (M2-F18, etc.) may extend the
+literal. The handler passes the caller's mode through unchanged; the
+concrete adapter chooses how to honor it (and may fall back, per S3).
+"""
 
 from __future__ import annotations
 
@@ -33,7 +39,7 @@ async def compute_route(
     routing: RoutingDependency,
 ) -> JSONResponse:
     del request
-    route = await routing.walking_wheelchair_route(
+    route = await routing.walking_route(
         [float(body.frm[0]), float(body.frm[1])],
         [float(body.to[0]), float(body.to[1])],
         profile=body.profile,

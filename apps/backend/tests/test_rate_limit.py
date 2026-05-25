@@ -20,7 +20,7 @@ from scout.config import Settings
 from scout.main import app, create_app
 from scout.security.rate_limit import limiter, scout_key_func
 
-_ROUTE_PAYLOAD = {"from": [-77.0, 38.9], "to": [-76.9, 38.92], "profile": "wheelchair"}
+_ROUTE_PAYLOAD = {"from": [-77.0, 38.9], "to": [-76.92, 38.92], "profile": "wheelchair"}
 _FEATURES_PAYLOAD = {
     "route_geometry": {
         "type": "LineString",

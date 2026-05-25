@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 import respx  # MOCK: stubs ORS; offline-safe cache-hit integration coverage.
 from starlette.testclient import TestClient
@@ -20,7 +22,7 @@ _VALID_DC_PAYLOAD = {
 }
 
 
-def _assert_live_region_error(body: dict) -> None:
+def _assert_live_region_error(body: dict[str, Any]) -> None:
     err = body["error"]
     assert err["message"] != err["code"]
     assert "<" not in err["message"] and ">" not in err["message"]
@@ -80,12 +82,12 @@ def test_route_live_region_contract_missing_destination() -> None:
 
 def test_route_live_region_contract_route_not_found() -> None:
     class RoutingRaisingNotFound:
-        async def walking_wheelchair_route(
+        async def walking_route(
             self,
             frm: list[float],
             to: list[float],
             *,
-            profile: str = "wheelchair",
+            profile: str,
         ) -> object:
             del frm
             del to
@@ -107,12 +109,12 @@ def test_route_live_region_contract_route_not_found() -> None:
 
 def test_route_live_region_contract_route_service_unavailable() -> None:
     class RoutingRaisingUpstream:
-        async def walking_wheelchair_route(
+        async def walking_route(
             self,
             frm: list[float],
             to: list[float],
             *,
-            profile: str = "wheelchair",
+            profile: str,
         ) -> object:
             del frm
             del to

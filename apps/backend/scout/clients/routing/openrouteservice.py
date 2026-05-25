@@ -67,13 +67,16 @@ class OpenRouteServiceProvider(RoutingProvider):
         self._client = client
         self._cache: TTLCache[RoutingComputation] = TTLCache()
 
-    async def walking_wheelchair_route(
+    async def walking_route(
         self,
         frm: list[float],
         to: list[float],
         *,
-        profile: str = "wheelchair",
+        profile: str,
     ) -> RoutingComputation:
+        # `profile` is the Scout-domain mode token. M1 wires only
+        # "wheelchair" through, but we key the cache on whatever the
+        # caller asked for so future modes (M2-F18) don't collide.
         key = routing_cache_key(profile, frm + to)
         cached = self._cache.get(key)
         if cached is not None:
@@ -104,6 +107,10 @@ class OpenRouteServiceProvider(RoutingProvider):
                 message="Routing service credentials are missing for this deployment."
             )
 
+        # M1 only requests the wheelchair-aware ORS profile; foot-walking is
+        # the internal fallback (S3). When more Scout-domain modes land we
+        # will dispatch from `profile` to a vendor string here, not in the
+        # caller.
         try:
             response = await self._call_directions("wheelchair", coords, api_key)
         except RouteNotFoundError:
