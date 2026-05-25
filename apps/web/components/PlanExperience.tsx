@@ -29,8 +29,6 @@ import { useProfile } from "@/lib/profile";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { GeoJSON } from "geojson";
-
 function distanceAlongFallbackRoute(
   route: GeoJSON.Feature<GeoJSON.LineString>,
 ): number {
@@ -275,11 +273,13 @@ export default function PlanExperience() {
       };
     }
 
-    return {
-      mode: "live",
-      summary: routeFetch.summary,
-      approxMeters: routeFetch.summary.distanceMeters,
-    };
+    if (routeFetch.kind === "ok") {
+      return {
+        mode: "live",
+        summary: routeFetch.summary,
+        approxMeters: routeFetch.summary.distanceMeters,
+      };
+    }
   }, [
     demoApproxMeters,
     destinationHit,
