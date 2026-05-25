@@ -96,7 +96,7 @@ migrate: ## run alembic upgrade head when backend scaffold is present
 
 ingest: ## dry-run DC ingest (scripts/ingest_dc.py) when present
 	@if [ -f "$(ROOT)/scripts/ingest_dc.py" ]; then \
-		uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
+		PYTHONPATH="$(ROOT)/apps/backend" uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
 	else \
 		echo 'skipping ingest: scripts/ingest_dc.py not present yet (M1-F11 / M1-T03)'; \
 	fi
