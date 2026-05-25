@@ -52,6 +52,24 @@ class RouteComputeRequest(BaseModel):
     to: Annotated[list[float], Field(min_length=2, max_length=2)]
     profile: Literal["wheelchair"] = "wheelchair"
 
+    @staticmethod
+    def _assert_dc_lon_lat(endpoint: list[float], *, alias: str) -> None:
+        lon, lat = float(endpoint[0]), float(endpoint[1])
+        if not (-77.12 <= lon <= -76.91 and 38.79 <= lat <= 39.0):
+            raise ValueError(f"Coordinate outside DC service area ({alias}).")
+
+    @field_validator("frm")
+    @classmethod
+    def _frm_in_dc(cls, value: list[float]) -> list[float]:
+        cls._assert_dc_lon_lat(value, alias="starting point")
+        return value
+
+    @field_validator("to")
+    @classmethod
+    def _to_in_dc(cls, value: list[float]) -> list[float]:
+        cls._assert_dc_lon_lat(value, alias="destination")
+        return value
+
 
 class RouteResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
@@ -106,3 +124,34 @@ class RestroomsResponse(BaseModel):
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[dict[str, Any]]
+
+
+class ApiAddressHit(BaseModel):
+    """One geocoder result, Scout-domain shape (DEC-022).
+
+    Mirrors `AddressHit` in `apps/web/lib/providers/geocoding/protocol.ts`
+    so the contract is symmetric on both sides of the wire.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    label: str
+    lon: float
+    lat: float
+
+
+class GeocodeSearchResponse(BaseModel):
+    """`GET /api/geocode/search`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    hits: list[ApiAddressHit]
+
+
+class GeocodeReverseResponse(BaseModel):
+    """`GET /api/geocode/reverse`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    hit: ApiAddressHit

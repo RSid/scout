@@ -125,6 +125,8 @@ const stubs = vi.hoisted(() => {
     readonly easeTo = vi.fn();
 
     readonly zoomIn = vi.fn();
+
+    readonly fitBounds = vi.fn();
   }
 
   return {
@@ -304,6 +306,28 @@ describe("BasemapInner", () => {
 
       expect(map.resize).toHaveBeenCalledTimes(1);
     });
+
+    it("calls fitBounds with animation when prefers-reduced-motion defaults to motion allowed", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const mapStub = stubs.instances[0];
+      await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
+
+      expect(mapStub.fitBounds).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          padding: 48,
+          maxZoom: 16,
+          animate: true,
+          duration: 600,
+        }),
+      );
+    });
   });
 
   describe("prefers-reduced-motion (M1-F02.S5)", () => {
@@ -353,6 +377,28 @@ describe("BasemapInner", () => {
           }),
         );
       });
+    });
+
+    it("fitBounds skips route framing animation when prefers-reduced-motion is set", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const mapStub = stubs.instances[0];
+      await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
+
+      expect(mapStub.fitBounds).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          animate: false,
+          duration: 0,
+          padding: 48,
+          maxZoom: 16,
+        }),
+      );
     });
   });
 });

@@ -9,6 +9,59 @@ Scout is an open source community webapp local to Washington DC intended to help
 - **pre-commit** — `brew install pre-commit` or `uv tool install pre-commit` ([install guide](https://pre-commit.com/#install)).
 - **go-pmtiles** - `brew install pmtiles`, used for working with (pmtiles archives)[https://github.com/protomaps/go-pmtiles]
 
+### API Keys
+
+Only **OpenRouteService** needs a real signup per se. Address searching uses
+Washington, DC's public-domain Master Address Repository snapshot bundled with
+Scout (`make ingest-dc-addresses`). Refuge Restrooms is keyless, and the
+Protomaps basemap extract is built by a script. You can skip this entire section
+if you only ever run `make docker-up` (the default boots a stack with routing,
+geocoding, and restrooms stubbed — no outbound calls except whatever you enable).
+The credential below is required for `make docker-up-realistic-run`, production
+deploys, and manual verification against OpenRouteService.
+
+Create your local env file first, then fill in the values below:
+
+```bash
+cp .env.example .env
+```
+
+1. **OpenRouteService** (`SCOUT_ORS_API_KEY`) — required for real routing.
+   - Sign up at <https://openrouteservice.org/dev/#/signup>, confirm your
+     email, sign in, and request a token from the dashboard. The free
+     **Standard** plan is plenty for local dev (a few thousand directions
+     requests/day, ~40 req/min).
+   - Tokens can take a few minutes to activate after issuance.
+   - Paste the token into `.env`:
+
+     ```
+     SCOUT_ORS_API_KEY=eyJ...your-token-here
+     ```
+
+   - The backend surfaces a clear "missing key" error on the first
+     `/api/route` call if this is left blank.
+
+2. **DC address snapshot load** (`make ingest-dc-addresses`) — no signup.
+   After Postgres has the `dc_addresses` table (Alembic `0002+`), ingest the
+   committed `data/dc_addresses.jsonl` into local or Compose-attached Postgres
+   so `/api/geocode/*` serves real MAR rows (`DEC-023`). Compose does **not**
+   auto-load MAR data yet; run this once whenever you recreate the DB volume.
+
+3. **Refuge Restrooms** — no key, no signup. The default
+   `SCOUT_REFUGE_BASE_URL` in `.env.example` is the public API
+   (<https://www.refugerestrooms.org/api/v1>). Nothing further to do.
+
+4. **Protomaps basemap tiles** — no key. Run `scripts/build_pmtiles.sh`
+   once after cloning to populate `apps/web/public/tiles/dc.pmtiles` for
+   the interactive MapLibre basemap (requires the `pmtiles` CLI from the
+   prerequisites above).
+
+Once `.env` has the values above, boot the live stack:
+
+```bash
+make docker-up-realistic-run
+```
+
 ## Getting started
 
 ```bash

@@ -5,19 +5,29 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import BasemapView from "@/components/BasemapView";
 import FeatureListView from "@/components/FeatureListView";
 import ProfilePanel from "@/components/ProfilePanel";
-import RouteSummary from "@/components/RouteSummary";
+import RouteSummary, { type RouteSummaryMode } from "@/components/RouteSummary";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
 import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
 
-import { fetchCorridorFeatures, type CorridorResponse } from "@/lib/api";
+import {
+  fetchCorridorFeatures,
+  fetchRoute,
+  type CorridorResponse,
+  type RouteSummaryPayload,
+} from "@/lib/api";
+import {
+  en,
+  routeAnnouncementApproxFallback,
+  routeAnnouncementLoaded,
+} from "@/lib/i18n/messages";
 
-import { formatApproxMeters, roughDistanceMeters } from "@/lib/geo";
+import { roughDistanceMeters } from "@/lib/geo";
+import type { AddressHit } from "@/lib/providers/geocoding";
 import { useProfile } from "@/lib/profile";
-import { useEffect, useMemo, useState } from "react";
 
-import type { GeoJSON } from "geojson";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function distanceAlongFallbackRoute(
   route: GeoJSON.Feature<GeoJSON.LineString>,
@@ -34,6 +44,7 @@ function distanceAlongFallbackRoute(
     if (!head || !tail || head.length < 2 || tail.length < 2) {
       continue;
     }
+
     const lon0 = head[0];
     const lat0 = head[1];
     const lon1 = tail[0];
@@ -46,22 +57,58 @@ function distanceAlongFallbackRoute(
     ) {
       continue;
     }
+
     total += roughDistanceMeters(lon0, lat0, lon1, lat1);
   }
 
   return total;
 }
 
+function straightLinePreview(
+  start: AddressHit,
+  destination: AddressHit,
+): GeoJSON.Feature<GeoJSON.LineString> {
+  return {
+    type: "Feature",
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [start.lon, start.lat],
+        [destination.lon, destination.lat],
+      ],
+    },
+    properties: { source: "planner-straight-preview" },
+  };
+}
+
+type RouteFetchSlice =
+  | { kind: "unset" }
+  | { kind: "loading"; routeKey: string }
+  | {
+      kind: "ok";
+      routeKey: string;
+      line: GeoJSON.Feature<GeoJSON.LineString>;
+      summary: RouteSummaryPayload;
+    }
+  | { kind: "error"; routeKey: string };
+
 export default function PlanExperience() {
   const announce = useAnnounce();
   const { categories, selections, isReady } = useProfile();
 
-  const [anchorA, setAnchorA] = useState<[number, number] | null>(null);
-  const [anchorB, setAnchorB] = useState<[number, number] | null>(null);
+  const [startHit, setStartHit] = useState<AddressHit | null>(null);
+  const [destinationHit, setDestinationHit] = useState<AddressHit | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   const [corridorFeatures, setCorridorFeatures] = useState<
     CorridorResponse["features"]
   >(() => demoCorridorFeatures());
+
+  const [routeFetch, setRouteFetch] = useState<RouteFetchSlice>({ kind: "unset" });
+  /** Ignores stale `fetchRoute` settles when endpoints change faster than upstream responds. */
+  const desiredRouteKeyRef = useRef<string | null>(null);
+
+  const demoApproxMeters = useMemo(() => distanceAlongFallbackRoute(DEMO_ROUTE), []);
 
   const enabledCategories = useMemo(() => {
     if (!isReady) {
@@ -78,44 +125,159 @@ export default function PlanExperience() {
       .map((category) => category.id);
   }, [categories, isReady, selections]);
 
+  const routeKey =
+    startHit !== null && destinationHit !== null
+      ? `${startHit.id}→${destinationHit.id}`
+      : null;
+
+  desiredRouteKeyRef.current = routeKey;
+
+  const straightLineMeters =
+    startHit !== null && destinationHit !== null
+      ? roughDistanceMeters(
+          startHit.lon,
+          startHit.lat,
+          destinationHit.lon,
+          destinationHit.lat,
+        )
+      : demoApproxMeters;
+
+  useEffect(() => {
+    if (routeKey === null || startHit === null || destinationHit === null) {
+      setRouteFetch({ kind: "unset" });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const keyed = routeKey;
+
+    setRouteFetch({ kind: "loading", routeKey: keyed });
+
+    void fetchRoute(
+      {
+        from: [startHit.lon, startHit.lat],
+        to: [destinationHit.lon, destinationHit.lat],
+      },
+      controller.signal,
+    )
+      .then((payload) => {
+        if (desiredRouteKeyRef.current !== keyed) {
+          return;
+        }
+
+        setRouteFetch({
+          kind: "ok",
+          routeKey: keyed,
+          line: payload.line,
+          summary: payload.summary,
+        });
+
+        let line = routeAnnouncementLoaded(
+          payload.summary.distanceMeters,
+          payload.summary.durationSeconds,
+        );
+
+        if (payload.summary.fallbackProfileUsed === true) {
+          line = `${line} ${en.routeAnnouncementWheelchairFallback}`;
+        }
+
+        announce(line);
+      })
+      .catch((reason: unknown) => {
+        const aborted = reason instanceof DOMException && reason.name === "AbortError";
+
+        const maybeErr = reason as { name?: string | undefined };
+
+        const alsoAbort =
+          typeof maybeErr.name === "string" && maybeErr.name === "AbortError";
+
+        if (aborted || alsoAbort) {
+          return;
+        }
+
+        if (desiredRouteKeyRef.current !== keyed) {
+          return;
+        }
+
+        setRouteFetch({ kind: "error", routeKey: keyed });
+        announce(routeAnnouncementApproxFallback());
+      });
+
+    return () => controller.abort();
+  }, [announce, destinationHit, routeKey, startHit]);
+
   const routeFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
-    if (anchorA !== null && anchorB !== null) {
+    if (startHit === null || destinationHit === null) {
+      return DEMO_ROUTE;
+    }
+
+    if (
+      routeFetch.kind === "ok" &&
+      routeFetch.routeKey === routeKey &&
+      routeKey !== null
+    ) {
+      return routeFetch.line;
+    }
+
+    return straightLinePreview(startHit, destinationHit);
+  }, [destinationHit, routeFetch, routeKey, startHit]);
+
+  const summaryModel = useMemo((): Readonly<{
+    mode: RouteSummaryMode;
+    summary: RouteSummaryPayload | null;
+    approxMeters: number;
+  }> => {
+    if (routeKey === null || startHit === null || destinationHit === null) {
       return {
-        type: "Feature",
-        geometry: {
-          type: "LineString",
-          coordinates: [anchorA, anchorB],
-        },
-        properties: { source: "dual-picks" },
+        mode: "sample",
+        summary: null,
+        approxMeters: demoApproxMeters,
       };
     }
 
-    return DEMO_ROUTE;
-  }, [anchorA, anchorB]);
+    const pending = {
+      mode: "pending" as const,
+      summary: null,
+      approxMeters: straightLineMeters,
+    };
 
-  const distanceLabelMeters =
-    anchorA !== null && anchorB !== null
-      ? roughDistanceMeters(anchorA[0], anchorA[1], anchorB[0], anchorB[1])
-      : distanceAlongFallbackRoute(DEMO_ROUTE);
-
-  function handleCoordinates(coords: readonly [number, number]) {
-    const point: [number, number] = [coords[0], coords[1]];
-
-    if (anchorA === null) {
-      setAnchorA(point);
-      announce("Start set. Now pick a destination.");
-      return;
+    switch (routeFetch.kind) {
+      case "unset":
+      case "loading":
+        return pending;
+      case "error":
+        return routeFetch.routeKey === routeKey
+          ? {
+              mode: "approx-fallback",
+              summary: null,
+              approxMeters: straightLineMeters,
+            }
+          : pending;
+      case "ok":
+        return routeFetch.routeKey === routeKey
+          ? {
+              mode: "live",
+              summary: routeFetch.summary,
+              approxMeters: routeFetch.summary.distanceMeters,
+            }
+          : pending;
     }
+  }, [
+    demoApproxMeters,
+    destinationHit,
+    routeFetch,
+    routeKey,
+    startHit,
+    straightLineMeters,
+  ]);
 
-    if (anchorB === null) {
-      setAnchorB(point);
-      announce("Destination set. Loading accessibility data near your route.");
-      return;
-    }
+  function handlePickStart(hit: AddressHit) {
+    setStartHit(hit);
+    announce("Starting point saved.");
+  }
 
-    setAnchorA(point);
-    setAnchorB(null);
-    announce("Route reset. Now pick a destination.");
+  function handlePickDestination(hit: AddressHit) {
+    setDestinationHit(hit);
   }
 
   useEffect(() => {
@@ -161,21 +323,42 @@ export default function PlanExperience() {
             Plan a walking route
           </h1>
           <p className="max-w-2xl text-[color:var(--color-text-muted)]">
-            Pick a start and a destination. Until you do, Scout shows a sample route
-            across DC.
+            Pick a start and a destination. Until you set both points, Scout shows a
+            sample route across DC.
           </p>
         </div>
         <ProfilePanel />
       </header>
 
       <RouteSummary
-        distanceLabel={formatApproxMeters(distanceLabelMeters)}
-        warnings={[
-          "Approximate distance — Scout's full routing is still in development.",
-        ]}
+        mode={summaryModel.mode}
+        summary={summaryModel.summary}
+        approximateDistanceMeters={summaryModel.approxMeters}
       />
 
-      <AddressAutocomplete onPickCoordinates={handleCoordinates} />
+      <fieldset
+        aria-labelledby="scout-planner-heading"
+        id="scout-route-planner"
+        className="space-y-[var(--space-8)] border-0 p-0"
+      >
+        <legend id="scout-planner-heading" className="sr-only">
+          Plan a route
+        </legend>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          showUseMyLocation
+          userLocation={userLocation}
+          onPick={handlePickStart}
+          onUserLocationAcquired={(coords) => setUserLocation([coords[0], coords[1]])}
+        />
+        <AddressAutocomplete
+          id="scout-destination"
+          label="Destination"
+          userLocation={userLocation}
+          onPick={handlePickDestination}
+        />
+      </fieldset>
 
       <div className="flex flex-col gap-[var(--space-10)] xl:flex-row-reverse xl:items-start">
         <div className="relative w-full xl:max-w-xl">

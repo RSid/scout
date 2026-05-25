@@ -31,8 +31,8 @@ class Settings(BaseSettings):
         description="routing adapter: openrouteservice | stub",
     )
     geocoding_provider: str = Field(
-        default="nominatim",
-        description="geocoding adapter: nominatim | stub",
+        default="local_dc",
+        description="geocoding adapter: local_dc | stub",
     )
     restrooms_provider: str = Field(
         default="refuge",
@@ -40,13 +40,6 @@ class Settings(BaseSettings):
     )
     ors_base_url: str = Field(default="https://api.openrouteservice.org")
     ors_api_key: str | None = Field(default=None)
-    nominatim_base_url: str = Field(
-        default="https://nominatim.openstreetmap.org",
-    )
-    nominatim_user_agent: str = Field(
-        default="scout-dev/0.1 (+https://example.invalid)",
-        description="Required polite User-Agent string for public Nominatim.",
-    )
     refuge_base_url: str = Field(
         default="https://www.refugerestrooms.org/api/v1",
     )
