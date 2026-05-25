@@ -16,6 +16,7 @@ from starlette.responses import Response
 
 from alembic import command
 from scout.api.categories import router as categories_router
+from scout.api.geocode import router as geocode_router
 from scout.api.health import router as health_router
 from scout.api.restrooms import router as restrooms_router
 from scout.api.route import router as routing_router
@@ -30,6 +31,7 @@ from scout.config import (
 from scout.data.session import close_engine, init_engine_and_session
 from scout.errors import register_exception_handlers
 from scout.runtime_flags import scout_under_test
+from scout.security.rate_limit import install_rate_limiter
 
 LOGGER = logging.getLogger("scout")
 
@@ -77,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="0.1.0",
     )
     register_exception_handlers(app)
+    install_rate_limiter(app, resolved)
 
     origins = cors_origin_list(resolved.cors_allowlist_csv)
     if origins:
@@ -102,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(routing_router, prefix="/api")
     app.include_router(route_features_router, prefix="/api")
     app.include_router(restrooms_router, prefix="/api")
+    app.include_router(geocode_router, prefix="/api")
     return app
 
 

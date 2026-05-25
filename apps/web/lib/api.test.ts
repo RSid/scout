@@ -7,7 +7,8 @@ import {
   fetchCategories,
   fetchCorridorFeatures,
   fetchHealth,
-  reverseGeocodeNominatim,
+  reverseGeocode,
+  searchGeocode,
 } from "./api";
 
 describe("fetchHealth", () => {
@@ -161,60 +162,123 @@ describe("fetchCorridorFeatures", () => {
   });
 });
 
-describe("reverseGeocodeNominatim", () => {
+describe("searchGeocode", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_NOMINATIM_URL", "https://demo.example.invalid");
-    // MOCK: Nominatim JSON array parsing with mixed attribute keys.
+    // MOCK: backend /api/geocode/search wire shape (DEC-022).
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () =>
-          [{ lon: "-1", lat: "-2", label: "a" }] satisfies Record<string, unknown>[],
-      }),
+        json: async () => ({
+          hits: [
+            { id: "h1", label: "1400 U St NW", lon: -77.0366, lat: 38.9169 },
+            { id: "h2", label: "Dupont Circle", lon: -77.0369, lat: 38.9097 },
+          ],
+        }),
+      } satisfies Partial<Response>),
     );
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
-  it("maps lon/lng variants into GeoJSON Points", async () => {
-    const pts = await reverseGeocodeNominatim("test");
+  it("parses the backend payload into AddressHits", async () => {
+    const hits = await searchGeocode("dupont", { limit: 5 });
 
-    expect(pts.at(0)).toStrictEqual({ type: "Point", coordinates: [-1, -2] });
-
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(hits).toStrictEqual([
+      { id: "h1", label: "1400 U St NW", lon: -77.0366, lat: 38.9169 },
+      { id: "h2", label: "Dupont Circle", lon: -77.0369, lat: 38.9097 },
+    ]);
   });
 
-  it("drops nominatim rows that omit coordinates", async () => {
+  it("encodes q and limit into the backend query string", async () => {
+    await searchGeocode("dupont", { limit: 7 });
+
+    const calledUrl = String(vi.mocked(fetch).mock.calls.at(0)?.at(0) ?? "");
+
+    expect(calledUrl).toContain("/api/geocode/search");
+    expect(calledUrl).toContain("q=dupont");
+    expect(calledUrl).toContain("limit=7");
+  });
+
+  it("drops malformed hit rows quietly", async () => {
+    // MOCK: hits with wrong field types should be filtered, not throw.
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: async () => [{ lon: Number.NaN, lat: Number.NaN }],
-    });
+      json: async () => ({
+        hits: [
+          { id: 123, label: "bad-id-type", lon: -1, lat: -1 },
+          { id: "h-good", label: "ok", lon: -77.0, lat: 38.9 },
+        ],
+      }),
+    } satisfies Partial<Response>);
 
-    await expect(reverseGeocodeNominatim("missing coords")).resolves.toStrictEqual([]);
+    const hits = await searchGeocode("anything", {});
+
+    expect(hits).toStrictEqual([{ id: "h-good", label: "ok", lon: -77.0, lat: 38.9 }]);
+  });
+
+  it("throws ScoutApiError when the backend responds non-2xx", async () => {
+    // MOCK: backend error envelope surfaces typed ScoutApiError.
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        error: { code: "UPSTREAM_UNAVAILABLE", message: "down" },
+      }),
+    } satisfies Partial<Response>);
+
+    await expect(searchGeocode("anything", {})).rejects.toBeInstanceOf(ScoutApiError);
   });
 });
 
-describe("reverseGeocodeNominatim stub fallback", () => {
+describe("reverseGeocode", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_NOMINATIM_URL", "https://offline.example.invalid");
-    vi.stubEnv("NEXT_PUBLIC_SCOUT_STUB_GEOCODE", "1");
-    // MOCK: forces geocode egress failure so scaffold can fall back deterministically.
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network fail")));
+    // MOCK: backend /api/geocode/reverse wire shape (DEC-022).
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          hit: { id: "r1", label: "Mapped place", lon: -77.05, lat: 38.91 },
+        }),
+      } satisfies Partial<Response>),
+    );
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
-  it("returns deterministic suggestions while stub geocode toggle is enabled", async () => {
-    await expect(reverseGeocodeNominatim("any")).resolves.toStrictEqual([
-      { type: "Point", coordinates: [-77.0366, 38.8949] },
-      { type: "Point", coordinates: [-77.025, 38.905] },
-    ]);
+  it("returns the parsed hit", async () => {
+    const hit = await reverseGeocode(-77.05, 38.91);
+
+    expect(hit).toStrictEqual({
+      id: "r1",
+      label: "Mapped place",
+      lon: -77.05,
+      lat: 38.91,
+    });
+  });
+
+  it("encodes lon/lat into the reverse query string", async () => {
+    await reverseGeocode(-77.05, 38.91);
+
+    const calledUrl = String(vi.mocked(fetch).mock.calls.at(0)?.at(0) ?? "");
+
+    expect(calledUrl).toContain("/api/geocode/reverse");
+    expect(calledUrl).toContain("lon=-77.05");
+    expect(calledUrl).toContain("lat=38.91");
+  });
+
+  it("throws ScoutApiError when the backend payload lacks `hit`", async () => {
+    // MOCK: malformed payload should surface as a typed error.
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ wrong_field: 1 }),
+    } satisfies Partial<Response>);
+
+    await expect(reverseGeocode(-77, 38)).rejects.toThrow(ScoutApiError);
   });
 });

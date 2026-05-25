@@ -59,8 +59,8 @@ apps/backend/
 │   │   │   └── stub.py        # in-process fake for tests
 │   │   ├── geocoding/
 │   │   │   ├── __init__.py
-│   │   │   ├── protocol.py    # GeocodingProvider Protocol
-│   │   │   ├── nominatim.py
+│   │   │   ├── protocol.py    # GeocodingProvider Protocol + AddressHit
+│   │   │   ├── local_dc.py    # LocalDcGeocodingProvider (DEC-023)
 │   │   │   └── stub.py
 │   │   └── restrooms/
 │   │       ├── __init__.py
@@ -69,7 +69,7 @@ apps/backend/
 │   │       └── stub.py
 │   └── errors.py              # consistent error shape
 ├── tests/
-│   ├── conftest.py            # FastAPI TestClient fixture; mocked HTTP for ORS/Nominatim/RR
+│   ├── conftest.py            # FastAPI TestClient fixture; mocked HTTP for ORS/MAR ingest/RR
 │   ├── test_health.py
 │   ├── test_categories.py
 │   ├── test_route.py
@@ -155,13 +155,11 @@ Env vars, all optional with sensible defaults:
   `postgresql+asyncpg://scout:***@scout-pg.internal:5432/scout` (Fly).
 - **Provider selection** (one env var per concern; defaults pick the real impl):
   - `SCOUT_ROUTING_PROVIDER` — `openrouteservice` (default) | `stub`
-  - `SCOUT_GEOCODING_PROVIDER` — `nominatim` (default) | `stub`
+  - `SCOUT_GEOCODING_PROVIDER` — `local_dc` (default per DEC-023) | `stub`
   - `SCOUT_RESTROOMS_PROVIDER` — `refuge` (default) | `stub`
 - **Provider-specific config** (only read by the relevant adapter):
   - `SCOUT_ORS_BASE_URL` — default `https://api.openrouteservice.org`.
   - `SCOUT_ORS_API_KEY` — required for the openrouteservice provider in prod.
-  - `SCOUT_NOMINATIM_BASE_URL` — default `https://nominatim.openstreetmap.org`.
-  - `SCOUT_NOMINATIM_USER_AGENT` — required by Nominatim usage policy.
   - `SCOUT_REFUGE_BASE_URL` — default `https://www.refugerestrooms.org/api/v1`.
 - `SCOUT_CACHE_DIR` — default `./.scout-cache`.
 - `SCOUT_LOG_LEVEL` — default `INFO`.
@@ -214,7 +212,7 @@ Consistent shape:
 - Don't add Celery, Redis, or any worker queue.
 - Don't import the data schema definitions directly from the geojson files at
   request time — they come pre-loaded into PG via `scripts/ingest_dc.py`.
-- Don't call ORS, Nominatim, or Refuge Restrooms in tests (use the stub
+- Don't call ORS, Refuge Restrooms, or OCTO GIS in ordinary tests (use the stub
   adapters).
 - Don't reach for ORM lazy loading across requests. All queries are explicit;
   N+1 patterns are a review-blocker.

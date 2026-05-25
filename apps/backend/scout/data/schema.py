@@ -124,3 +124,34 @@ class RestroomsResponse(BaseModel):
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[dict[str, Any]]
+
+
+class ApiAddressHit(BaseModel):
+    """One geocoder result, Scout-domain shape (DEC-022).
+
+    Mirrors `AddressHit` in `apps/web/lib/providers/geocoding/protocol.ts`
+    so the contract is symmetric on both sides of the wire.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    label: str
+    lon: float
+    lat: float
+
+
+class GeocodeSearchResponse(BaseModel):
+    """`GET /api/geocode/search`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    hits: list[ApiAddressHit]
+
+
+class GeocodeReverseResponse(BaseModel):
+    """`GET /api/geocode/reverse`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    hit: ApiAddressHit

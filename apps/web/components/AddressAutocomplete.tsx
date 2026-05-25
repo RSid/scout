@@ -1,8 +1,11 @@
 "use client";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
-import { ScoutApiError, reverseGeocodeNominatim } from "@/lib/api";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ScoutApiError } from "@/lib/api";
+import { formatApproxMeters, roughDistanceMeters } from "@/lib/geo";
+import type { AddressHit, GeocodingProvider } from "@/lib/providers/geocoding";
+import { getGeocodingProvider } from "@/lib/providers/geocoding";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   ComboBox,
@@ -14,23 +17,70 @@ import {
   Text,
 } from "react-aria-components";
 
-type AddrHit = Readonly<{ id: string; label: string; lon: number; lat: number }>;
+const DEBOUNCE_MS = 500;
+
+type SuggestionItem = AddressHit & { suggestionText: string };
+
+function buildSuggestionText(
+  hit: AddressHit,
+  userLocation: readonly [number, number] | null | undefined,
+): string {
+  if (!userLocation) {
+    return hit.label;
+  }
+  const meters = roughDistanceMeters(
+    userLocation[0],
+    userLocation[1],
+    hit.lon,
+    hit.lat,
+  );
+  return `${hit.label} · ${formatApproxMeters(meters)}`;
+}
+
+function toSuggestionItems(
+  hits: readonly AddressHit[],
+  userLocation: readonly [number, number] | null | undefined,
+): readonly SuggestionItem[] {
+  return hits.map((hit) => ({
+    ...hit,
+    suggestionText: buildSuggestionText(hit, userLocation),
+  }));
+}
 
 export type AddressAutocompleteProps = Readonly<{
-  id?: string;
-  onPickCoordinates: (coords: readonly [number, number]) => void;
+  id: string;
+  label: string;
+  showUseMyLocation?: boolean | undefined;
+  userLocation?: readonly [number, number] | null | undefined;
+  onPick: (hit: AddressHit) => void;
+  onUserLocationAcquired?: ((coords: readonly [number, number]) => void) | undefined;
+  provider?: GeocodingProvider | undefined;
 }>;
 
 export default function AddressAutocomplete({
   id,
-  onPickCoordinates,
+  label,
+  showUseMyLocation = false,
+  userLocation,
+  onPick,
+  onUserLocationAcquired,
+  provider: providerProp,
 }: AddressAutocompleteProps) {
   const announce = useAnnounce();
+  const provider = useMemo(
+    () => providerProp ?? getGeocodingProvider(),
+    [providerProp],
+  );
   const debounceTimer = useRef<number | undefined>(undefined);
   const abortController = useRef<AbortController | undefined>(undefined);
   const [inputValue, setInputValue] = useState("");
-  const [suggestions, setSuggestions] = useState<readonly AddrHit[]>([]);
+  const [hits, setHits] = useState<readonly AddressHit[]>([]);
   const [busy, setBusy] = useState(false);
+
+  const suggestionItems = useMemo(
+    () => toSuggestionItems(hits, userLocation),
+    [hits, userLocation],
+  );
 
   const runGeocode = useCallback(
     async (query: string) => {
@@ -39,7 +89,7 @@ export default function AddressAutocomplete({
       abortController.current = undefined;
 
       if (trimmed.length < 3) {
-        setSuggestions([]);
+        setHits([]);
         setBusy(false);
         return;
       }
@@ -49,55 +99,60 @@ export default function AddressAutocomplete({
       setBusy(true);
 
       try {
-        const points = await reverseGeocodeNominatim(trimmed, controller.signal);
-        const mapped: AddrHit[] = [];
+        const nextHits = await provider.search(
+          trimmed,
+          { limit: 5 },
+          controller.signal,
+        );
+        const nextArray = [...nextHits];
+        setHits(nextArray);
 
-        points.forEach((point, index) => {
-          const coords = point.coordinates;
-          const lon = coords[0];
-          const lat = coords[1];
-          if (typeof lon === "number" && typeof lat === "number") {
-            mapped.push({
-              id: `${index}-${lon.toFixed(4)}-${lat.toFixed(4)}`,
-              label: `${trimmed.slice(0, 48)} • ${lon.toFixed(4)}°, ${lat.toFixed(4)}°`,
-              lon,
-              lat,
-            });
-          }
-        });
-
-        setSuggestions(mapped);
+        announce(
+          nextArray.length === 0
+            ? "No suggestions"
+            : `${String(nextArray.length)} ${nextArray.length === 1 ? "suggestion" : "suggestions"}`,
+        );
       } catch (error: unknown) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          const fallback =
-            error instanceof ScoutApiError
-              ? error.message
-              : "Address search isn't responding — try a shorter query.";
-          announce(fallback);
-          setSuggestions([]);
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
         }
+
+        const fallback =
+          error instanceof ScoutApiError
+            ? error.message
+            : "Address search isn't responding — try a shorter query.";
+        announce(fallback);
+        setHits([]);
       } finally {
         setBusy(false);
       }
     },
-    [announce],
+    [announce, provider],
   );
 
   useEffect(() => {
     window.clearTimeout(debounceTimer.current);
-    setBusy(inputValue.trim().length >= 3);
+    const trimmed = inputValue.trim();
+    if (trimmed.length >= 3) {
+      setBusy(true);
+    } else {
+      setBusy(false);
+    }
     debounceTimer.current = window.setTimeout(() => {
       void runGeocode(inputValue);
-    }, 520);
+    }, DEBOUNCE_MS);
+
     return () => window.clearTimeout(debounceTimer.current);
   }, [inputValue, runGeocode]);
+
+  const trimmedForHint = inputValue.trim();
 
   return (
     <ComboBox
       id={id}
-      aria-label="Address autocomplete"
       allowsCustomValue
-      items={suggestions}
+      aria-label={label}
+      items={suggestionItems}
       inputValue={inputValue}
       onInputChange={(value) => setInputValue(value)}
       className="space-y-[var(--space-3)] text-[color:var(--color-text)]"
@@ -105,17 +160,17 @@ export default function AddressAutocomplete({
         if (key == null) {
           return;
         }
-        const match = suggestions.find((item) => String(item.id) === String(key));
+        const match = suggestionItems.find((item) => String(item.id) === String(key));
         if (!match) {
           return;
         }
 
-        onPickCoordinates([match.lon, match.lat]);
-        announce(`Selected ${match.label}`);
-        window.setTimeout(() => setInputValue(match.label));
+        onPick(match);
+        announce(`Selected ${match.suggestionText}`);
+        window.setTimeout(() => setInputValue(match.suggestionText));
       }}
     >
-      <Label className="block font-semibold">Search for an address</Label>
+      <Label className="block font-semibold">{label}</Label>
       <div className="flex flex-wrap gap-[var(--space-3)]">
         <Input
           className="min-h-tap flex-[1_1_260px] rounded-tokenMd border border-border bg-[color:var(--color-surface)] px-[var(--space-4)] py-[var(--space-3)] outline-none focus-visible:btn-accent-double-ring-dark"
@@ -130,52 +185,81 @@ export default function AddressAutocomplete({
       </div>
       <Popover className="max-h-[16rem] w-full rounded-tokenMd border border-border bg-[color:var(--color-surface-elevated)] shadow-modal">
         <Text slot="description" className="sr-only">
-          Pick an address to set the next route point.
+          Pick an address for {label}.
         </Text>
         <ListBox className="max-h-[220px]">
-          {(item: AddrHit) => (
+          {(item: SuggestionItem) => (
             <ListBoxItem
               id={item.id}
-              textValue={item.label}
+              textValue={item.suggestionText}
               className="cursor-pointer px-[var(--space-3)] py-[var(--space-3)] hover:bg-[color:var(--color-surface)]"
             >
-              {item.label}
+              {item.suggestionText}
             </ListBoxItem>
           )}
         </ListBox>
       </Popover>
-      <div className="flex flex-wrap items-center gap-[var(--space-4)]">
-        <button
-          type="button"
-          className="inline-flex min-h-tap rounded-tokenMd border border-border px-[var(--space-6)] py-[var(--space-4)] focus-visible:btn-accent-double-ring-dark"
-          onClick={() => {
-            if (typeof navigator.geolocation === "undefined") {
-              announce("Your browser doesn't support location.");
-              return;
-            }
+      {trimmedForHint.length >= 3 && !busy && suggestionItems.length === 0 ? (
+        <p className="text-sm text-[color:var(--color-text-muted)]" aria-live="polite">
+          We currently support Washington, DC addresses only.
+        </p>
+      ) : null}
+      {showUseMyLocation ? (
+        <div className="flex flex-wrap items-center gap-[var(--space-4)]">
+          <button
+            type="button"
+            aria-label={`Use my location for ${label}`}
+            className="inline-flex min-h-tap rounded-tokenMd border border-border px-[var(--space-6)] py-[var(--space-4)] focus-visible:btn-accent-double-ring-dark"
+            onClick={() => {
+              if (typeof navigator.geolocation === "undefined") {
+                announce("Your browser doesn't support location.");
+                return;
+              }
 
-            navigator.geolocation.getCurrentPosition(
-              ({ coords }) => {
-                announce("Got your location.");
-                onPickCoordinates([coords.longitude, coords.latitude]);
-              },
-              () => {
-                announce("Location permission was declined.");
-              },
-            );
-          }}
-        >
-          Use my location
-        </button>
-        {busy ? (
-          <p
-            className="text-sm text-[color:var(--color-text-muted)]"
-            aria-live="polite"
+              navigator.geolocation.getCurrentPosition(
+                ({ coords }) => {
+                  void (async () => {
+                    try {
+                      const hit = await provider.reverse(
+                        coords.longitude,
+                        coords.latitude,
+                      );
+                      onPick(hit);
+                      onUserLocationAcquired?.([coords.longitude, coords.latitude]);
+                      announce(hit.label);
+                      setInputValue(hit.label);
+                      setHits([]);
+                    } catch (error: unknown) {
+                      announce(
+                        error instanceof ScoutApiError
+                          ? error.message
+                          : "Couldn't translate that location — try typing an address instead.",
+                      );
+                    }
+                  })();
+                },
+                () => {
+                  announce("Location permission was declined.");
+                },
+              );
+            }}
           >
-            Searching…
-          </p>
-        ) : null}
-      </div>
+            Use my location
+          </button>
+          {busy ? (
+            <p
+              className="text-sm text-[color:var(--color-text-muted)]"
+              aria-hidden="true"
+            >
+              Searching…
+            </p>
+          ) : null}
+        </div>
+      ) : busy ? (
+        <p className="text-sm text-[color:var(--color-text-muted)]" aria-hidden="true">
+          Searching…
+        </p>
+      ) : null}
     </ComboBox>
   );
 }

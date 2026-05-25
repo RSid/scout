@@ -48,7 +48,6 @@ jobs:
 
     env:
       SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@localhost:5432/scout
-      SCOUT_NOMINATIM_USER_AGENT: scout-ci/0.1 (ci@scout.local)
       SCOUT_ROUTING_PROVIDER: stub
       SCOUT_GEOCODING_PROVIDER: stub
       SCOUT_RESTROOMS_PROVIDER: stub
