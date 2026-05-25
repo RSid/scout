@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from scout.config import migrate_sync_database_url
+from scout.config import (
+    load_settings,
+    migrate_sync_database_url,
+    normalize_database_url_for_compose_host_port,
+)
 from scout.data.models import Base
 
 # this is the Alembic Config object, which provides
@@ -20,13 +23,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
-_DEFAULT_ASYNC_DSN = "postgresql+asyncpg://scout:scout@localhost:5432/postgres"
-
-
 def resolve_migration_database_url() -> str:
-    return migrate_sync_database_url(
-        os.getenv("SCOUT_DATABASE_URL", _DEFAULT_ASYNC_DSN)
+    """Reuse the same .env discovery + host-port rewrite as scripts."""
+
+    settings = load_settings()
+    routed = normalize_database_url_for_compose_host_port(
+        settings.database_url,
+        compose_published_host_port=settings.db_host_port,
     )
+    return migrate_sync_database_url(routed)
 
 
 config.set_main_option("sqlalchemy.url", resolve_migration_database_url())

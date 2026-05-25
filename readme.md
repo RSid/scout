@@ -82,8 +82,44 @@ make docker-down
 
 See `infra/README.md` for the Compose layout and `CONTRIBUTING.md` for the
 end-to-end dev loop. `make help` lists every shortcut (lint, tests,
-Compose, ingest dry-run, …). Copy `.env.example` to `.env` and adjust
+Compose, `make ingest` dry tally, `make ingest-write`, …). Copy `.env.example` to `.env` and adjust
 `SCOUT_*` variables when you need host-side overrides.
+
+### Connect with a GUI (Beekeeper Studio, TablePlus, DBeaver, …)
+
+Once the stack is up (`make docker-up`), Postgres/PostGIS is exposed on your
+machine. In your SQL client choose a **PostgreSQL** connection.
+
+| Setting  | Typical value                                                                             |
+| -------- | ----------------------------------------------------------------------------------------- |
+| Host     | `127.0.0.1` or `localhost`                                                                |
+| Port     | `5432` by default (`SCOUT_DB_HOST_PORT` in `.env` if you remapped it; see `.env.example`) |
+| Database | `scout`                                                                                   |
+| User     | `scout`                                                                                   |
+| Password | `scout`                                                                                   |
+| SSL      | Off                                                                                       |
+
+In **Beekeeper Studio**: _New Connection_ → **PostgreSQL**, then paste the settings above (`Save` connects without SSL).
+
+`db` and port `5432` inside Compose are only for containers on the Compose
+network. From your laptop, use **localhost + the published host port** (the one
+Docker maps into the VM), not hostname `db`. If connecting fails, confirm the
+containers are healthy and adjust `SCOUT_DB_HOST_PORT` if another Postgres on
+5432 conflicts.
+
+### Alembic and `scripts/ingest_dc.py` from your laptop
+
+Ingest (`make ingest-write` / `scripts/ingest_dc.py`) loads `.env` from your
+current working directory (usually the repo root when using `make`). When
+`SCOUT_DB_HOST_PORT` is set there, the script **rewrites** `SCOUT_DATABASE_URL`
+if its hostname is `db`, `localhost`, or loopback so it connects to
+`127.0.0.1:<SCOUT_DB_HOST_PORT>` with the same user, password, and database
+name.
+
+`alembic` / `make migrate` applies the same rewrite from **process environment
+variables** only: `SCOUT_DATABASE_URL` and `SCOUT_DB_HOST_PORT` must be
+exported (or your shell must `source` `.env`) before `make migrate` so Alembic
+sees them.
 
 ## Reporting issues
 

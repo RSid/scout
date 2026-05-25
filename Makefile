@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -101,12 +101,16 @@ ingest-dc-addresses: ## load bundled DC MAR addresses into Postgres (migration 0
 	@# Pass extra args after `--`, e.g. `make ingest-dc-addresses ARGS='--dry-run'`.
 	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest $(ARGS)
 
-ingest: ## dry-run DC ingest (scripts/ingest_dc.py) when present
+ingest: ## dry-run DC GeoJSON ingest tally (parses files; no Postgres write)
 	@if [ -f "$(ROOT)/scripts/ingest_dc.py" ]; then \
-		uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
+		PYTHONPATH="$(ROOT)/apps/backend" uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
 	else \
 		echo 'skipping ingest: scripts/ingest_dc.py not present yet (M1-F11 / M1-T03)'; \
 	fi
+
+ingest-write: ## UPSERT DC GeoJSON (+ optional OSM amenities) into PostGIS features
+	@test -f "$(ROOT)/scripts/ingest_dc.py" || { echo 'missing scripts/ingest_dc.py'; exit 1; }
+	PYTHONPATH="$(ROOT)/apps/backend" uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py"
 
 docker-up: ## docker compose up — all third parties stubbed (alias: docker-up-stubbed-run)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
