@@ -29,6 +29,14 @@ from scout.errors import ScoutError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
+# Every test + fixture in this module shares one event loop so the asyncpg
+# pool inside `_mar_engine` is reused by the function-scoped session fixture
+# and by each test. Mixing loop scopes here surfaces as
+# "got Future ... attached to a different loop" /
+# "another operation is in progress" — both indicate asyncpg objects being
+# touched from the wrong loop.
+pytestmark = pytest.mark.asyncio(loop_scope="module")
+
 
 def _database_url_allowed(url: str) -> bool:
     lowered = url.lower()
@@ -96,14 +104,13 @@ async def _mar_engine(_postgis_url: str) -> AsyncIterator[AsyncEngine]:
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(loop_scope="function")
+@pytest_asyncio.fixture(loop_scope="module")
 async def mar_session(_mar_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     maker = async_sessionmaker(_mar_engine, expire_on_commit=False)
     async with maker() as session:
         yield session
 
 
-@pytest.mark.asyncio
 async def test_search_returns_kansas_for_partial_tokens(
     mar_session: AsyncSession,
 ) -> None:
@@ -114,14 +121,12 @@ async def test_search_returns_kansas_for_partial_tokens(
     assert hits[0].id == "t_kansas"
 
 
-@pytest.mark.asyncio
 async def test_reverse_returns_nearest_seed_row(mar_session: AsyncSession) -> None:
     provider = LocalDcGeocodingProvider(mar_session)
     hit = await provider.reverse(-77.02098615, 38.94896828)
     assert hit.id == "t_kansas"
 
 
-@pytest.mark.asyncio
 async def test_reverse_rejects_far_away_coordinates(mar_session: AsyncSession) -> None:
     provider = LocalDcGeocodingProvider(mar_session)
     with pytest.raises(ScoutError) as ctx:
@@ -129,7 +134,6 @@ async def test_reverse_rejects_far_away_coordinates(mar_session: AsyncSession) -
     assert ctx.value.code == "UPSTREAM_UNAVAILABLE"
 
 
-@pytest.mark.asyncio
 async def test_search_returns_empty_for_non_matching_query(
     mar_session: AsyncSession,
 ) -> None:
