@@ -1,4 +1,4 @@
-"""Geocoder protocol and Scout-domain result type (DEC-020, DEC-022).
+"""Geocoder protocol and Scout-domain result type (DEC-020).
 
 Adapters speak Scout-domain `AddressHit` upward; vendor wire shapes stop at the
 adapter boundary.

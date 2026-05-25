@@ -1,15 +1,14 @@
-"""Address geocoding proxy (`M1-F03`, `DEC-022`).
+"""Address geocoding (`M1-F03`, `DEC-023`).
 
 Public endpoints:
 
 - `GET /api/geocode/search?q=<query>&limit=<int>` — autocomplete-style
-  forward geocode, DC-bounded inside the adapter.
+  forward geocode over the bundled DC MAR snapshot.
 - `GET /api/geocode/reverse?lon=<float>&lat=<float>` — single
   reverse-geocode lookup for the "Use my location" affordance.
 
 Browser callers MUST hit these endpoints (never an upstream geocoder
-directly). Per `DEC-022` and `AGENTS.md` rule #12, third-party geocoder
-TOS compliance lives at this layer.
+directly). Typed address strings are matched on Scout's servers only.
 """
 
 from __future__ import annotations
@@ -18,8 +17,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from scout.api.deps import HttpDepends, SettingsDepends
+from scout.api.deps import SettingsDepends
 from scout.clients import get_geocoding_provider
 from scout.clients.geocoding.protocol import AddressHit, GeocodingProvider
 from scout.data.schema import (
@@ -27,6 +27,7 @@ from scout.data.schema import (
     GeocodeReverseResponse,
     GeocodeSearchResponse,
 )
+from scout.data.session import get_session
 from scout.errors import InvalidInputError
 from scout.security.rate_limit import POLICIES, limiter
 
@@ -40,9 +41,10 @@ _MIN_LAT, _MAX_LAT = -90.0, 90.0
 
 
 async def geocoding_dependency(
-    settings: SettingsDepends, http: HttpDepends
+    settings: SettingsDepends,
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> GeocodingProvider:
-    return get_geocoding_provider(settings, http)
+    return get_geocoding_provider(settings, session)
 
 
 GeocodingDependency = Annotated[GeocodingProvider, Depends(geocoding_dependency)]
@@ -64,7 +66,7 @@ async def search_addresses(
     trimmed = q.strip()
     if len(trimmed) < _MIN_QUERY_LENGTH:
         # Match the frontend's debounce guard so a runaway client cannot
-        # cheaply blast 2-char strings at the upstream geocoder.
+        # cheaply blast 2-char strings at the datastore.
         raise InvalidInputError(message="query must be at least 3 characters")
     hits = await provider.search(trimmed, limit=limit)
     body = GeocodeSearchResponse(hits=[_to_api_hit(h) for h in hits])

@@ -172,7 +172,7 @@ takeable; none of them require a re-architecture.
 | Cold-start latency annoys users | `min_machines_running = 1` on Fly (still free with caveats) | Reserve a small always-on machine |
 | Tile bandwidth costs (if we ever hit them) | Front Fly with a Cloudflare proxy (free tier, caches PMTiles ranges) | Move PMTiles to R2/Backblaze + CDN |
 | ORS rate limit hit | Self-host ORS in a sibling Fly VM | Pay for an ORS Pro key |
-| Geocoding capacity ceiling (Photon) | Move from upstream `photon.komoot.io` to self-hosted Photon on a sibling Fly VM (per `DEC-022`'s phased rollout) | Use Mapbox/Stadia geocoding |
+| Geocoding capacity ceiling | Refresh the bundled MAR snapshot (`scripts/ingest_dc_addresses.py`) or add read replicas | Commercial global geocoder (privacy/cost trade-off) |
 | Postgres I/O ceiling | Bigger Fly PG plan | Move to Neon/Supabase if cheaper |
 | Email volume (M3+) | Cloudflare Email Workers / Mailchannels free | Postmark/Resend |
 | Analytics privacy without spend | Plausible self-hosted | Plausible Cloud |
@@ -206,15 +206,16 @@ no passwords ever.
 
 ## DEC-008 — *Superseded by DEC-022.* (Original: Geocoding via Nominatim public API.)
 
-**Status.** Superseded by `DEC-022` (Geocoding via Photon through the Scout
-backend). The original rationale assumed a 500 ms client debounce plus server
-rate limit was sufficient to stay inside the OSMF Nominatim Acceptable Use
-Policy. On re-reading the policy
+**Status.** Superseded by `DEC-023` (bundled DC MAR snapshot). The original
+rationale assumed a 500 ms client debounce plus server rate limit was
+sufficient to stay inside the OSMF Nominatim Acceptable Use Policy. On
+re-reading the policy
 (<https://operations.osmfoundation.org/policies/nominatim/>) the *Auto-complete
 search* clause categorically prohibits using the public Nominatim service for
 autocomplete, regardless of debounce or rate limit. Moving the call server-side
 does not cure that — the prohibition is on the use case, not on the request
-origin. See `DEC-022` for the replacement.
+origin. `DEC-022` moved traffic to Photon; `DEC-023` removes upstream
+geocoding entirely for M1. See `DEC-023` for the active path.
 
 ---
 
@@ -537,10 +538,10 @@ without per-query reprojection.
 ## DEC-020 — Third-party services accessed via vendor-agnostic adapters
 
 **Context.** Scout integrates with several external services: routing
-(OpenRouteService), geocoding (Nominatim), restroom data (Refuge Restrooms),
-map tiles (Protomaps / OSM), and later email (M3). Every one of these has
-plausible alternatives, and we may need to swap any of them under budget
-pressure or rate-limit pressure (see DEC-006 upgrade paths).
+(OpenRouteService), geocoding (bundled DC MAR snapshot in Postgres), restroom
+data (Refuge Restrooms), map tiles (Protomaps / OSM), and later email (M3).
+Every one of these has plausible alternatives, and we may need to swap any of
+them under budget pressure or rate-limit pressure (see DEC-006 upgrade paths).
 
 **Decision.** Every third-party integration is accessed through a thin,
 in-process **adapter / Port-Adapter** layer. The application code depends only
@@ -561,7 +562,7 @@ clients/
 ├── geocoding/
 │   ├── __init__.py
 │   ├── protocol.py          # GeocodingProvider Protocol + AddressHit
-│   ├── photon.py            # PhotonProvider (DEC-022)
+│   ├── local_dc.py          # LocalDcGeocodingProvider (DEC-023)
 │   └── stub.py
 ├── restrooms/
 │   ├── __init__.py
@@ -577,7 +578,8 @@ client-side service.
 
 **Provider selection.** `get_provider()` returns the concrete impl based on a
 single env var per concern (`SCOUT_ROUTING_PROVIDER`, default
-`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `photon` per `DEC-022`;
+`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `local_dc` per
+`DEC-023`;
 etc.). Tests use `stub`. Production uses the real impl. Swap is one env var.
 
 **Interface design rules.**
@@ -646,7 +648,7 @@ shipping code; conflicts are resolved by updating the code to match the guide.
 
 ---
 
-## DEC-022 — Geocoding: Photon through the Scout backend (supersedes DEC-008)
+## DEC-022 — *Superseded by DEC-023.* (Geocoding: Photon through the Scout backend; supersedes DEC-008)
 
 **Context.** `DEC-008` chose the public Nominatim service for address
 autocomplete with a 500 ms client debounce and a server rate limit. While
@@ -749,6 +751,59 @@ phased PRs:
 - Adds a new repo guardrail (`AGENTS.md` rule #12) requiring agents to
   read and respect third-party API terms of use, and to surface
   ambiguity with emphasis. The drift this DEC corrects is the case study.
+
+---
+
+## DEC-023 — Geocoding: bundled DC Master Address Repository snapshot (supersedes DEC-022)
+
+**Context.** `DEC-022` corrected the Nominatim autopilot-TOS violation by
+moving traffic to Photon through the Scout backend (`DEC-020` adapter).
+Empirical planner testing (`M1-F03`) showed Photon's autocomplete ranking is
+still a poor fit for partial street addresses typed by disabled planners
+(multi-token prefix searches like "`4818 ka`" for "`4818 Kansas`" surfaced
+few or misleading hits even inside a DC bounding box — the engine favors
+whole-token matches).
+
+At the same time, the District publishes its canonical **Master Address
+Repository (MAR)** under **CC0 1.0 Universal** via DC GIS FeatureServer endpoints
+(details on [Open Data DC](https://opendata.dc.gov/)); citation is encouraged
+but not legally required.
+
+**Options considered.**
+
+- **Cheap ranking tweaks atop Photon.** Low effort; does not fix the core
+  tokenization mismatch for hyphenated/quadrant-heavy DC addressing.
+  Rejected as the primary path.
+- **Commercial global geocoder (Geoapify, Mapbox, …).** Strong matching,
+  recurrent cost, ongoing TOS scrutiny, third-party exposure of typed partial
+  addresses. Rejected for M1 on privacy + zero-budget posture.
+- **Dedicated DC MAR snapshot in Postgres**, ingested periodically from OCTO /
+  ArcGIS **`DCGIS_DATA.Location_WebMercator` layer `0`**, keyed by MAR ID —
+  autocomplete becomes prefix search over authoritative city rows.
+  Zero upstream calls during requests; aligns with NF-PRIV goals; CC0 clears
+  licensing. Selected.
+
+**Decision.** Scout's backend `GeocodingProvider` default implementation reads
+only from Postgres table `dc_addresses` populated offline by
+`scripts/ingest_dc_addresses.py` (bundled snapshot at `data/dc_addresses.jsonl`
+plus repeatable `--fetch` refresh). Requests never call a remote geocoder.
+The `/api/geocode/search` / `/api/geocode/reverse` JSON contracts stay what
+DEC-022 shipped; adapters map rows to Scout-domain `AddressHit`.
+
+Reverse geocode is limited to coordinates inside `DC_BBOX_LON_LAT` (matching
+MAR coverage). Addresses outside MAR return `hits: []` with clear UI copy —
+no silent fallback geocoder.
+
+**Consequences.**
+
+- `photon.py` and related `SCOUT_PHOTON_*` settings are removed. Default
+  `SCOUT_GEOCODING_PROVIDER` becomes `local_dc`.
+- Operational refresh is manual or scripted quarterly; tracked in
+  `infra/runbooks/refresh-dc-addresses.md`.
+- Fly / bandwidth risks from hosted Photon evaporate from the posture table
+  (`DEC-006` lever row updated accordingly).
+- `DEC-022` documented the intermediate compliant engine swap; retain it as
+  history but treat `DEC-023` as authoritative for autocomplete source.
 
 ---
 

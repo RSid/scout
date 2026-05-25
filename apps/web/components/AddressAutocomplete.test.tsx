@@ -40,7 +40,7 @@ describe("AddressAutocomplete", () => {
     vi.unstubAllGlobals();
   });
 
-  describe("backend provider outbound shaping (DEC-022)", () => {
+  describe("backend geocode proxy (/api/geocode/search)", () => {
     afterEach(() => {
       vi.unstubAllEnvs();
     });
@@ -145,6 +145,28 @@ describe("AddressAutocomplete", () => {
       { limit: 5 },
       expect.any(AbortSignal),
     );
+  });
+
+  it("surfaces bundled DC-scope guidance after an empty autocomplete response", async () => {
+    const search = vi.fn().mockResolvedValue([]);
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          onPick={vi.fn()}
+          provider={makeProviders({ search })}
+        />
+      </AnnounceProvider>,
+    );
+
+    await user.type(screen.getByRole("combobox"), "zzz");
+
+    expect(
+      await screen.findByText(/Washington, DC addresses only/i),
+    ).toBeInTheDocument();
   });
 
   it("does not invoke geolocation before Use my location is clicked", () => {

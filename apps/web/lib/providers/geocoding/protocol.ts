@@ -1,7 +1,7 @@
 /**
- * Scout-domain geocoding boundary (DEC-020, DEC-022). Caller code depends
- * only on these types — never on Photon (or any other engine's) wire
- * payloads. Adapters translate at the boundary.
+ * Scout-domain geocoding boundary (DEC-020, DEC-023). Caller code depends only
+ * on these types — never on engine-specific payloads. Adapters translate at
+ * the boundary.
  */
 
 export interface AddressHit {

@@ -31,8 +31,19 @@ export default function PrivacyPage() {
             third-party analytics, advertising scripts, or social-media widgets.
           </li>
           <li>
-            <strong>The address you type</strong> is sent to Scout&apos;s servers so we
-            can match it to coordinates. Scout doesn&apos;t store what you typed.
+            <strong>The address you type</strong> goes to Scout&apos;s servers where it
+            is matched against the District&apos;s public Master Address Repository
+            snapshot (MAR). Nothing is forwarded to an external geocoding API for
+            autocomplete — see{" "}
+            <Link
+              href="/about"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+            >
+              About Scout
+            </Link>{" "}
+            for the full list of online routing services Scout still relies on (for
+            example OpenRouteService for walking directions). Scout doesn&apos;t store
+            what you typed.
           </li>
           <li>
             <strong>Coordinates from your plan</strong> (start and destination) flow

@@ -93,7 +93,7 @@ the host-side mapping moves when you set `SCOUT_DB_HOST_PORT`.
 | `db`      | `5432` | `SCOUT_DB_HOST_PORT`      | PostGIS 16 + 3.4. Volume `pgdata` persists across restarts. |
 | `backend` | `8080` | `SCOUT_BACKEND_HOST_PORT` | `uv run uvicorn ... --reload`. Source bind-mounted; venv in named volume `backend-venv`. |
 | `web`     | `3000` | `SCOUT_WEB_HOST_PORT`     | `npm run dev`. Source bind-mounted; `node_modules` + `.next` in named volumes. |
-| `ingest`  | n/a    | —                          | `--profile ingest`. Currently a no-op echo; swaps to real ingest scripts when M1-F02 lands. |
+| `ingest`  | n/a    | —                          | `--profile ingest`. Runs `scripts/ingest_dc_addresses.py` inside the Compose bridge so it talks to `db:5432` directly (DEC-023). |
 
 Container-internal ports stay fixed (`5432`, `8080`, `3000`) so the
 backend → `db:5432` bridge DSN never moves; only the host side of each
@@ -108,6 +108,24 @@ echo SCOUT_DB_HOST_PORT=5433 >> .env
 The web container's `NEXT_PUBLIC_SCOUT_API_BASE_URL` is wired through the
 same variable, so overriding `SCOUT_BACKEND_HOST_PORT` correctly routes
 browser-side fetches to the new host port.
+
+## Loading the DC MAR address snapshot
+
+Alembic migration `0002` creates the `dc_addresses` table. Populate it from
+the committed snapshot (not loaded automatically) so the local geocoder has
+rows to read:
+
+```bash
+make migrate
+make ingest-dc-addresses
+```
+
+Run this after a fresh DB or `docker compose ... down -v`. The Makefile
+target invokes the profile-gated `ingest` service, so the script executes
+inside the Compose bridge network with the same `db:5432` DSN the backend
+uses — your host-side `.env` and `SCOUT_DB_HOST_PORT` overrides never enter
+the picture. Refresh cadence for the JSONL artifact lives in
+[`infra/runbooks/refresh-dc-addresses.md`](runbooks/refresh-dc-addresses.md).
 
 ## Resetting the database
 

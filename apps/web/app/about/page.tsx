@@ -109,48 +109,39 @@ export default function AboutPage() {
             Search &amp; routing services
           </h2>
           <p className="text-[color:var(--color-text-muted)]">
-            Scout relies on external services where needed for search and routing. Typed
-            addresses never go straight from your browser to a geocoder lookup; they go
-            to Scout&apos;s backend first. For transparency, here are the services we
-            rely on today:
+            Scout pulls address suggestions from District of Columbia open data —
+            specifically the&nbsp;
+            <Link
+              href="https://opendata.dc.gov/pages/addressing-in-dc"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Master Address Repository
+            </Link>{" "}
+            (MAR) curated by OCTO&apos;s GIS program. Addresses are refreshed
+            periodically and loaded into Scout&apos;s servers; no third-party geocoder
+            is involved at autocomplete time (<code>/api/geocode/search</code>). Routing
+            still uses{" "}
+            <Link
+              href="https://openrouteservice.org/"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              OpenRouteService
+            </Link>
+            , which computes wheelchair-aware directions over{" "}
+            <Link
+              href="https://www.openstreetmap.org/copyright"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              OpenStreetMap
+            </Link>
+            .
           </p>
-          <ul className="list-disc space-y-[var(--space-2)] pl-[var(--space-6)] text-[color:var(--color-text)]">
-            <li>
-              <strong>Geocoding (address search):</strong>{" "}
-              <Link
-                href="https://github.com/komoot/photon"
-                className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Photon
-              </Link>
-              , an open-source engine over{" "}
-              <Link
-                href="https://www.openstreetmap.org/copyright"
-                className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                OpenStreetMap
-              </Link>{" "}
-              data. Some environments use a hosted instance (for example Komoot&apos;s
-              community endpoint); Scout may switch to its own Photon deployment without
-              changing what you experience in the app.
-            </li>
-            <li>
-              <strong>Walking routes:</strong>{" "}
-              <Link
-                href="https://openrouteservice.org/"
-                className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                OpenRouteService
-              </Link>
-              , which computes wheelchair-aware directions over OpenStreetMap.
-            </li>
-          </ul>
         </section>
 
         <section

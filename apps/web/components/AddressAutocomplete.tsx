@@ -145,6 +145,8 @@ export default function AddressAutocomplete({
     return () => window.clearTimeout(debounceTimer.current);
   }, [inputValue, runGeocode]);
 
+  const trimmedForHint = inputValue.trim();
+
   return (
     <ComboBox
       id={id}
@@ -197,6 +199,11 @@ export default function AddressAutocomplete({
           )}
         </ListBox>
       </Popover>
+      {trimmedForHint.length >= 3 && !busy && suggestionItems.length === 0 ? (
+        <p className="text-sm text-[color:var(--color-text-muted)]" aria-live="polite">
+          We currently support Washington, DC addresses only.
+        </p>
+      ) : null}
       {showUseMyLocation ? (
         <div className="flex flex-wrap items-center gap-[var(--space-4)]">
           <button

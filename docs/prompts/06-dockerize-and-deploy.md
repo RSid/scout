@@ -92,7 +92,13 @@ infra/
 - HTTP health check on `/api/health`. Health check must tolerate the cold-
   start window during which `alembic upgrade head` runs.
 - Secrets (set via `flyctl secrets set`): `SCOUT_DATABASE_URL` (pointing to
-  `scout-pg.internal:5432`), `SCOUT_ORS_API_KEY`, `SCOUT_PHOTON_USER_AGENT`.
+  `scout-pg.internal:5432`), `SCOUT_ORS_API_KEY`.
+
+### MAR address snapshot bootstrap
+
+MAR rows are bundled as `data/dc_addresses.jsonl` and uploaded into Postgres via
+`scripts/ingest_dc_addresses.py`. Run this alongside (or immediately after)
+`scripts/ingest_dc.py` on first deploy whenever the PG volume is recreated.
 
 ### fly.postgres.toml (the sibling Postgres VM)
 
@@ -145,12 +151,12 @@ Document the bootstrap sequence:
 5. Wait for PG to be healthy (`flyctl checks list --app scout-pg`).
 6. `flyctl apps create scout`
 7. `flyctl secrets set SCOUT_DATABASE_URL='postgresql+asyncpg://scout:...@scout-pg.internal:5432/scout' --app scout`
-8. `flyctl secrets set SCOUT_ORS_API_KEY=... SCOUT_PHOTON_USER_AGENT='scout/0.1 (contact@...)' --app scout`
+8. `flyctl secrets set SCOUT_ORS_API_KEY=... --app scout`
 9. `flyctl deploy --config infra/fly.app.toml --app scout`  (this runs
    `alembic upgrade head`)
-10. `flyctl ssh console --app scout -C 'python scripts/ingest_dc.py'` to load
-    the DC features into PG.
-11. `flyctl status --app scout` confirms healthy.
+10. `flyctl ssh console --app scout -C 'python scripts/ingest_dc_addresses.py'` to load MAR rows into `dc_addresses`.
+11. `flyctl ssh console --app scout -C 'python scripts/ingest_dc.py'` for accessibility corridor features (`features` table).
+12. `flyctl status --app scout` confirms healthy.
 
 ## Performance budgets to verify
 

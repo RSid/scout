@@ -1,8 +1,7 @@
-"""Product geography constants (DEC-022, M1).
+"""Product geography constants (M1).
 
-M1 scopes routing and autocomplete to Washington, DC. Geocoding adapters
-that support a bounded search (e.g. Photon `bbox`) import these numbers
-here and translate them to their upstream wire shape at the boundary.
+M1 scopes routing and autocomplete to Washington, DC. Imports this module
+for bbox checks (e.g. reverse geocoding outside the District).
 """
 
 from __future__ import annotations

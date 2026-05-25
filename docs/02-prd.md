@@ -73,7 +73,7 @@ them personally.**
    asks the user to pick their accessibility preferences (Profile). Default is "all
    categories on."
 3. User enters a start address and a destination address (autocomplete via Scout's
-   backend `/api/geocode/*`, served by Photon — see `DEC-022`).
+   backend `/api/geocode/*`, matching the bundled DC Master Address Repository — see `DEC-023`).
 4. User taps "Find route."
 5. Backend calls ORS wheelchair profile to get a walking route LineString.
 6. Backend computes the corridor (LineString buffered by 30 m) and returns the route
@@ -189,10 +189,10 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Acceptance criteria:**
   - Two text inputs labeled "Starting point" and "Destination."
   - Autocomplete suggestions fetched from Scout's backend `/api/geocode/search`
-    (served by Photon via the `GeocodingProvider` adapter; see `DEC-022`),
-    scoped to the DC bounding box inside the adapter, no more than one
-    request per 500 ms of typing (debounced client-side). The browser never
-    calls an upstream geocoder directly.
+    via `LocalDcGeocodingProvider` against MAR rows in Postgres (`dc_addresses`;
+    see `DEC-023`). Suggestions span Washington, DC MAR addresses only. No more
+    than one request per 500 ms of typing (debounced client-side). The browser
+    never calls an upstream geocoder directly.
   - "Use my location" button next to "Starting point" that uses the Geolocation API
     only after explicit user click (no auto-prompt on page load).
   - Suggestions are a proper ARIA combobox: `role="combobox"`, `aria-expanded`,
@@ -950,12 +950,12 @@ reference it.
   `amenity=drinking_water`. DC has a public cooling center dataset that's
   seasonal. **Recommendation:** OSM `drinking_water` for M1; add seasonal cooling
   centers in M2 when summer matters.
-- **OQ-06** Address autocomplete — *RESOLVED* by `DEC-022`. Nominatim's
-  Acceptable Use Policy categorically forbids using the public service for
-  autocomplete, so Scout's geocoding now flows through our backend's
-  `/api/geocode/*` endpoint backed by Photon (Komoot's hosted endpoint in
-  M1, self-hosted on Fly in the follow-up PR). The 500 ms client debounce
-  and server-side rate limit remain. See `DEC-022` for the full rationale.
+- **OQ-06** Address autocomplete — *RESOLVED* by `DEC-022`, implementation
+  tightened in `DEC-023`. The public OSMF Nominatim endpoint cannot be used for
+  autocomplete (`DEC-008`), so Scout proxies via its own `/api/geocode/*`
+  handlers. Matching now uses the city's **Master Address Repository** snapshot
+  in Postgres (CC0): no upstream geocoder at request time and strong partial
+  address behavior for DC-only scope. Rate limits remain. See `DEC-023`.
 - **OQ-07** Liability: should the disclaimer be a click-through ("I understand")
   before first use, or just always-visible? **Recommendation:** always-visible
   banner + a one-time onboarding modal. No click-through gates feel patronizing.

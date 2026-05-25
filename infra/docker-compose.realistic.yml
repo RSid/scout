@@ -23,24 +23,18 @@
 #      https://openrouteservice.org/dev/#/signup.
 #   2. apps/web/public/tiles/dc.pmtiles exists (run `scripts/build_pmtiles.sh`
 #      once) — otherwise the interactive MapLibre basemap will render empty.
-#   3. SCOUT_PHOTON_USER_AGENT in .env is a descriptive UA. The Photon
-#      upstream policy is light on rate-limit text but heavy on "be fair";
-#      a descriptive UA makes it possible for upstream operators to reach
-#      us if we ever misbehave.
+#   3. `dc_addresses` is loaded (`make ingest-dc-addresses` against the Compose
+#      Postgres volume) so `/api/geocode/*` returns real MAR rows.
 #
-# Geocoding posture (DEC-022):
-#   The frontend NEVER calls a geocoder upstream directly. AddressAutocomplete
-#   talks to our backend's `/api/geocode/*`, which routes through the Photon
-#   adapter. Default upstream is `photon.komoot.io` (Komoot's free community
-#   endpoint, designed for autocomplete; fair-use only). The Fly-deploy
-#   follow-up PR brings up a self-hosted Photon machine and flips
-#   SCOUT_PHOTON_BASE_URL — no app code changes.
+# Geocoding (`DEC-023`): autocomplete reads the bundled DC MAR snapshot in
+# Postgres. The browser still calls only `/api/geocode/*` — no third-party
+# geocoder at request time.
 
 services:
   backend:
     environment:
       SCOUT_ROUTING_PROVIDER: openrouteservice
-      SCOUT_GEOCODING_PROVIDER: photon
+      SCOUT_GEOCODING_PROVIDER: local_dc
       SCOUT_RESTROOMS_PROVIDER: refuge
       # Pulled from the host .env at compose-resolve time. Empty value means
       # the backend will surface an explicit "missing key" error on first
@@ -50,6 +44,6 @@ services:
   web:
     environment:
       NEXT_PUBLIC_SCOUT_MAP_MODE: interactive
-      # Frontend always goes through our backend for geocoding now (DEC-022);
-      # the only meaningful values are `backend` (default) and `stub`.
+      # Frontend always goes through our backend for geocoding; values are
+      # `backend` (default) and `stub`.
       NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: backend

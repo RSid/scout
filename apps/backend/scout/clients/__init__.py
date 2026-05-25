@@ -1,15 +1,16 @@
 """Expose concrete adapter constructors (DEC-020 entrypoint).
 
-The factory functions below are the *only* place that imports a concrete
-vendor adapter. Application code consumes the Protocol type and lets the
+The factory functions below are the *only* place that imports concrete
+vendor adapters. Application code consumes the Protocol type and lets the
 factory pick the impl based on a single env var per concern.
 """
 
 from __future__ import annotations
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from scout.clients.geocoding.photon import PhotonProvider
+from scout.clients.geocoding.local_dc import LocalDcGeocodingProvider
 from scout.clients.geocoding.protocol import GeocodingProvider
 from scout.clients.geocoding.stub import StubGeocodingProvider
 from scout.clients.restrooms.protocol import RestroomsProvider
@@ -30,11 +31,12 @@ def get_routing_provider(
 
 
 def get_geocoding_provider(
-    settings: Settings, client: httpx.AsyncClient
+    settings: Settings,
+    session: AsyncSession,
 ) -> GeocodingProvider:
     if settings.geocoding_provider.lower() == "stub":
         return StubGeocodingProvider()
-    return PhotonProvider(settings=settings, client=client)
+    return LocalDcGeocodingProvider(session)
 
 
 def get_restrooms_provider(

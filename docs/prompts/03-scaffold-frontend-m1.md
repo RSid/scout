@@ -155,7 +155,7 @@ apps/web/
 
 - Implements the WAI-ARIA combobox pattern (1.2 authoring practices).
 - Debounces 500 ms. **The browser never calls a geocoder upstream
-  directly** (per `DEC-022` — see also `AGENTS.md` rule #12 on third-party
+  directly** (`DEC-023`; see also `AGENTS.md` rule #12 on respecting third-party
   TOS). All geocoding flows through Scout's backend `/api/geocode/*`
   endpoints; the frontend's `backendGeocodingProvider` is the only
   transport. (An earlier draft of this prompt suggested calling Nominatim

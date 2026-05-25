@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -94,6 +94,13 @@ migrate: ## run alembic upgrade head when backend scaffold is present
 		echo 'skipping migrations: apps/backend/alembic.ini not present yet (M1-T01)'; \
 	fi
 
+ingest-dc-addresses: ## load bundled DC MAR addresses into Postgres (migration 0002 + data/dc_addresses.jsonl)
+	@test -f "$(ROOT)/scripts/ingest_dc_addresses.py" || { echo 'missing scripts/ingest_dc_addresses.py'; exit 1; }
+	@# Runs inside the Compose bridge network so `db:5432` resolves and the
+	@# host-side .env / SCOUT_DB_HOST_PORT remap never enter the picture.
+	@# Pass extra args after `--`, e.g. `make ingest-dc-addresses ARGS='--dry-run'`.
+	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest $(ARGS)
+
 ingest: ## dry-run DC ingest (scripts/ingest_dc.py) when present
 	@if [ -f "$(ROOT)/scripts/ingest_dc.py" ]; then \
 		uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
@@ -107,18 +114,14 @@ docker-up: ## docker compose up — all third parties stubbed (alias: docker-up-
 
 docker-up-stubbed-run: docker-up ## alias of docker-up — boots stack with stub providers (no outbound calls)
 
-# NOTE (Photon / geocoding, DEC-022): the realistic stack points at
-# Komoot's hosted Photon (`photon.komoot.io`), a community endpoint with
-# "fair use" expectations. Set SCOUT_PHOTON_USER_AGENT in .env to something
-# like "scout-dev/0.1 (you@example.com)" before running so upstream
-# operators can reach you. The Fly-deploy follow-up PR brings up a
-# self-hosted Photon and flips SCOUT_PHOTON_BASE_URL — no code change.
+# NOTE (MAR geocoding, DEC-023): the realistic stack keeps geocoding on the
+# bundled District of Columbia MAR snapshot (`dc_addresses` in Postgres —
+# hydrated with `make ingest-dc-addresses` whenever you recreate the pgdata volume).
 #
-# This target is the canonical "exercise every external integration we ship
-# to prod" entry point. When a new vendor adapter lands, flip the relevant
-# env var in infra/docker-compose.realistic.yml so this target stays
-# representative (see scripts/AGENTS.md "Tool registry").
-docker-up-realistic-run: ## docker compose up with real Photon/ORS/Refuge — interactive map + live 3rd-party calls
+# ORS / Refuge integrations still hit upstream services per this overlay — see
+# `infra/docker-compose.realistic.yml`. When adding a net-new vendor adapter,
+# extend that overlay first (scripts/AGENTS.md Tool registry reminder).
+docker-up-realistic-run: ## docker compose up with real ORS/Refuge + MAR-backed autocomplete
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
 	@test -f "$(ROOT)/infra/docker-compose.realistic.yml" || { echo 'missing infra/docker-compose.realistic.yml'; exit 1; }
 	@test -f "$(ROOT)/apps/web/public/tiles/dc.pmtiles" || printf '%s\n' 'note: apps/web/public/tiles/dc.pmtiles is missing — the interactive basemap will render empty until you run scripts/build_pmtiles.sh.'

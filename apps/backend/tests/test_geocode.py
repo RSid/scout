@@ -1,4 +1,4 @@
-"""`/api/geocode/*` contract tests (M1-F03, DEC-022).
+"""`/api/geocode/*` contract tests (M1-F03, DEC-023).
 
 Mocks introduced
 ----------------

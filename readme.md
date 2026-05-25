@@ -11,13 +11,14 @@ Scout is an open source community webapp local to Washington DC intended to help
 
 ### API Keys
 
-Only **OpenRouteService** needs a real signup. Photon (geocoding) and
-Refuge Restrooms are keyless, and the Protomaps basemap extract is built
-by a script. You can skip this entire section if you only ever run
-`make docker-up` (the default boots a stack with every third-party adapter
-stubbed — no outbound calls). The credentials below are required for
-`make docker-up-realistic-run`, production deploys, and manual verification
-against live providers.
+Only **OpenRouteService** needs a real signup per se. Address searching uses
+Washington, DC's public-domain Master Address Repository snapshot bundled with
+Scout (`make ingest-dc-addresses`). Refuge Restrooms is keyless, and the
+Protomaps basemap extract is built by a script. You can skip this entire section
+if you only ever run `make docker-up` (the default boots a stack with routing,
+geocoding, and restrooms stubbed — no outbound calls except whatever you enable).
+The credential below is required for `make docker-up-realistic-run`, production
+deploys, and manual verification against OpenRouteService.
 
 Create your local env file first, then fill in the values below:
 
@@ -40,21 +41,11 @@ cp .env.example .env
    - The backend surfaces a clear "missing key" error on the first
      `/api/route` call if this is left blank.
 
-2. **Photon geocoding** (`SCOUT_PHOTON_USER_AGENT`) — no key. Scout's
-   backend talks to Photon (Komoot's open-source OSM-backed geocoder) for
-   address autocomplete; the browser never calls a geocoder directly
-   (`DEC-022`). The default upstream is Komoot's community endpoint at
-   `https://photon.komoot.io`, which is "fair use" only.
-   - Set a descriptive `User-Agent` in `.env` so upstream operators can
-     reach you before any block:
-
-     ```
-     SCOUT_PHOTON_USER_AGENT=scout-dev/0.1 (you@example.com)
-     ```
-
-   - To point at a self-hosted Photon (e.g. once the `DEC-022` follow-up
-     PR adds the Fly machine), override `SCOUT_PHOTON_BASE_URL`. No app
-     code change required.
+2. **DC address snapshot load** (`make ingest-dc-addresses`) — no signup.
+   After Postgres has the `dc_addresses` table (Alembic `0002+`), ingest the
+   committed `data/dc_addresses.jsonl` into local or Compose-attached Postgres
+   so `/api/geocode/*` serves real MAR rows (`DEC-023`). Compose does **not**
+   auto-load MAR data yet; run this once whenever you recreate the DB volume.
 
 3. **Refuge Restrooms** — no key, no signup. The default
    `SCOUT_REFUGE_BASE_URL` in `.env.example` is the public API

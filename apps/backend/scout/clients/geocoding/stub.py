@@ -37,7 +37,7 @@ class StubGeocodingProvider(GeocodingProvider):
             id="stub-reverse",
             label=(
                 "[STUB] Reverse-geocode fixture — "
-                "set SCOUT_GEOCODING_PROVIDER=photon for live"
+                "override SCOUT_GEOCODING_PROVIDER for a live-backed dev stack"
             ),
             lon=lon,
             lat=lat,
