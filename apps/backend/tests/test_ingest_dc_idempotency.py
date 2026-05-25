@@ -41,6 +41,9 @@ def _alembic_upgrade(async_url: str) -> None:
     backend_root = Path(__file__).resolve().parents[1]
     env = dict(os.environ)
     env["SCOUT_DATABASE_URL"] = async_url
+    # Defeat host-port override leaking in from the developer's repo .env;
+    # the testcontainer publishes on an ephemeral port already inside async_url.
+    env["SCOUT_DB_HOST_PORT"] = ""
     subprocess.run(
         ["uv", "run", "alembic", "upgrade", "head"],
         cwd=str(backend_root),

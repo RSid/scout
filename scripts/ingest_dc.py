@@ -13,6 +13,10 @@ Usage::
   uv run --directory apps/backend python \\
     scripts/ingest_dc.py --database-url postgresql+psycopg://...
 
+From your laptop, keep ``SCOUT_DATABASE_URL`` on ``db``, ``localhost``, or
+loopback; set ``SCOUT_DB_HOST_PORT`` to the Compose-published port and ingest
+(and Alembic) will reconnect to ``127.0.0.1:<that port>``. See README.
+
 Inputs: ADA GeoJSON in ``data/``. Output: UPSERT rows into Postgres ``features``
 table owned by Alembic (no DDL here).
 """
@@ -26,8 +30,13 @@ import time
 from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError
 
-from scout.config import load_settings, migrate_sync_database_url
+from scout.config import (
+    load_settings,
+    migrate_sync_database_url,
+    normalize_database_url_for_compose_host_port,
+)
 from scout.ingest.dc import DATASETS
 from scout.ingest.pipeline import (
     categorize_rows,
@@ -141,12 +150,41 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    settings_db = migrate_sync_database_url(
-        parsed.database_url or load_settings().database_url
+    settings_bundle = load_settings()
+    chosen_async = parsed.database_url or settings_bundle.database_url
+    async_for_engine = normalize_database_url_for_compose_host_port(
+        chosen_async,
+        compose_published_host_port=settings_bundle.db_host_port,
     )
+    if async_for_engine != chosen_async:
+        log.info(
+            "event=compose_host_port_applied published_port=%s",
+            settings_bundle.db_host_port,
+        )
+    settings_db = migrate_sync_database_url(async_for_engine)
     engine = create_engine(settings_db)
 
-    inserts, updates, skips = upsert_normalized_rows(engine, rows)
+    try:
+        inserts, updates, skips = upsert_normalized_rows(engine, rows)
+    except OperationalError as exc:
+        orig = getattr(exc, "orig", None)
+        detail_msg = repr(orig) if orig is not None else str(exc)
+        log.error(
+            "event=ingest_failed reason=postgres_unavailable detail=%s",
+            detail_msg,
+        )
+        log.error(
+            "hint=Host-side ingest must reach the Scout Compose database. With "
+            "SCOUT_DATABASE_URL targeting db/localhost and SCOUT_DB_HOST_PORT set "
+            "in `.env`, the script rewrites to 127.0.0.1:<that port> automatically. "
+            "Otherwise set DATABASE_URL/`--database-url` to the published port."
+        )
+        log.error(
+            "hint_password_auth=A different Postgres on the attempted port "
+            "often causes scout password failures — fix the published port mapping "
+            "or point SCOUT_DATABASE_URL at the server you intend."
+        )
+        raise
     log.info(
         "event=ingest_done datasets=%s dry_run=false inserted=%s updated=%s "
         "unchanged=%s malformed=%s rows=%s took_ms=%s",
