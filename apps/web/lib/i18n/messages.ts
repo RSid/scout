@@ -2,7 +2,7 @@
 
 export type LocaleMessages = Record<string, string>;
 
-export const en: LocaleMessages = {
+export const en = {
   locale: "en",
   scoutTitle: "Scout — walking routes and accessibility data for DC",
   /** M1-F02: short aria-label fragment (≤10 words, PRD §6.1 + voice-and-copy §9.2). */
@@ -34,7 +34,7 @@ export const en: LocaleMessages = {
   routeSummaryPendingWalkingTime: "Calculating…",
   routeSummaryPendingHint:
     "Finding a walking route for your start and destination. Distance below is a straight-line preview.",
-};
+} satisfies LocaleMessages;
 
 function formatDistanceKmForAnnouncement(distanceMeters: number): string {
   const km = distanceMeters / 1000;

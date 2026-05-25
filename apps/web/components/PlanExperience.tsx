@@ -235,50 +235,32 @@ export default function PlanExperience() {
       };
     }
 
-    const mismatchedSlice =
-      (routeFetch.kind === "loading" ||
-        routeFetch.kind === "ok" ||
-        routeFetch.kind === "error") &&
-      routeFetch.routeKey !== routeKey;
+    const pending = {
+      mode: "pending" as const,
+      summary: null,
+      approxMeters: straightLineMeters,
+    };
 
-    if (routeFetch.kind === "loading" && routeFetch.routeKey === routeKey) {
-      return {
-        mode: "pending",
-        summary: null,
-        approxMeters: straightLineMeters,
-      };
-    }
-
-    if (routeFetch.kind === "unset") {
-      return {
-        mode: "pending",
-        summary: null,
-        approxMeters: straightLineMeters,
-      };
-    }
-
-    if (mismatchedSlice) {
-      return {
-        mode: "pending",
-        summary: null,
-        approxMeters: straightLineMeters,
-      };
-    }
-
-    if (routeFetch.kind === "error") {
-      return {
-        mode: "approx-fallback",
-        summary: null,
-        approxMeters: straightLineMeters,
-      };
-    }
-
-    if (routeFetch.kind === "ok") {
-      return {
-        mode: "live",
-        summary: routeFetch.summary,
-        approxMeters: routeFetch.summary.distanceMeters,
-      };
+    switch (routeFetch.kind) {
+      case "unset":
+      case "loading":
+        return pending;
+      case "error":
+        return routeFetch.routeKey === routeKey
+          ? {
+              mode: "approx-fallback",
+              summary: null,
+              approxMeters: straightLineMeters,
+            }
+          : pending;
+      case "ok":
+        return routeFetch.routeKey === routeKey
+          ? {
+              mode: "live",
+              summary: routeFetch.summary,
+              approxMeters: routeFetch.summary.distanceMeters,
+            }
+          : pending;
     }
   }, [
     demoApproxMeters,
