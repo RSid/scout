@@ -10,15 +10,41 @@ from geoalchemy2 import Geometry
 from geoalchemy2 import functions as gf
 from geoalchemy2.functions import ST_DWithin, ST_LineLocatePoint, ST_SetSRID
 from geoalchemy2.shape import to_shape
-from sqlalchemy import asc, desc, func, literal, select, text
+from sqlalchemy import and_, asc, desc, func, literal, not_, or_, select, text
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from scout.data.mar_address_mapping import (
     normalize_dc_address_query_text,
     prefix_tsquery_from_tokens,
 )
 from scout.data.models import DcAddress, Feature
+
+# Per-row "is this useful as a map marker?" rule. We still ingest these rows
+# (analytics and M2 P3 low-vision routing weights both read them), but the
+# corridor query for end-user rendering hides them from BOTH the response
+# payload AND `feature_count_total` — otherwise the "(N) along your route"
+# header counts features that never appear on the map.
+#
+# Currently: an `audible_signals` row whose `condition_normalized` is `"absent"`
+# (no audible button at the intersection) or `"n_a"` (PUSHBUTTON_TYPE was null
+# in the source GeoJSON) is metadata, not a feature on the ground.
+_NON_RENDERABLE_CORRIDOR_PAIRS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("audible_signals", ("absent", "n_a")),
+)
+
+
+def _renderable_corridor_filter() -> ColumnElement[bool]:
+    """SQL where-clause that excludes non-renderable corridor rows."""
+    excluded = [
+        and_(
+            Feature.category == cat,
+            Feature.condition_normalized.in_(conditions),
+        )
+        for cat, conditions in _NON_RENDERABLE_CORRIDOR_PAIRS
+    ]
+    return not_(or_(*excluded))
 
 
 def _linestring_geography_wkt(coordinates: Sequence[Sequence[float]]) -> str:
@@ -50,9 +76,14 @@ async def corridor_features_geojson(
     cats = tuple(categories)
     within_filter = ST_DWithin(Feature.geom, line_geography, literal(buffer_meters))
     cat_filter = Feature.category.in_(cats)
+    renderable_filter = _renderable_corridor_filter()
 
     count_stmt = (
-        select(func.count()).select_from(Feature).where(cat_filter).where(within_filter)
+        select(func.count())
+        .select_from(Feature)
+        .where(cat_filter)
+        .where(within_filter)
+        .where(renderable_filter)
     )
     feature_count_total = int((await session.execute(count_stmt)).scalar_one())
 
@@ -65,6 +96,7 @@ async def corridor_features_geojson(
         select(Feature, along_route)
         .where(cat_filter)
         .where(within_filter)
+        .where(renderable_filter)
         .order_by(along_route.asc(), Feature.id.asc())
         .limit(limit + 1)
     )

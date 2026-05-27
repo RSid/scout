@@ -121,6 +121,15 @@ an intersection is still actionable information — routing weights should
 treat `condition_normalized in {"absent", "difficult"}` as a penalty for
 P3-aware profiles, even though `kind` stays `aid`.
 
+**Corridor rendering filter:** `condition_normalized in {"absent", "n_a"}`
+rows are excluded from `POST /api/route-features` responses **and** the
+returned `meta.feature_count_total`, because a "no button here" entry is not
+useful as a map marker and would inflate the "(N) along your route" header
+with un-renderable rows. The data is still ingested into Postgres; consumers
+that need it (analytics, the eventual M2 P3 routing pipeline) read directly
+from `features` and bypass the corridor endpoint. See
+`apps/backend/scout/data/store.py::_renderable_corridor_filter`.
+
 ---
 
 ### B.4 `ADA_Bus_Stop.geojson` → `bus_stops`
