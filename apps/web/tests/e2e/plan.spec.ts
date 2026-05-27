@@ -188,7 +188,7 @@ test.describe("plan view keyboard affordances", () => {
     await page.goto("/plan");
     await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
 
-    await page.getByRole("link", { name: "Skip map", exact: true }).focus();
+    await page.getByRole("link", { name: "Skip to list", exact: true }).focus();
     await page.keyboard.press("Enter");
 
     await expect(page.locator("#scout-route-list")).toBeFocused();
@@ -335,6 +335,30 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
     });
 
     expect(summaryPrecedesBasemapRegion).toBe(true);
+
+    const listPrecedesMapColumn = await page.evaluate(
+      ([listSel, mapSel]) => {
+        const list = document.querySelector(listSel);
+        const map = document.querySelector(mapSel);
+
+        if (!list || !map) {
+          return false;
+        }
+
+        const DOCUMENT_POSITION_FOLLOWING = 4;
+        return (list.compareDocumentPosition(map) & DOCUMENT_POSITION_FOLLOWING) !== 0;
+      },
+      ["#scout-route-list", "#scout-route-map-region"],
+    );
+
+    expect(listPrecedesMapColumn).toBe(true);
+
+    const showMap = page.getByRole("button", { name: /^show map$/i });
+    await expect(showMap).toBeVisible();
+
+    await showMap.click();
+
+    await expect(page.getByRole("button", { name: /^hide map$/i })).toBeVisible();
   });
 });
 

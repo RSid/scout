@@ -27,13 +27,14 @@ const MOCK_CORRIDOR = {
         condition: "Good",
         condition_normalized: "good",
         inspected_year: 2021,
+        along_route_meters: 412.9,
         source_dataset: "e2e",
         source_id: "1",
         attributes: {},
       },
     },
   ],
-  meta: { truncated: false, time_taken_ms: 1 },
+  meta: { truncated: false, time_taken_ms: 1, feature_count_total: 1 },
 } as const;
 
 /** Small DC LineString + summary props (`POST /api/route` wire shape). */

@@ -80,3 +80,27 @@ export function isInspectionOutdated(
 ): boolean {
   return year !== null && referenceYear - year > 3;
 }
+
+export type InspectionFreshnessTreatment =
+  | { kind: "recent" }
+  | { kind: "as_of"; year: number }
+  | { kind: "stale_chip"; year: number }
+  | { kind: "unknown" };
+
+/** appendix-data-schema §D thresholds for popup + parallel list rows. */
+export function inspectionFreshnessTreatment(
+  year: number | null,
+  referenceYear: number,
+): InspectionFreshnessTreatment {
+  if (year === null) {
+    return { kind: "unknown" };
+  }
+  const age = referenceYear - year;
+  if (age <= 1) {
+    return { kind: "recent" };
+  }
+  if (age <= 3) {
+    return { kind: "as_of", year };
+  }
+  return { kind: "stale_chip", year };
+}

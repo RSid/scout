@@ -57,9 +57,9 @@ def test_route_features_rate_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _stub_corridor(
         session: Any,
         **_kwargs: Any,
-    ) -> tuple[list[dict[str, Any]], float, bool]:
+    ) -> tuple[list[dict[str, Any]], float, bool, int]:
         del session
-        return [], 1.0, False
+        return [], 1.0, False, 0
 
     monkeypatch.setattr(
         route_features_module, "corridor_features_geojson", _stub_corridor

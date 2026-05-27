@@ -83,13 +83,47 @@ class CorridorMeta(BaseModel):
 
     truncated: bool
     time_taken_ms: float
+    feature_count_total: int
+
+
+class CorridorPointGeoJSON(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["Point"] = "Point"
+    coordinates: Annotated[list[float], Field(min_length=2, max_length=2)]
+
+
+class CorridorFeatureProperties(BaseModel):
+    """Normalized `Feature.properties` plus `along_route_meters`
+    (appendix §A + M1-F07.S3)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    category: str
+    kind: Literal["obstacle", "aid"]
+    condition: str | None
+    condition_normalized: str
+    inspected_year: int | None = Field(ge=1900, le=2100)
+    source_dataset: str
+    source_id: str
+    attributes: dict[str, Any]
+    along_route_meters: float
+
+
+class CorridorGeoJSONFeature(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["Feature"] = "Feature"
+    geometry: CorridorPointGeoJSON
+    properties: CorridorFeatureProperties
 
 
 class CorridorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
-    features: list[dict[str, Any]]
+    features: list[CorridorGeoJSONFeature]
     meta: CorridorMeta
 
 
@@ -97,7 +131,7 @@ class CorridorRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     route_geometry: dict[str, Any]
-    buffer_meters: int = Field(default=30, ge=1, le=200)
+    buffer_meters: int = Field(default=30, ge=1)
     categories: Annotated[list[str], Field(min_length=1)]
 
     @field_validator("route_geometry")

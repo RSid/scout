@@ -9,7 +9,7 @@ import RouteSummary, { type RouteSummaryMode } from "@/components/RouteSummary";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
-import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
+import { DEMO_ROUTE } from "@/lib/fixtures/route-plan-fixtures";
 
 import {
   fetchCorridorFeatures,
@@ -18,16 +18,20 @@ import {
   type RouteSummaryPayload,
 } from "@/lib/api";
 import {
+  corridorFetchSuccessAnnouncement,
   en,
   routeAnnouncementApproxFallback,
   routeAnnouncementLoaded,
 } from "@/lib/i18n/messages";
 
+import type { CorridorListingStatus } from "@/components/FeatureListView";
+
 import { roughDistanceMeters } from "@/lib/geo";
+
 import type { AddressHit } from "@/lib/providers/geocoding";
 import { useProfile } from "@/lib/profile";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function distanceAlongFallbackRoute(
   route: GeoJSON.Feature<GeoJSON.LineString>,
@@ -102,11 +106,46 @@ export default function PlanExperience() {
 
   const [corridorFeatures, setCorridorFeatures] = useState<
     CorridorResponse["features"]
-  >(() => demoCorridorFeatures());
+  >(() => []);
 
   const [routeFetch, setRouteFetch] = useState<RouteFetchSlice>({ kind: "unset" });
   /** Ignores stale `fetchRoute` settles when endpoints change faster than upstream responds. */
   const desiredRouteKeyRef = useRef<string | null>(null);
+
+  const [selectedCorridorFeatureId, setSelectedCorridorFeatureId] = useState<
+    string | null
+  >(null);
+
+  /** Mobile-first: reveal map beneath `md`; desktop always reads as open (CSS via `md:`). */
+  const [mobileMapOpen, setMobileMapOpen] = useState<boolean>(false);
+  /** True when viewport width ≥ Tailwind `md` (768px). */
+  const [matchesDesktopMd, setMatchesDesktopMd] = useState<boolean>(false);
+  /** Corridor fetch UX for the paired list/map (M1-F09). */
+  const [corridorListingStatus, setCorridorListingStatus] =
+    useState<CorridorListingStatus>("idle");
+
+  const mapShellRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mq = window.matchMedia("(min-width: 768px)");
+    const syncViewport = (): void => {
+      setMatchesDesktopMd(mq.matches === true);
+      if (mq.matches === true) {
+        setMobileMapOpen(true);
+      } else {
+        setMobileMapOpen(false);
+      }
+    };
+
+    syncViewport();
+    mq.addEventListener("change", syncViewport);
+
+    return () => mq.removeEventListener("change", syncViewport);
+  }, []);
 
   const demoApproxMeters = useMemo(() => distanceAlongFallbackRoute(DEMO_ROUTE), []);
 
@@ -281,11 +320,19 @@ export default function PlanExperience() {
   }
 
   useEffect(() => {
-    if (!isReady || enabledCategories.length === 0) {
-      return;
+    if (!isReady) {
+      setCorridorListingStatus("idle");
+      return undefined;
+    }
+
+    if (enabledCategories.length === 0) {
+      setCorridorFeatures([]);
+      setCorridorListingStatus("ready");
+      return undefined;
     }
 
     const controller = new AbortController();
+    setCorridorListingStatus("loading");
 
     void fetchCorridorFeatures(
       {
@@ -297,17 +344,43 @@ export default function PlanExperience() {
     )
       .then((payload) => {
         setCorridorFeatures(payload.features);
+        setCorridorListingStatus("ready");
         announce(
-          `Found ${String(payload.features.length)} accessibility features along your route.`,
+          corridorFetchSuccessAnnouncement(payload.features.length, payload.meta),
         );
       })
       .catch(() => {
-        setCorridorFeatures(demoCorridorFeatures());
-        announce("Couldn't load the latest features. Showing a sample instead.");
+        setCorridorFeatures([]);
+        setCorridorListingStatus("ready");
+        announce(en.corridorListingFailedBrief);
       });
 
     return () => controller.abort();
   }, [announce, enabledCategories, isReady, routeFeature]);
+
+  const revealMapForSmallScreens = useCallback(() => {
+    if (matchesDesktopMd === true) {
+      return;
+    }
+
+    setMobileMapOpen(true);
+    announce(en.mapShownAnnouncement);
+  }, [announce, matchesDesktopMd]);
+
+  const scrollMapIntoComfort = useCallback(() => {
+    queueMicrotask(() => {
+      mapShellRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
+
+  const handleOpenCorridorRowOnMap = useCallback(
+    (id: string): void => {
+      setSelectedCorridorFeatureId(id);
+      revealMapForSmallScreens();
+      scrollMapIntoComfort();
+    },
+    [revealMapForSmallScreens, scrollMapIntoComfort],
+  );
 
   return (
     <section
@@ -360,13 +433,52 @@ export default function PlanExperience() {
         />
       </fieldset>
 
-      <div className="flex flex-col gap-[var(--space-10)] xl:flex-row-reverse xl:items-start">
-        <div className="relative w-full xl:max-w-xl">
-          <SkipLink preset="flow" href="#scout-route-list" label="Skip map" />
-          <BasemapView corridor={corridorFeatures} route={routeFeature} />
+      <div className="flex flex-col gap-[var(--space-10)] md:flex-row md:items-start">
+        <div className="order-1 min-w-0 flex-1 md:mr-[var(--space-6)]">
+          <FeatureListView
+            features={corridorFeatures}
+            listingStatus={corridorListingStatus}
+            selectedFeatureId={selectedCorridorFeatureId}
+            onShowOnMap={handleOpenCorridorRowOnMap}
+          />
         </div>
-        <div className="flex-1">
-          <FeatureListView route={routeFeature} features={corridorFeatures} />
+        <div
+          id="scout-route-map-region"
+          ref={mapShellRef}
+          className="order-2 w-full md:max-w-xl md:flex-shrink-0"
+        >
+          <SkipLink preset="flow" href="#scout-route-list" label="Skip to list" />
+          <button
+            type="button"
+            className="mb-[var(--space-4)] w-full rounded-tokenMd border border-border bg-surface-elevated px-[var(--space-4)] py-[var(--space-3)] text-sm font-semibold text-[color:var(--color-text)] shadow-modal md:hidden focus-visible:btn-accent-double-ring-dark"
+            aria-expanded={mobileMapOpen}
+            aria-controls="scout-route-map-panel"
+            onClick={() => {
+              setMobileMapOpen((prev) => {
+                const next = !prev;
+                if (next) {
+                  announce(en.mapShownAnnouncement);
+                }
+                return next;
+              });
+            }}
+          >
+            {mobileMapOpen ? en.hideMapToggle : en.showMapToggle}
+          </button>
+
+          <div id="scout-route-map-panel">
+            {/* Mobile-first: collapses beneath `md` unless expanded; desktops always render. */}
+            <div
+              className={`relative w-full md:block ${mobileMapOpen ? "max-md:block" : "max-md:hidden"}`}
+            >
+              <BasemapView
+                corridor={corridorFeatures}
+                route={routeFeature}
+                selectedFeatureId={selectedCorridorFeatureId}
+                onSelectFeature={setSelectedCorridorFeatureId}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -214,7 +214,11 @@ export async function reverseGeocode(
 export interface CorridorResponse {
   type: "FeatureCollection";
   features: GeoJSON.Feature[];
-  meta: { truncated: boolean; time_taken_ms: number };
+  meta: {
+    truncated: boolean;
+    time_taken_ms: number;
+    feature_count_total: number;
+  };
 }
 
 export async function fetchCorridorFeatures(
@@ -260,7 +264,8 @@ export async function fetchCorridorFeatures(
     typeof metaUnknown !== "object" ||
     metaUnknown === null ||
     typeof metaUnknown.truncated !== "boolean" ||
-    typeof metaUnknown.time_taken_ms !== "number"
+    typeof metaUnknown.time_taken_ms !== "number" ||
+    typeof metaUnknown.feature_count_total !== "number"
   ) {
     throw new ScoutApiError("Corridor metadata malformed.");
   }

@@ -33,13 +33,29 @@ async def corridor_features_geojson(
     categories: Sequence[str],
     buffer_meters: float,
     limit: int = 500,
-) -> tuple[list[dict[str, Any]], float, bool]:
-    """Buffered corridor intersection + along-route ordering."""
+) -> tuple[list[dict[str, Any]], float, bool, int]:
+    """Buffered corridor intersection + along-route ordering.
+
+    Returns GeoJSON-ish feature dicts, elapsed ms, truncation flag,
+    and the total matching row count (uncapped).
+    """
 
     started = time.perf_counter()
     ls_wkt = _linestring_geography_wkt(coordinates)
     line_geography = gf.ST_GeographyFromText(literal(f"SRID=4326;{ls_wkt}"))
     route_geom = ST_SetSRID(gf.ST_GeomFromText(literal(ls_wkt)), literal(4326))
+    route_length_stmt = select(gf.ST_Length(line_geography))
+    route_length_m = float((await session.execute(route_length_stmt)).scalar_one())
+
+    cats = tuple(categories)
+    within_filter = ST_DWithin(Feature.geom, line_geography, literal(buffer_meters))
+    cat_filter = Feature.category.in_(cats)
+
+    count_stmt = (
+        select(func.count()).select_from(Feature).where(cat_filter).where(within_filter)
+    )
+    feature_count_total = int((await session.execute(count_stmt)).scalar_one())
+
     point_geom = sa_cast(
         Feature.geom, Geometry(srid=4326, spatial_index=False, dimension=2)
     )
@@ -47,9 +63,9 @@ async def corridor_features_geojson(
 
     stmt = (
         select(Feature, along_route)
-        .where(Feature.category.in_(tuple(categories)))
-        .where(ST_DWithin(Feature.geom, line_geography, literal(buffer_meters)))
-        .order_by(along_route.asc())
+        .where(cat_filter)
+        .where(within_filter)
+        .order_by(along_route.asc(), Feature.id.asc())
         .limit(limit + 1)
     )
     rows = (await session.execute(stmt)).all()
@@ -61,8 +77,11 @@ async def corridor_features_geojson(
     feats: list[dict[str, Any]] = []
     for row in rows:
         feature_row: Feature = row[0]
+        frac_raw = row[1]
+        frac = float(frac_raw) if frac_raw is not None else 0.0
         geom_shape = to_shape(feature_row.geom)
         coords = [float(geom_shape.x), float(geom_shape.y)]
+        along_route_meters = round(frac * route_length_m, 1)
         props = {
             "id": feature_row.id,
             "category": feature_row.category,
@@ -73,17 +92,18 @@ async def corridor_features_geojson(
             "source_dataset": feature_row.source_dataset,
             "source_id": feature_row.source_id,
             "attributes": dict(feature_row.attributes),
+            "along_route_meters": along_route_meters,
         }
         feats.append(
             {
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": coords},
-                "properties": {k: v for k, v in props.items() if k != "geometry"},
+                "properties": {k: v for k, v in props.items()},
             }
         )
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
-    return feats, elapsed_ms, truncated
+    return feats, elapsed_ms, truncated, feature_count_total
 
 
 _MAX_GEOCODE_SEARCH = 25
