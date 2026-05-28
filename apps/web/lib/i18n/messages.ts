@@ -34,7 +34,122 @@ export const en = {
   routeSummaryPendingWalkingTime: "Calculating…",
   routeSummaryPendingHint:
     "Finding a walking route for your start and destination. Distance below is a straight-line preview.",
+
+  /** M1-F09 — parallel corridor list heading (DEC-021 sentence case). */
+  alongRouteHeading: "Along your route",
+  alongRouteLead:
+    "Listed from start toward your destination like you would walk. Expand any row.",
+
+  openOnMap: "Open on map",
+  showMapToggle: "Show map",
+  hideMapToggle: "Hide map",
+  /** Live region (≤12 words, §9.5). */
+  mapShownAnnouncement: "Map shown.",
+
+  /** Loading corridor results (paired with spinner per §7.6 when >2s). */
+  corridorListingInProgress: "Listing items along your route…",
+
+  /** Live region template after corridor fetch succeeds. Replace `{n}` with digits. */
+  corridorItemsListedTemplate: "{n} listed along your route.",
+
+  /**
+   * When the API caps returned rows (`meta.truncated`). Replace `{total}` with corridor total count.
+   */
+  corridorTotalsFootnoteTemplate: "{total} along this corridor in total.",
+
+  /** When corridor fetch fails and list stays empty — offer next step (§7.4). */
+  corridorListingFailedBrief:
+    "Couldn't refresh corridor items. Try again once your route settles, or widen your categories.",
+
+  /**
+   * Empty-state when no rows match preferences (voice-and-copy §7.5 overrides PRD verbatim).
+   * Replace `{categories}` suggestion is inline in UI; keep under 25 words total.
+   */
+  alongRouteEmptyState:
+    "Nothing along this route matches your preferences. Turn more categories on, or choose another stop.",
+
+  /** §7.8 canonical strings plus aria fragments §9.1. */
+  inspectionUnknownUser: "Inspection date unknown",
+  inspectionLastVerifiedTemplate: "Last inspected: {year}",
+  dataStaleChipTemplate: "Data may be outdated (last inspected {year})",
+  /** 1–3 year subtle note (§D). Replace `{year}`. */
+  publicDataAsOfYearTemplate: "Public data as of {year}.",
+
+  inspectionDateUnknownAriaFragment: "inspection date unknown",
+
+  categoryFallback: "Mapped item",
+
+  conditionUnknownVisible: "Condition unknown.",
+  conditionUnknownForAria: "condition unknown",
+
+  /**
+   * Map overlay — shape + color, not color alone (DEC-015 + §6 avoids “markers” jargon).
+   */
+  mapMarkersLegend:
+    "Shape shows aids vs obstacles. Color adds severity reading left to right on this map.",
+
+  /** Cluster keyboard focus announcement; replace `{n}` with digits. */
+  corridorClusterGroupedTemplate: "{n} grouped here. Press Enter.",
+
+  lastInspectedShort: "last inspected",
+
+  /** Raster marker registration failed mid-load — factual, terse (voice §9.5 ≤12 words). */
+  mapSpriteLoadFailure: "Scout couldn't load walking-route icons.",
+
+  /** Map tile / WebGL outage — polite, factual (voice §7.4 tones). */
+  mapGenericLoadFailure:
+    "Interactive map paused because Scout could not load its local tiles.",
 } satisfies LocaleMessages;
+
+/** §6 house-word labels for obstacle vs mapped support (stores `kind: aid`). */
+export function kindObstacleLabel(): string {
+  return "Obstacle";
+}
+
+export function kindSupportLabel(): string {
+  return "Support";
+}
+
+export function inspectionUnknownLabel(): string {
+  return en.inspectionUnknownUser;
+}
+
+/** §7.8 — exactly “Last inspected: YYYY”. */
+export function lastInspectedLabel(year: number): string {
+  return en.inspectionLastVerifiedTemplate.replace("{year}", String(year));
+}
+
+export function freshnessChipText(year: number): string {
+  return en.dataStaleChipTemplate.replace("{year}", String(year));
+}
+
+export function asOfYearNote(year: number): string {
+  return en.publicDataAsOfYearTemplate.replace("{year}", String(year));
+}
+
+export function summarizeMetersFromStartRounded(meters: number): string {
+  const rounded = meters >= 10 ? Math.round(meters) : Math.round(meters * 10) / 10;
+  return `~${String(rounded)} meters from start`;
+}
+
+export function corridorItemsAnnouncement(count: number): string {
+  return en.corridorItemsListedTemplate.replace("{n}", String(count));
+}
+
+/** Polite corridor success line; avoids generic “features” wording (voice §6). */
+export function corridorFetchSuccessAnnouncement(
+  listedCount: number,
+  meta: Readonly<{ truncated: boolean; feature_count_total: number }>,
+): string {
+  const base = corridorItemsAnnouncement(listedCount);
+  if (meta.truncated !== true) {
+    return base;
+  }
+  return `${base} ${en.corridorTotalsFootnoteTemplate.replace(
+    "{total}",
+    String(meta.feature_count_total),
+  )}`;
+}
 
 function formatDistanceKmForAnnouncement(distanceMeters: number): string {
   const km = distanceMeters / 1000;

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="Water fountains / cooling - aid">
+  <title>Water fountains</title>
+  <rect x="10" y="4" width="20" height="32" rx="10" fill="currentColor" stroke="#ffffff" stroke-width="2"/>
+  <path d="M 20 11 C 24 17 25 21 25 23 A 5 5 0 0 1 15 23 C 15 21 16 17 20 11 Z" fill="#ffffff"/>
+</svg>

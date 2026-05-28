@@ -80,15 +80,21 @@ def test_vertical_displacement_title_case_maps_like_lowercase() -> None:
 
 
 @pytest.mark.parametrize(
-    ("label", "normalized", "kind"),
+    ("label", "normalized"),
     [
-        ("Type A : Old version (non-compliant)", "difficult", "obstacle"),
-        ("Type C: Compliant version with Vibro-tactile and arrow", "present", "aid"),
+        ("Type A : Old version (non-compliant)", "difficult"),
+        ("Type B: 3-inch button (non-compliant)", "difficult"),
+        ("Type C: Compliant version with Vibro-tactile and arrow", "present"),
+        ("None", "absent"),
+        (None, "n_a"),
     ],
 )
-def test_audible_signals_pushbutton_table(
-    label: str, normalized: str, kind: str
-) -> None:
+def test_audible_signals_pushbutton_table(label: str | None, normalized: str) -> None:
+    """Every audible-signal row is `kind="aid"` regardless of compliance.
+
+    The category itself is a support feature; per-row *quality* (compliant,
+    non-compliant, absent, etc.) is captured by `condition_normalized` instead.
+    """
     props = {
         "GIS_ID": "APS_demo",
         "PUSHBUTTON_TYPE": label,
@@ -97,7 +103,7 @@ def test_audible_signals_pushbutton_table(
     }
     row = normalize_audible_signal(_point_feature(-76.991, 38.924, props))
     assert (
-        row is not None and row.condition_normalized == normalized and row.kind == kind
+        row is not None and row.condition_normalized == normalized and row.kind == "aid"
     )
 
 

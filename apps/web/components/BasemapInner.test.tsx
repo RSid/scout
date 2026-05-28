@@ -25,6 +25,10 @@ const stubs = vi.hoisted(() => {
 
   class NavigationControl {}
   class Popup {
+    readonly on = vi.fn();
+
+    readonly off = vi.fn();
+
     addTo() {
       return this;
     }
@@ -32,6 +36,10 @@ const stubs = vi.hoisted(() => {
     remove() {}
 
     setHTML() {
+      return this;
+    }
+
+    setDOMContent() {
       return this;
     }
 
@@ -139,6 +147,46 @@ const stubs = vi.hoisted(() => {
     },
     NavigationControl,
     Popup,
+  };
+});
+
+vi.mock("@/lib/map/markers", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/map/markers")>();
+
+  return {
+    ...actual,
+    registerScoutRouteMarkerSprites: vi.fn(async () => undefined),
+  };
+});
+
+vi.mock("@/lib/profile", () => {
+  const categories = [
+    {
+      id: "curb_ramps",
+      label: "Curb ramps",
+      description: "Test curb copy.",
+      kind: "obstacle" as const,
+      default_enabled: true,
+    },
+    {
+      id: "rest_spots",
+      label: "Rest spots",
+      description: "Test bench copy.",
+      kind: "aid" as const,
+      default_enabled: true,
+    },
+  ];
+
+  return {
+    useProfile: (): unknown => ({
+      categories,
+      selections: {},
+      toggle: (): void => undefined,
+      resetToDefaults: (): void => undefined,
+      persist: (): void => undefined,
+      refreshRemote: async (): Promise<void> => undefined,
+      isReady: true,
+    }),
   };
 });
 
@@ -287,7 +335,7 @@ describe("BasemapInner", () => {
       });
     });
 
-    it("calls map.resize() when its container reports a new size", async () => {
+    it("calls map.resize() after ResizeObserver settles on the next animation frame", async () => {
       render(
         <AnnounceProvider>
           <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
@@ -304,11 +352,11 @@ describe("BasemapInner", () => {
       expect(resizeObserverCallbacks).toHaveLength(1);
       resizeObserverCallbacks[0]([], {} as ResizeObserver);
 
-      expect(map.resize).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(map.resize).toHaveBeenCalledTimes(1));
     });
 
-    it("calls fitBounds with animation when prefers-reduced-motion defaults to motion allowed", async () => {
-      render(
+    it("fits the viewport instantly on first bootstrap, then animates when the route swaps", async () => {
+      const { rerender } = render(
         <AnnounceProvider>
           <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
         </AnnounceProvider>,
@@ -318,8 +366,42 @@ describe("BasemapInner", () => {
       const mapStub = stubs.instances[0];
       await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
 
-      expect(mapStub.fitBounds).toHaveBeenCalledWith(
-        expect.anything(),
+      expect(mapStub.fitBounds.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      expect(mapStub.fitBounds.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({
+          padding: 48,
+          maxZoom: 16,
+          animate: false,
+          duration: 0,
+        }),
+      );
+
+      mapStub.fitBounds.mockClear();
+
+      const shiftedRoute: typeof DEMO_ROUTE = {
+        ...DEMO_ROUTE,
+        id: "reroute-shifted",
+        geometry: {
+          ...DEMO_ROUTE.geometry,
+          coordinates: [
+            [-77.099, 38.892],
+            [-76.98, 39.025],
+          ],
+        },
+      };
+
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={shiftedRoute} />
+        </AnnounceProvider>,
+      );
+
+      await waitFor(() =>
+        expect(mapStub.fitBounds.mock.calls.length).toBeGreaterThanOrEqual(1),
+      );
+
+      expect(mapStub.fitBounds.mock.calls.at(-1)?.[1]).toEqual(
         expect.objectContaining({
           padding: 48,
           maxZoom: 16,

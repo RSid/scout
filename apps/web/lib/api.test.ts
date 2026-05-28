@@ -122,7 +122,7 @@ describe("fetchCorridorFeatures", () => {
           ({
             type: "FeatureCollection",
             features: [],
-            meta: { truncated: false, time_taken_ms: 12 },
+            meta: { truncated: false, time_taken_ms: 12, feature_count_total: 0 },
           }) satisfies Record<string, unknown>,
       } satisfies Partial<Response>),
     );

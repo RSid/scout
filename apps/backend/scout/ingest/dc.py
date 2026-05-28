@@ -198,16 +198,27 @@ def normalize_barrier(feature: GeoFeature) -> NormalizedRow | None:
     )
 
 
-def _map_pushbutton(btn: str | None) -> tuple[ConditionNorm, KindNorm]:
+def _map_pushbutton(btn: str | None) -> ConditionNorm:
+    """Audible pushbutton type → quality bucket.
+
+    Audible pedestrian signals are always a support feature: a non-compliant
+    button is a degraded aid, not a separate "obstacle" thing on the ground.
+    The category-level `kind="aid"` is therefore mirrored on every row by
+    `normalize_audible_signal`; only the per-row *quality* differs and that is
+    captured here as `ConditionNorm`. Absence (`PUSHBUTTON_TYPE == "None"`) is
+    surfaced as `condition_normalized="absent"` rather than reclassifying the
+    feature as an obstacle — UI consumers can still treat absence as a routing
+    penalty when needed (M2 P3 low-vision routing).
+    """
     if btn == "Type C: Compliant version with Vibro-tactile and arrow":
-        return ("present", "aid")
+        return "present"
     if btn == "Type B: 3-inch button (non-compliant)":
-        return ("difficult", "obstacle")
+        return "difficult"
     if btn == "Type A : Old version (non-compliant)":
-        return ("difficult", "obstacle")
+        return "difficult"
     if btn == "None":
-        return ("absent", "obstacle")
-    return ("n_a", "obstacle")
+        return "absent"
+    return "n_a"
 
 
 def normalize_audible_signal(feature: GeoFeature) -> NormalizedRow | None:
@@ -225,11 +236,11 @@ def normalize_audible_signal(feature: GeoFeature) -> NormalizedRow | None:
     if gid is None:
         return None
     btn = _safe_str_props(props, "PUSHBUTTON_TYPE")
-    cn, kd = _map_pushbutton(btn)
+    cn = _map_pushbutton(btn)
     return NormalizedRow(
         id=feature_id("dc_ada_audible_signals", gid),
         category="audible_signals",
-        kind=kd,
+        kind="aid",
         condition=btn,
         condition_normalized=cn,
         inspected_year=_inspected_year(props),

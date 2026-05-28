@@ -13,6 +13,7 @@ import { AnnounceProvider } from "./a11y/AnnounceProvider";
 import PlanExperience from "./PlanExperience";
 
 import { demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
+import { en } from "@/lib/i18n/messages";
 import { ProfileProvider } from "@/lib/profile";
 
 async function stubCategoriesPayload(categories: ApiCategory[]): Promise<void> {
@@ -28,6 +29,14 @@ async function stubCategoriesPayload(categories: ApiCategory[]): Promise<void> {
         } satisfies Partial<Response>;
       }
 
+      if (url.includes("/map-markers/") && url.endsWith(".svg")) {
+        return {
+          ok: true,
+          text: async () =>
+            '<svg xmlns="http://www.w3.org/2000/svg"><path fill="currentColor"/></svg>',
+        } satisfies Partial<Response>;
+      }
+
       throw new Error(`Unhandled fetch(${url})`);
     }),
   );
@@ -38,7 +47,7 @@ const PLAN_SAMPLE: ApiCategory[] = [
     id: "curb_ramps",
     label: "Curb ramps",
     description: "Sidewalk transitions.",
-    kind: "aid",
+    kind: "obstacle",
     default_enabled: true,
   },
 ];
@@ -172,7 +181,11 @@ describe("PlanExperience", () => {
     const corridorPayload: CorridorResponse = {
       type: "FeatureCollection",
       features: demoCorridorFeatures(),
-      meta: { truncated: false, time_taken_ms: 8 },
+      meta: {
+        truncated: false,
+        time_taken_ms: 8,
+        feature_count_total: demoCorridorFeatures().length,
+      },
     };
 
     corridorSpy = vi
@@ -312,7 +325,19 @@ describe("PlanExperience", () => {
 
       await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
 
-      await screen.findByText(/showing a sample instead/i);
+      await waitFor(() => {
+        const politeAnnouncers = screen
+          .getAllByRole("status")
+          .filter((element) => element.classList.contains("sr-only"));
+
+        expect(
+          politeAnnouncers.some((region) =>
+            region.textContent?.includes("Couldn't refresh corridor items."),
+          ),
+        ).toBe(true);
+      });
+
+      expect(screen.getByText(en.alongRouteEmptyState, { exact: false })).toBeVisible();
     });
   });
 });

@@ -35,6 +35,29 @@ class InvalidInputError(ScoutError):
         super().__init__(code=code, message=message, status_code=400)
 
 
+class BufferTooLargeError(ScoutError):
+    """`buffer_meters` above the corridor ceiling (issue M1-F07.S1)."""
+
+    def __init__(self, *, maximum_meters: int = 200) -> None:
+        super().__init__(
+            code="BUFFER_TOO_LARGE",
+            message=f"buffer_meters must be {maximum_meters} meters or smaller.",
+            status_code=400,
+        )
+
+
+class UnknownCategoryError(ScoutError):
+    """One or more category IDs are not in the canonical manifest."""
+
+    def __init__(self, *, unknown_ids: tuple[str, ...]) -> None:
+        joined = ", ".join(sorted(unknown_ids))
+        super().__init__(
+            code="UNKNOWN_CATEGORY",
+            message=f"Unknown categories: {joined}",
+            status_code=400,
+        )
+
+
 class RouteNotFoundError(ScoutError):
     def __init__(self, *, message: str = "No route found") -> None:
         super().__init__(code="ROUTE_NOT_FOUND", message=message, status_code=404)
