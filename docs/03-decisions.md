@@ -75,6 +75,13 @@ acceptable rendering performance on mobile.
 - Required attribution: "© OpenStreetMap contributors" on the map (we'll do that
   anyway).
 
+**Consequences (M1-T51).** When the preferred `SCOUT_PROTOMAPS_BUILD_DATE` has
+rotated off `build.protomaps.com`, `build_pmtiles.sh` resolves the newest live
+daily artifact within a bounded walk-back window. Reproducibility is
+best-effort for CI cache-miss rebuilds (bytes may differ slightly when the OSM
+snapshot shifts); production redeploys remain explicit rebuild + deploy as
+before.
+
 ---
 
 ## DEC-003 — Routing engine: OpenRouteService, wheelchair profile, public API in M1
