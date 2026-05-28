@@ -117,9 +117,10 @@ services:
 
   # Profile-gated. Stays out of `docker compose up` until invoked
   # explicitly so it cannot block the dev loop.
-  #   docker compose -f infra/docker-compose.yml --profile ingest run --rm ingest
-  # Once scripts/ingest_dc.py lands (M1-F11 / M1-T03), flip `entrypoint` to
-  # invoke the real ingest CLI (DC PMTiles build is `scripts/build_pmtiles.sh`).
+  #   docker compose --project-directory . -f infra/docker-compose.yml \
+  #     --profile ingest run --rm ingest --dry-run
+  # (Drop `--dry-run` to actually write rows. The DC PMTiles build is
+  # produced separately via scripts/build_pmtiles.sh.)
   ingest:
     profiles: ["ingest"]
     build:
@@ -136,15 +137,12 @@ services:
       PYTHONPATH: /app/apps/backend
     volumes:
       - ./apps/backend:/app/apps/backend
-      - ./data:/app/data:ro
+      # Writable so the Overpass cache (data/derived/) can be populated on
+      # first run; everything else under /app/data stays untouched.
+      - ./data:/app/data
       - ./scripts:/app/scripts:ro
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        echo "[ingest] no-op: PostGIS ingestion (scripts/ingest_dc.py) not wired yet."
-        echo "[ingest] Tiles are produced separately via scripts/build_pmtiles.sh."
-        exit 0
+    working_dir: /app/apps/backend
+    entrypoint: ["uv", "run", "python", "/app/scripts/ingest_dc.py"]
     restart: "no"
 
 volumes:

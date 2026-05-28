@@ -29,6 +29,7 @@ dev = [
     "pytest-randomly>=4.1.0",
     "respx>=0.23.1",
     "ruff>=0.15.6",
+    "testcontainers[postgres]>=4.10.0",
 ]
 
 [tool.ruff]
@@ -43,7 +44,9 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-pythonpath = ["."]
+# `scripts/` is added so the ingest mappers (M1-T03) are importable from
+# `apps/backend/tests/` without a sys.path dance.
+pythonpath = [".", "../../scripts"]
 
 [tool.mypy]
 python_version = "3.12"
