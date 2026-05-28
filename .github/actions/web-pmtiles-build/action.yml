@@ -5,7 +5,7 @@ inputs:
   protomaps-build-date:
     description: Pinned Protomaps daily build slug (SCOUT_PROTOMAPS_BUILD_DATE)
     required: false
-    default: "20260521"
+    default: "20260528"
 
 runs:
   using: composite

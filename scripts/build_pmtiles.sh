@@ -72,7 +72,7 @@ if [[ ${FORCE} -eq 0 && -s "${OUTPUT}" ]]; then
   exit 0
 fi
 
-PROTOMAPS_BUILD_DATE="${SCOUT_PROTOMAPS_BUILD_DATE:-20260521}"
+PROTOMAPS_BUILD_DATE="${SCOUT_PROTOMAPS_BUILD_DATE:-20260528}"
 PROTOMAPS_URL="https://build.protomaps.com/${PROTOMAPS_BUILD_DATE}.pmtiles"
 # Washington, DC — min_lon,min_lat,max_lon,max_lat
 BBOX="${SCOUT_PMTILES_BBOX:--77.1198,38.7916,-76.9094,38.9956}"
