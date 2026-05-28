@@ -10,8 +10,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
-
+    # Caller must run actions/checkout@v4 first (local composite actions need the repo on disk).
     - name: Set up Node
       uses: actions/setup-node@v4
       with:

@@ -94,6 +94,8 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: ./.github/actions/web-npm-setup
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -108,6 +110,8 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: ./.github/actions/web-npm-setup
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -126,6 +130,8 @@ jobs:
         shard: [1, 2]
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: ./.github/actions/web-npm-setup
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -157,6 +163,8 @@ jobs:
         shard: [1, 2]
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: ./.github/actions/web-npm-setup
         with:
           node-version: ${{ env.NODE_VERSION }}
