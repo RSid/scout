@@ -3,7 +3,7 @@ description: Restore or build apps/web/public/tiles/dc.pmtiles for interactive E
 
 inputs:
   protomaps-build-date:
-    description: Pinned Protomaps daily build slug (SCOUT_PROTOMAPS_BUILD_DATE)
+    description: Preferred Protomaps daily build slug (SCOUT_PROTOMAPS_BUILD_DATE)
     required: false
     default: "20260528"
 
@@ -15,7 +15,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: apps/web/public/tiles/dc.pmtiles
-        key: pmtiles-${{ runner.os }}-${{ inputs.protomaps-build-date }}-${{ hashFiles('scripts/build_pmtiles.sh') }}
+        key: pmtiles-${{ runner.os }}-v1-${{ hashFiles('scripts/build_pmtiles.sh') }}-bbox15
 
     - name: Install pmtiles CLI and extract DC tiles
       if: steps.pmtiles-cache.outputs.cache-hit != 'true'

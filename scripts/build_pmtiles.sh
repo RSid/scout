@@ -14,8 +14,12 @@
 #   scripts/build_pmtiles.sh --help         # print this header
 #
 # Environment:
-#   SCOUT_PROTOMAPS_BUILD_DATE — YYYYMMDD slug for https://build.protomaps.com/YYYYMMDD.pmtiles
-#     (pinned in Dockerfile ARG for reproducibility; bump when old builds expire).
+#   SCOUT_PROTOMAPS_BUILD_DATE — preferred YYYYMMDD slug for
+#     https://build.protomaps.com/YYYYMMDD.pmtiles (default 20260528). When the
+#     preferred daily build has rotated off the server, the script walks back
+#     through earlier dates automatically.
+#   SCOUT_PROTOMAPS_WALKBACK_DAYS — max days to walk back when probing for a
+#     live daily build (default 14).
 #
 # Inputs: HTTPS range requests against build.protomaps.com (during extract).
 # Outputs: single .pmtiles file (atomic rename from .tmp).
@@ -26,6 +30,61 @@
 # Protomaps + OSM attribution in the rendered map UI.
 
 set -euo pipefail
+
+PROTOMAPS_BASE_URL="https://build.protomaps.com"
+
+days_ago_utc() {
+  local offset="$1"
+  if date -u -v-"${offset}"d +%Y%m%d >/dev/null 2>&1; then
+    date -u -v-"${offset}"d +%Y%m%d
+  else
+    date -u -d "${offset} days ago" +%Y%m%d
+  fi
+}
+
+protomaps_build_http_code() {
+  local build_date="$1"
+  curl -sI -o /dev/null -w '%{http_code}' \
+    "${PROTOMAPS_BASE_URL}/${build_date}.pmtiles"
+}
+
+protomaps_build_available() {
+  local build_date="$1"
+  local code
+  code="$(protomaps_build_http_code "${build_date}")"
+  [[ "${code}" =~ ^2 ]]
+}
+
+resolve_protomaps_build_date() {
+  local preferred="${SCOUT_PROTOMAPS_BUILD_DATE:-20260528}"
+  local max_walkback="${SCOUT_PROTOMAPS_WALKBACK_DAYS:-14}"
+  local offset build_date
+
+  if protomaps_build_available "${preferred}"; then
+    echo "build_pmtiles.sh: resolved_build_date=${preferred}" >&2
+    printf '%s\n' "${preferred}"
+    return 0
+  fi
+
+  echo "build_pmtiles.sh: preferred_build_date=${preferred} unavailable; walking back up to ${max_walkback} days." >&2
+
+  for offset in $(seq 0 "${max_walkback}"); do
+    build_date="$(days_ago_utc "${offset}")"
+    if [[ "${build_date}" == "${preferred}" ]]; then
+      continue
+    fi
+
+    if protomaps_build_available "${build_date}"; then
+      echo "build_pmtiles.sh: resolved_build_date=${build_date}" >&2
+      printf '%s\n' "${build_date}"
+      return 0
+    fi
+  done
+
+  echo "build_pmtiles.sh: no Protomaps daily build found for ${preferred} or the last ${max_walkback} days." >&2
+  echo "See apps/web/public/tiles/README.md#http-error-404-from-pmtiles-extract" >&2
+  return 1
+}
 
 usage() {
   sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
@@ -62,6 +121,11 @@ command -v pmtiles >/dev/null 2>&1 || {
   exit 1
 }
 
+command -v curl >/dev/null 2>&1 || {
+  echo "build_pmtiles.sh: \`curl\` not found (required to probe build.protomaps.com)." >&2
+  exit 1
+}
+
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 default_target="${repo_root}/apps/web/public/tiles/dc.pmtiles"
 OUTPUT="${OUTPUT:-$default_target}"
@@ -72,8 +136,8 @@ if [[ ${FORCE} -eq 0 && -s "${OUTPUT}" ]]; then
   exit 0
 fi
 
-PROTOMAPS_BUILD_DATE="${SCOUT_PROTOMAPS_BUILD_DATE:-20260528}"
-PROTOMAPS_URL="https://build.protomaps.com/${PROTOMAPS_BUILD_DATE}.pmtiles"
+PROTOMAPS_BUILD_DATE="$(resolve_protomaps_build_date)"
+PROTOMAPS_URL="${PROTOMAPS_BASE_URL}/${PROTOMAPS_BUILD_DATE}.pmtiles"
 # Washington, DC — min_lon,min_lat,max_lon,max_lat
 BBOX="${SCOUT_PMTILES_BBOX:--77.1198,38.7916,-76.9094,38.9956}"
 MAX_ZOOM="${SCOUT_PMTILES_MAX_ZOOM:-15}"

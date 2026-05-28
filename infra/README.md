@@ -18,9 +18,12 @@ deploy machinery is deferred — see [issue
 
 The web image bundles a Protomaps PMTiles extract for the District (DEC-002).
 The Dockerfile `builder-tiles` stage runs [`scripts/build_pmtiles.sh`](../scripts/build_pmtiles.sh)
-with the `SCOUT_PROTOMAPS_BUILD_DATE` pin baked into that stage. Locally, install the
-[`pmtiles` CLI](https://github.com/protomaps/go-pmtiles/releases) and run the same script
-to materialize [`apps/web/public/tiles/dc.pmtiles`](../apps/web/public/tiles/README.md).
+with a preferred `SCOUT_PROTOMAPS_BUILD_DATE` baked into that stage. The script
+walks back through recent daily builds when the preferred date has rotated off
+`build.protomaps.com`, so CI and Docker image builds do not require weekly pin
+bumps. Locally, install the [`pmtiles` CLI](https://github.com/protomaps/go-pmtiles/releases)
+and run the same script to materialize
+[`apps/web/public/tiles/dc.pmtiles`](../apps/web/public/tiles/README.md).
 
 ## Quickstart
 
