@@ -33,22 +33,16 @@ export default function BasemapView({
     process.env.NEXT_PUBLIC_SCOUT_MAP_MODE === "stub" ? "stub" : "interactive";
 
   if (mapMode === "stub") {
-    return (
-      <div data-testid="scout-basemap-region">
-        <BasemapStubPlaceholder />
-      </div>
-    );
+    return <BasemapStubPlaceholder />;
   }
 
   return (
-    <div data-testid="scout-basemap-region">
-      <LoadedMap
-        corridor={corridor}
-        route={route}
-        selectedFeatureId={selectedFeatureId}
-        onSelectFeature={onSelectFeature}
-      />
-    </div>
+    <LoadedMap
+      corridor={corridor}
+      route={route}
+      selectedFeatureId={selectedFeatureId}
+      onSelectFeature={onSelectFeature}
+    />
   );
 }
 

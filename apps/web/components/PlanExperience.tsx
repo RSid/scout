@@ -444,6 +444,7 @@ export default function PlanExperience() {
         </div>
         <div
           id="scout-route-map-region"
+          data-testid="scout-basemap-region"
           ref={mapShellRef}
           className="order-2 w-full md:max-w-xl md:flex-shrink-0"
         >
