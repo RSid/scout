@@ -8,6 +8,7 @@ Scout is an open source community webapp local to Washington DC intended to help
 - **Node ≥ 20 + pnpm** — needed once `apps/web/package.json` exists ([pnpm install](https://pnpm.io/installation)).
 - **pre-commit** — `brew install pre-commit` or `uv tool install pre-commit` ([install guide](https://pre-commit.com/#install)).
 - **go-pmtiles** - `brew install pmtiles`, used for working with (pmtiles archives)[https://github.com/protomaps/go-pmtiles]
+- **uv** - `brew install uv`
 
 ### API Keys
 
@@ -56,11 +57,6 @@ cp .env.example .env
    the interactive MapLibre basemap (requires the `pmtiles` CLI from the
    prerequisites above).
 
-Once `.env` has the values above, boot the live stack:
-
-```bash
-make docker-up-realistic-run
-```
 
 ## Getting started
 
@@ -73,11 +69,17 @@ make sync
 ```
 
 Run the full stack locally (PostGIS + backend + web) with Docker
-Compose — no host account required:
+Compose and stubs for map — no host account required:
 
 ```bash
 make docker-up                       # http://localhost:3000  +  :8080
 make docker-down
+```
+
+Once `.env` has the values above, boot the live stack:
+
+```bash
+make docker-up-realistic-run
 ```
 
 See `infra/README.md` for the Compose layout and `CONTRIBUTING.md` for the
