@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="Curb ramps - obstacle">
+  <title>Curb ramps</title>
+  <polygon points="20,4 36,32 4,32" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M 12 26 L 19 26 L 27 16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

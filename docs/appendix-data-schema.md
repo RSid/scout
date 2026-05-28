@@ -99,21 +99,36 @@ lowercase before mapping.**
 - **Source ID field:** `GIS_ID`
 - **`source_dataset`:** `dc_ada_audible_signals`
 
-`PUSHBUTTON_TYPE` → `condition_normalized` and `kind`:
+`PUSHBUTTON_TYPE` → `condition_normalized`. **`kind` is always `aid`** —
+audible pedestrian signals are a support category, and a non-compliant or
+absent button is a degraded / missing aid, not a separate obstacle on the
+ground. Per-row *quality* lives in `condition_normalized` so consumers can
+penalize non-compliant or absent buttons without flipping the feature class:
 
 | PUSHBUTTON_TYPE | `condition_normalized` | `kind` |
 |---|---|---|
 | `"Type C: Compliant version with Vibro-tactile and arrow"` | `present` | `aid` |
-| `"Type B: 3-inch button (non-compliant)"` | `difficult` | `obstacle` |
-| `"Type A : Old version (non-compliant)"` | `difficult` | `obstacle` |
-| `"None"` | `absent` | `obstacle` (gap — P3 cares about this) |
-| `null` | `n_a` | `obstacle` |
+| `"Type B: 3-inch button (non-compliant)"` | `difficult` | `aid` |
+| `"Type A : Old version (non-compliant)"` | `difficult` | `aid` |
+| `"None"` | `absent` | `aid` |
+| `null` | `n_a` | `aid` |
 
 **Attributes preserved:** `PUSHBUTTON_TYPE`, `INTERSECTION_ID`,
 `ESTIMATED_YEAR_OF_IMPROVEMENT`.
 
-**Note for P3 (low-vision) routing in M2:** absence of audible signal at an
-intersection is itself information; we expose it as an obstacle category.
+**Note for P3 (low-vision) routing in M2:** absence of an audible signal at
+an intersection is still actionable information — routing weights should
+treat `condition_normalized in {"absent", "difficult"}` as a penalty for
+P3-aware profiles, even though `kind` stays `aid`.
+
+**Corridor rendering filter:** `condition_normalized in {"absent", "n_a"}`
+rows are excluded from `POST /api/route-features` responses **and** the
+returned `meta.feature_count_total`, because a "no button here" entry is not
+useful as a map marker and would inflate the "(N) along your route" header
+with un-renderable rows. The data is still ingested into Postgres; consumers
+that need it (analytics, the eventual M2 P3 routing pipeline) read directly
+from `features` and bypass the corridor endpoint. See
+`apps/backend/scout/data/store.py::_renderable_corridor_filter`.
 
 ---
 

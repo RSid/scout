@@ -1,22 +1,142 @@
 import { axe } from "jest-axe";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import FeatureListView from "./FeatureListView";
 
-import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
+import type { ApiCategory, CorridorResponse } from "@/lib/api";
+
+const categories: ApiCategory[] = [
+  {
+    id: "curb_ramps",
+    label: "Curb ramps",
+    description: "Sidewalk transitions near crossings.",
+    kind: "obstacle",
+    default_enabled: true,
+  },
+];
+
+vi.mock("@/lib/profile", () => ({
+  useProfile: () => ({
+    categories,
+    selections: {},
+    toggle: (): void => undefined,
+    resetToDefaults: (): void => undefined,
+    persist: (): void => undefined,
+    refreshRemote: async (): Promise<void> => undefined,
+    isReady: true,
+  }),
+}));
+
+vi.mock("@/lib/map/markers", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/map/markers")>();
+  return {
+    ...actual,
+    scoutMarkerTintedSvgDataUriBatch: vi.fn(async () => {
+      const out = new Map<string, string>();
+      const key = actual.scoutMarkerIconId("curb_ramps", "mild");
+      out.set(
+        key,
+        `data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg'/>")}`,
+      );
+      return out;
+    }),
+  };
+});
+
+function corridorPoint(
+  props: Record<string, unknown>,
+): CorridorResponse["features"][number] {
+  return {
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [-77.032, 38.907] },
+    properties: props as CorridorResponse["features"][number]["properties"],
+  };
+}
 
 describe("FeatureListView", () => {
-  it("renders nearby feature heading for fixture data", async () => {
+  it("shows along-route meter summary and emits Open on map with the corridor id", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    const onShow = vi.fn();
+
     const { container } = render(
-      <FeatureListView route={DEMO_ROUTE} features={demoCorridorFeatures()} />,
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:list-hit",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Good",
+            condition_normalized: "good",
+            inspected_year: 2021,
+            along_route_meters: 211.25,
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={onShow}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /^Along your route/ });
+
+    expect(screen.getAllByText(/~\s*211(\.3)? meters from start/i)[0]).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /^Open on map$/i }));
+
+    expect(onShow).toHaveBeenCalledTimes(1);
+    expect(onShow).toHaveBeenCalledWith("scout:list-hit");
+
+    const axeResults = await axe(container);
+
+    expect(axeResults.violations).toStrictEqual([]);
+  });
+
+  it("shows empty DEC-021 copy when corridor rows are Ready but empty", () => {
+    render(
+      <FeatureListView
+        features={[]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
     );
 
     expect(
-      screen.getByRole("heading", { level: 2, name: /Nearby features \(2\)/ }),
+      screen.getByText((text) => text.includes("Nothing along this route")),
     ).toBeVisible();
+  });
 
-    const results = await axe(container);
-    expect(results.violations).toStrictEqual([]);
+  it("shows outdated chip inside expanded rows when inspection year crosses §7.8", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:stale",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Fair",
+            condition_normalized: "difficult",
+            inspected_year: 2016,
+            along_route_meters: 105.8,
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    const summary = container.querySelector("summary");
+    expect(summary).not.toBeNull();
+    await user.click(summary as HTMLElement);
+
+    expect(await screen.findByTestId("freshness-chip")).toHaveTextContent(
+      /Data may be outdated \(last inspected 2016\)/,
+    );
   });
 });
