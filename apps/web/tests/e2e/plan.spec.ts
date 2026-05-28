@@ -301,7 +301,7 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
     await expect(summary).toContainText("942 meters");
   });
 
-  test("mobile viewport stacks route summary landmark before map region", async ({
+  test("mobile viewport stacks route summary landmark before map region @mobile", async ({
     page,
   }) => {
     await page.goto("/plan");
@@ -338,47 +338,51 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
   });
 });
 
-test.describe("interactive map zoom keyboard (M1-F02.S2)", () => {
-  test.skip(
-    !INTERACTIVE,
-    "set NEXT_PUBLIC_SCOUT_MAP_MODE=interactive (Playwright CI does this)",
-  );
+test.describe(
+  "interactive map zoom keyboard (M1-F02.S2)",
+  { tag: "@interactive" },
+  () => {
+    test.skip(
+      !INTERACTIVE,
+      "set NEXT_PUBLIC_SCOUT_MAP_MODE=interactive (Playwright CI does this)",
+    );
 
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.clear();
-      localStorage.setItem("scout.onboarded.v1", "true");
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        localStorage.clear();
+        localStorage.setItem("scout.onboarded.v1", "true");
+      });
+
+      await scoutMockApis(page);
+      await page.goto("/plan");
+      await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+      await page.locator('[data-testid="basemap-shell"]').waitFor();
     });
 
-    await scoutMockApis(page);
-    await page.goto("/plan");
-    await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
-    await page.locator('[data-testid="basemap-shell"]').waitFor();
-  });
-
-  for (const name of ["Zoom in", "Zoom out"] as const) {
-    test(`Tab reaches ${name} button`, async ({ page }) => {
-      await tabUntilFocusedOn(page, name);
-
-      await expect(page.getByRole("button", { name, exact: true })).toBeFocused();
-    });
-  }
-
-  /*
-   * MapLibre's NavigationControl is what binds button click -> zoom ±1; that
-   * is its documented contract and not our integration to re-prove. What we
-   * own is that the button is a real <button> element wired by MapLibre, so
-   * Enter and Space activate it. Assert exactly that.
-   */
-  for (const name of ["Zoom in", "Zoom out"] as const) {
-    for (const key of ["Enter", " "] as const) {
-      const keyLabel = key === " " ? "Space" : key;
-      test(`${keyLabel} on ${name} fires the button's click handler`, async ({
-        page,
-      }) => {
+    for (const name of ["Zoom in", "Zoom out"] as const) {
+      test(`Tab reaches ${name} button`, async ({ page }) => {
         await tabUntilFocusedOn(page, name);
-        await expectKeyDispatchesClick(page, name, key);
+
+        await expect(page.getByRole("button", { name, exact: true })).toBeFocused();
       });
     }
-  }
-});
+
+    /*
+     * MapLibre's NavigationControl is what binds button click -> zoom ±1; that
+     * is its documented contract and not our integration to re-prove. What we
+     * own is that the button is a real <button> element wired by MapLibre, so
+     * Enter and Space activate it. Assert exactly that.
+     */
+    for (const name of ["Zoom in", "Zoom out"] as const) {
+      for (const key of ["Enter", " "] as const) {
+        const keyLabel = key === " " ? "Space" : key;
+        test(`${keyLabel} on ${name} fires the button's click handler`, async ({
+          page,
+        }) => {
+          await tabUntilFocusedOn(page, name);
+          await expectKeyDispatchesClick(page, name, key);
+        });
+      }
+    }
+  },
+);
