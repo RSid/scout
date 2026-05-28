@@ -18,9 +18,14 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "desktop",
+      grepInvert: /@mobile/,
+      use: { ...devices["Desktop Chrome"] },
+    },
     {
       name: "mobile375",
+      grep: /@mobile/,
       use: { viewport: { width: 375, height: 800 } },
     },
   ],

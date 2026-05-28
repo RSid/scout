@@ -1,0 +1,18 @@
+name: Install Playwright Chromium
+description: Cache and install Playwright browser binaries for apps/web
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
+
+    - name: Install Playwright chromium
+      shell: bash
+      working-directory: apps/web
+      run: npx playwright install --with-deps chromium

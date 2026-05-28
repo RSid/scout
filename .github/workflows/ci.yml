@@ -17,6 +17,8 @@ permissions:
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
+  # Must match scripts/build_pmtiles.sh default and infra/Dockerfile ARG.
+  SCOUT_PROTOMAPS_BUILD_DATE: "20260521"
 
 jobs:
 
@@ -82,71 +84,101 @@ jobs:
         run: uv run pytest -ra --cov=scout --cov-report=term-missing
 
   # -------------------------------------------------------------------
-  # Web: eslint -> vitest (jest-axe) -> playwright (@axe-core/playwright).
-  # Coverage thresholds enforced by vitest config (see apps/web/AGENTS.md).
+  # Web: parallel lint, unit (vitest + jest-axe), and E2E (Playwright + axe).
+  # Stub and interactive Playwright jobs run in parallel with 2-way sharding.
+  # Coverage thresholds: apps/web/vitest.config.ts (see apps/web/AGENTS.md).
   # -------------------------------------------------------------------
-  web:
-    name: web (lint + unit + e2e + axe)
+  web-lint:
+    name: web (eslint)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    defaults:
-      run:
-        working-directory: apps/web
+    timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/web-npm-setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-
-      - name: Install deps
-        run: npm ci --no-audit --no-fund
 
       - name: ESLint
+        working-directory: apps/web
         run: npm run lint
 
+  web-unit:
+    name: web (unit + coverage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: ./.github/actions/web-npm-setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Vitest + coverage
+        working-directory: apps/web
         run: npm run test:coverage
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
+  web-e2e-stub:
+    name: web e2e stub (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+
+    steps:
+      - uses: ./.github/actions/web-npm-setup
         with:
-          path: ~/.cache/ms-playwright
-          # Bust the cache when the lockfile bumps Playwright; otherwise reuse.
-          key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/web-playwright-browsers
 
-      - name: Build DC PMTiles (Playwright interactive map)
-        working-directory: ${{ github.workspace }}
-        run: |
-          set -euo pipefail
-          PMTILES_CLI_VERSION=1.30.2
-          curl -fsSL \
-            "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_CLI_VERSION}/go-pmtiles_${PMTILES_CLI_VERSION}_Linux_x86_64.tar.gz" \
-            -o /tmp/go-pmtiles.tgz
-          echo "2cd3aa18868297fc88425038f794efdc0995e0275f4ca16fa496dd79e245a40c  /tmp/go-pmtiles.tgz" | sha256sum -c -
-          sudo tar -xzf /tmp/go-pmtiles.tgz -C /usr/local/bin pmtiles
-          sudo chmod +x /usr/local/bin/pmtiles
-          rm -f /tmp/go-pmtiles.tgz
-          ./scripts/build_pmtiles.sh --force
-
-      - name: Playwright + axe
-        run: npm run e2e
+      - name: Playwright + axe (stub map)
+        working-directory: apps/web
+        run: npm run e2e:stub -- --shard=${{ matrix.shard }}/2
         env:
-          NEXT_PUBLIC_SCOUT_MAP_MODE: interactive
+          NEXT_PUBLIC_SCOUT_MAP_MODE: stub
+          NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: stub
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-stub-shard-${{ matrix.shard }}
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  web-e2e-interactive:
+    name: web e2e interactive (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+
+    steps:
+      - uses: ./.github/actions/web-npm-setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: ./.github/actions/web-playwright-browsers
+
+      - uses: ./.github/actions/web-pmtiles-build
+        with:
+          protomaps-build-date: ${{ env.SCOUT_PROTOMAPS_BUILD_DATE }}
+
+      - name: Playwright + axe (interactive map)
+        working-directory: apps/web
+        run: npm run e2e:interactive -- --shard=${{ matrix.shard }}/2
+        env:
+          NEXT_PUBLIC_SCOUT_MAP_MODE: interactive
+          NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: stub
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-interactive-shard-${{ matrix.shard }}
           path: apps/web/playwright-report
           retention-days: 7
 

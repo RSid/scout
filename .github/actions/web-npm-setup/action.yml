@@ -1,0 +1,35 @@
+name: Web npm setup
+description: Checkout, cache node_modules, and npm ci for apps/web
+
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: "20"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: apps/web/package-lock.json
+
+    - name: Restore node_modules cache
+      id: node-modules-cache
+      uses: actions/cache@v4
+      with:
+        path: apps/web/node_modules
+        key: web-npm-${{ runner.os }}-${{ hashFiles('apps/web/package-lock.json') }}
+        restore-keys: |
+          web-npm-${{ runner.os }}-
+
+    - name: Install deps
+      if: steps.node-modules-cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: apps/web
+      run: npm ci --no-audit --no-fund
