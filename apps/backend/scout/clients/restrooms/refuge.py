@@ -35,7 +35,7 @@ _DC_CENTROID_LNG = (DC_BBOX.west + DC_BBOX.east) / 2
 _CACHE_TTL_SECONDS = 24 * 60 * 60
 _PER_PAGE = 100
 _MAX_PAGES = 20
-_REQUEST_TIMEOUT = 10.0
+_REQUEST_TIMEOUT = 3.0
 
 
 def _opt_str(value: object) -> str | None:
