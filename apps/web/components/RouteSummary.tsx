@@ -98,9 +98,15 @@ export default function RouteSummary({
       ) : null}
 
       {mode === "approx-fallback" ? (
-        <p className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
-          {en.routeApproxFallbackExplanation}
-        </p>
+        <div
+          data-testid="scout-route-unavailable-warning"
+          className="mt-[var(--space-4)] rounded-tokenSm border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] p-[var(--space-4)] text-[color:var(--color-warning-text)]"
+        >
+          <p className="text-sm font-semibold">{en.routeUnavailableTitle}</p>
+          <p className="mt-[var(--space-2)] text-sm">
+            {en.routeApproxFallbackExplanation}
+          </p>
+        </div>
       ) : null}
 
       {mode === "sample" ? (

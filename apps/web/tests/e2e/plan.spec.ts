@@ -262,9 +262,7 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
 
     const summaryCard = page.getByTestId("scout-route-summary");
 
-    await expect(summaryCard).not.toContainText(
-      /straight-line approximation while routing is unavailable/i,
-    );
+    await expect(summaryCard).not.toContainText(/walking directions unavailable/i);
 
     await expect(summaryCard.getByText(/942\s+meters/i)).toBeVisible({
       timeout: 30_000,

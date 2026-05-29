@@ -19,13 +19,18 @@ export const en = {
   routeProfileWheelchair: "Wheelchair-aware route",
   routeProfileFallbackNote:
     "Wheelchair-aware routing wasn't available, so we used standard walking directions.",
+  /** Shown when `POST /api/route` fails (e.g. routing service unreachable). */
+  routeUnavailableTitle: "Walking directions unavailable",
   routeApproxFallbackExplanation:
-    "Showing a straight-line approximation while routing is unavailable.",
+    "We couldn't reach the routing service, so we can't show walking directions " +
+    "right now. The map and the accessibility features below still work — try " +
+    "again in a moment.",
   /** Announced via LiveRegion when `POST /api/route` succeeds (M1-F05.S4). */
   routeAnnouncementLoadedTemplate:
     "Route loaded: {distance_km} kilometers, {minutes} minutes",
   routeAnnouncementApproxFallback:
-    "Couldn't load turn-by-turn directions from the planner. Showing a straight-line approximation instead.",
+    "Couldn't load walking directions from the planner. The map and nearby " +
+    "accessibility features still work.",
 
   /** Appended after base loaded announcement when `fallback_profile_used` is true. */
   routeAnnouncementWheelchairFallback:
