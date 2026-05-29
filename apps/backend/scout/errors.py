@@ -85,6 +85,21 @@ class UpstreamUnavailableError(ScoutError):
         super().__init__(code="UPSTREAM_UNAVAILABLE", message=message, status_code=503)
 
 
+class RestroomsUpstreamUnavailableError(ScoutError):
+    """Refuge Restrooms is down and no fresh cache entry exists (M1-F13.S2)."""
+
+    def __init__(
+        self,
+        *,
+        message: str = "Restroom data is unavailable right now. Try again later.",
+    ) -> None:
+        super().__init__(
+            code="RESTROOMS_UPSTREAM_UNAVAILABLE",
+            message=message,
+            status_code=503,
+        )
+
+
 class RateLimitedError(ScoutError):
     """HTTP 429 with stable Scout error code."""
 

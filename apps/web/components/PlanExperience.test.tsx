@@ -306,7 +306,7 @@ describe("PlanExperience", () => {
       );
     });
 
-    it("shows straight-line approximation copy when routing fails", async () => {
+    it("warns that directions are unavailable but still loads corridor features", async () => {
       const user = userEvent.setup({ delay: null });
 
       render(
@@ -321,11 +321,10 @@ describe("PlanExperience", () => {
 
       await waitFor(() => expect(routeSpy).toHaveBeenCalled());
 
-      expect(
-        await screen.findByText(
-          /straight-line approximation while routing is unavailable/i,
-        ),
-      ).toBeVisible();
+      expect(await screen.findByText(/walking directions unavailable/i)).toBeVisible();
+
+      // The map + features pipeline still runs even though routing failed.
+      await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
     }, 60_000);
   });
 

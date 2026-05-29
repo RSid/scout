@@ -148,7 +148,7 @@ class OpenRouteServiceProvider(RoutingProvider):
 
         try:
             resp = await self._client.post(
-                url, json=payload, headers=headers, timeout=15.0
+                url, json=payload, headers=headers, timeout=3.0
             )
         except httpx.HTTPError as exc:
             raise RouteServiceUnavailableError(

@@ -31,6 +31,8 @@ describe("English UI strings scaffold", () => {
       "Route loaded: 0.9 kilometers, 11 minutes",
     );
 
-    expect(routeAnnouncementApproxFallback()).toMatch(/straight-line/i);
+    expect(routeAnnouncementApproxFallback()).toMatch(
+      /couldn't load walking directions/i,
+    );
   });
 });

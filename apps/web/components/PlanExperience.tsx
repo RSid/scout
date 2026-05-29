@@ -245,7 +245,13 @@ export default function PlanExperience() {
     return () => controller.abort();
   }, [announce, destinationHit, routeKey, startHit]);
 
-  const routeFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
+  /**
+   * Geometry used to query corridor features. A straight-line approximation is
+   * acceptable here even when routing is unavailable: the nearby DC features it
+   * surfaces are still real and useful (the user still gets "things between A
+   * and B"). This is *not* what we draw on the map.
+   */
+  const corridorRouteFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
     if (startHit === null || destinationHit === null) {
       return DEMO_ROUTE;
     }
@@ -260,6 +266,18 @@ export default function PlanExperience() {
 
     return straightLinePreview(startHit, destinationHit);
   }, [destinationHit, routeFetch, routeKey, startHit]);
+
+  /**
+   * Line drawn on the map. Null when routing failed: a straight crow-flies line
+   * would imply a real walking path that doesn't follow streets, so we draw
+   * nothing and surface the "directions unavailable" warning instead.
+   */
+  const mapRoute = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
+    if (routeFetch.kind === "error" && routeFetch.routeKey === routeKey) {
+      return null;
+    }
+    return corridorRouteFeature;
+  }, [corridorRouteFeature, routeFetch, routeKey]);
 
   const summaryModel = useMemo((): Readonly<{
     mode: RouteSummaryMode;
@@ -336,7 +354,7 @@ export default function PlanExperience() {
 
     void fetchCorridorFeatures(
       {
-        route_geometry: routeFeature.geometry,
+        route_geometry: corridorRouteFeature.geometry,
         buffer_meters: 30,
         categories: enabledCategories,
       },
@@ -356,7 +374,7 @@ export default function PlanExperience() {
       });
 
     return () => controller.abort();
-  }, [announce, enabledCategories, isReady, routeFeature]);
+  }, [announce, corridorRouteFeature, enabledCategories, isReady]);
 
   const revealMapForSmallScreens = useCallback(() => {
     if (matchesDesktopMd === true) {
@@ -480,7 +498,7 @@ export default function PlanExperience() {
             >
               <BasemapView
                 corridor={corridorFeatures}
-                route={routeFeature}
+                route={mapRoute}
                 selectedFeatureId={selectedCorridorFeatureId}
                 onSelectFeature={setSelectedCorridorFeatureId}
               />

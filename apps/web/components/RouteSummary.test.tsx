@@ -112,8 +112,8 @@ describe("RouteSummary", () => {
     expect(screen.getByText(/injection attempt/i)).toBeVisible();
   });
 
-  it("shows approx-fallback explanation when mode is approx-fallback", () => {
-    render(
+  it("shows a routing-unavailable warning when mode is approx-fallback", async () => {
+    const { container } = render(
       <RouteSummary
         summary={null}
         mode="approx-fallback"
@@ -121,8 +121,11 @@ describe("RouteSummary", () => {
       />,
     );
 
-    expect(screen.getByText(/straight-line approximation/i)).toBeVisible();
-    expect(screen.getByText("422 meters")).toBeVisible();
+    expect(screen.getByText(/walking directions unavailable/i)).toBeVisible();
+    expect(screen.getByText(/couldn't reach the routing service/i)).toBeVisible();
+
+    const results = await axe(container);
+    expect(results.violations).toStrictEqual([]);
   });
 
   it("shows sample copy before full routing is available", () => {
