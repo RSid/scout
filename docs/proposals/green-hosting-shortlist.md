@@ -33,9 +33,7 @@ The app is **DC-only** and the M1 launch is a friend-of-author soft launch
 [Green Web Foundation (GWF) directory](https://app.greenweb.org/directory/)**,
 which verifies renewable/fossil-free energy evidence annually.
 
-- The GWF **shared-hosting** US list (`?services=1`) is almost entirely
-  traditional WordPress/cPanel shops — none are container-native PaaS.
-- The GWF **VPS** US list (`?services=2`) is the useful one. It includes
+- The GWF **VPS** US list (`?services=2`) is useful. It includes
   **Google Cloud** (GWF-verified, offers VPS / block storage / PaaS) plus indie
   green hosts that can run a container: **Brownrice** (New Mexico on-site solar),
   **Viridio** (solar VPS + PaaS), **Sustainable Hosting** (carbon-_negative_;
