@@ -369,7 +369,13 @@ export default function PlanExperience() {
 
   const scrollMapIntoComfort = useCallback(() => {
     queueMicrotask(() => {
-      mapShellRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const reduceMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches === true;
+      mapShellRef.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "nearest",
+      });
     });
   }, []);
 

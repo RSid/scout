@@ -233,6 +233,28 @@ describe("PlanExperience", () => {
     expect(results.violations).toStrictEqual([]);
   });
 
+  it("announces 'Map shown.' and keeps focus on the toggle when revealed on mobile", async () => {
+    // matchMedia defaults to matches:false in the test setup, i.e. < 768px.
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+    await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
+
+    const toggle = screen.getByRole("button", { name: /^show map$/i });
+    await user.click(toggle);
+
+    expect(await screen.findByText("Map shown.")).toBeInTheDocument();
+    expect(toggle).toHaveFocus();
+  });
+
   it("pulls corridor slices once profile categories are ready", async () => {
     const { baseElement } = render(
       <AnnounceProvider>
