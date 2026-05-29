@@ -33,7 +33,8 @@ want it to stay open.
 ### Code of Conduct
 
 This project follows the [Contributor Covenant
-v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/); the
+full text lives in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 Be kind and constructive — especially when discussing disability,
 accessibility, or the experiences of disabled users. Disagreement is fine;
 contempt is not.
@@ -248,7 +249,8 @@ M3 backlog stays grounded in real reports.
 **Do not file a public issue.** Open a private security advisory on this
 repo's _Security_ tab. Please give us a reasonable window to fix before
 disclosure. Scout has no bug-bounty budget but we will credit you in the
-release notes.
+release notes. See [`SECURITY.md`](SECURITY.md) for the full disclosure
+process, embargo expectations, and what's in scope.
 
 ## Questions
 

@@ -5,4 +5,4 @@ contact_links:
     about: |
       Do not file a public issue for security vulnerabilities. Open a
       private security advisory on this repo's Security tab. The full
-      disclosure process will live in SECURITY.md (pending M1-T09).
+      disclosure process is documented in SECURITY.md.
