@@ -62,6 +62,7 @@ const stubs = vi.hoisted(() => {
       {
         setData: ReturnType<typeof vi.fn>;
         getClusterExpansionZoom: () => Promise<number>;
+        getClusterLeaves: () => Promise<GeoJSON.Feature[]>;
       }
     >();
     styleLoaded = false;
@@ -116,10 +117,24 @@ const stubs = vi.hoisted(() => {
     readonly getSource = vi.fn((id: string) => {
       let stub = this.sourceStubs.get(id);
       if (!stub) {
+        const leaf = (category: string, lon: number, lat: number): GeoJSON.Feature => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [lon, lat] },
+          properties: { category },
+        });
         stub = {
           setData: vi.fn(),
-          /* Resolve so cluster taps exercise map.easeTo (reduced-motion branch). */
           getClusterExpansionZoom: () => Promise.resolve(14),
+          /* 3 curb ramps + 2 rest spots so cluster taps exercise the DEC-024
+             category-mix announcement and fitBounds framing. */
+          getClusterLeaves: () =>
+            Promise.resolve([
+              leaf("curb_ramps", -77.03, 38.9),
+              leaf("curb_ramps", -77.031, 38.901),
+              leaf("curb_ramps", -77.032, 38.902),
+              leaf("rest_spots", -77.033, 38.903),
+              leaf("rest_spots", -77.034, 38.904),
+            ]),
         };
         this.sourceStubs.set(id, stub);
       }
@@ -267,6 +282,39 @@ describe("BasemapInner", () => {
     await flushMapLoads();
 
     expect(stubs.instances[0]?.constructorOptions?.keyboard).toBe(true);
+  });
+
+  it("announces the cluster category mix and fits its members on activation (M1-F08.S2, DEC-024)", async () => {
+    render(
+      <AnnounceProvider>
+        <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+      </AnnounceProvider>,
+    );
+
+    await flushMapLoads();
+
+    const mapStub = stubs.instances[0]!;
+    const clusterEvt = {
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-77.03, 38.9] },
+          properties: { point_count: 5, cluster_id: 1 },
+        },
+      ],
+      lngLat: { lng: -77.03, lat: 38.9 },
+    };
+
+    for (const fn of mapStub.listeners.get("click") ?? []) {
+      fn(clusterEvt);
+    }
+
+    expect(
+      await screen.findByText(
+        "Cluster of 5: 3 curb ramps, 2 rest spots; press Enter to zoom in.",
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
   });
 
   // Acceptance criteria carried forward from #50 into the follow-up #51:
@@ -430,7 +478,7 @@ describe("BasemapInner", () => {
       );
     });
 
-    it("clusters easeTo snaps without easing when prefers-reduced-motion is set", async () => {
+    it("cluster fitBounds snaps without easing when prefers-reduced-motion is set", async () => {
       render(
         <AnnounceProvider>
           <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
@@ -452,8 +500,12 @@ describe("BasemapInner", () => {
       });
 
       await waitFor(() => {
-        expect(mapStub.easeTo).toHaveBeenCalledWith(
+        // padding/maxZoom distinguish the cluster framing from route framing.
+        expect(mapStub.fitBounds).toHaveBeenCalledWith(
+          expect.anything(),
           expect.objectContaining({
+            padding: 64,
+            maxZoom: 17,
             animate: false,
             duration: 0,
           }),

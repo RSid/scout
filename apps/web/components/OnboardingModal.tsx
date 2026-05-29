@@ -93,7 +93,7 @@ export default function OnboardingModal() {
               onClick={() => {
                 resetToDefaults();
                 persist();
-                announce("Categories reset to defaults.");
+                announce("Preferences reset to defaults.");
               }}
             >
               Reset to defaults

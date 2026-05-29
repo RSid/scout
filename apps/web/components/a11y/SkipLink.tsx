@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { MouseEvent } from "react";
 
 type Props = Readonly<{
   href?: string;
@@ -22,11 +23,22 @@ export default function SkipLink({
   // Native browser fragment-focus does not fire reliably through next/link: depending
   // on DOM order and Next's scroll-restore, focus may stay on the link after click.
   // Own the focus side-effect here so the skip link works regardless of layout.
-  const handleClick = () => {
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>): void => {
     if (!href.startsWith("#")) return;
-    const targetId = href.slice(1);
-    queueMicrotask(() => {
-      globalThis.document?.getElementById(targetId)?.focus();
+    event.preventDefault();
+
+    const target = globalThis.document?.getElementById(href.slice(1));
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ block: "start", behavior: "auto" });
+    }
+
+    // Defer one frame so Next/link scroll-restore cannot overwrite programmatic focus.
+    requestAnimationFrame(() => {
+      target.focus({ preventScroll: true });
     });
   };
 

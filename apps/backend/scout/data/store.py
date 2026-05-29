@@ -10,7 +10,7 @@ from geoalchemy2 import Geometry
 from geoalchemy2 import functions as gf
 from geoalchemy2.functions import ST_DWithin, ST_LineLocatePoint, ST_SetSRID
 from geoalchemy2.shape import to_shape
-from sqlalchemy import and_, asc, desc, func, literal, not_, or_, select, text
+from sqlalchemy import Select, and_, asc, desc, func, literal, not_, or_, select, text
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
@@ -52,6 +52,61 @@ def _linestring_geography_wkt(coordinates: Sequence[Sequence[float]]) -> str:
     return f"LINESTRING({pairs})"
 
 
+def _corridor_geographies(
+    coordinates: Sequence[Sequence[float]],
+) -> tuple[ColumnElement[Any], ColumnElement[Any]]:
+    """Geometry handles for one route.
+
+    `line_geography` drives metric `ST_DWithin`/`ST_Length` (meters, no
+    reprojection per DEC-019); `route_geom` is the SRID-4326 geometry that
+    `ST_LineLocatePoint` needs to compute the along-route fraction.
+    """
+    ls_wkt = _linestring_geography_wkt(coordinates)
+    line_geography = gf.ST_GeographyFromText(literal(f"SRID=4326;{ls_wkt}"))
+    route_geom = ST_SetSRID(gf.ST_GeomFromText(literal(ls_wkt)), literal(4326))
+    return line_geography, route_geom
+
+
+def _corridor_match_filters(
+    categories: Sequence[str],
+    line_geography: ColumnElement[Any],
+    buffer_meters: float,
+) -> tuple[ColumnElement[bool], ...]:
+    """WHERE clauses shared by the uncapped count and the page query."""
+    return (
+        Feature.category.in_(tuple(categories)),
+        ST_DWithin(Feature.geom, line_geography, literal(buffer_meters)),
+        _renderable_corridor_filter(),
+    )
+
+
+def corridor_features_select(
+    coordinates: Sequence[Sequence[float]],
+    categories: Sequence[str],
+    buffer_meters: float,
+    *,
+    limit: int = 500,
+) -> Select[tuple[Feature, float]]:
+    """The corridor page query: buffered match, along-route order, +1 cap probe.
+
+    Extracted from `corridor_features_geojson` so the SQL contract (M1-F07 S2/S3:
+    `ST_DWithin` filter, `ST_LineLocatePoint` ordering — not `ST_Distance` —,
+    category allow-list, and the 500 cap) is unit-testable without a live
+    PostGIS database. See `tests/test_store_corridor_query.py`.
+    """
+    line_geography, route_geom = _corridor_geographies(coordinates)
+    point_geom = sa_cast(
+        Feature.geom, Geometry(srid=4326, spatial_index=False, dimension=2)
+    )
+    along_route = ST_LineLocatePoint(route_geom, point_geom).label("along_route")
+    return (
+        select(Feature, along_route)
+        .where(*_corridor_match_filters(categories, line_geography, buffer_meters))
+        .order_by(along_route.asc(), Feature.id.asc())
+        .limit(limit + 1)
+    )
+
+
 async def corridor_features_geojson(
     session: AsyncSession,
     *,
@@ -67,39 +122,18 @@ async def corridor_features_geojson(
     """
 
     started = time.perf_counter()
-    ls_wkt = _linestring_geography_wkt(coordinates)
-    line_geography = gf.ST_GeographyFromText(literal(f"SRID=4326;{ls_wkt}"))
-    route_geom = ST_SetSRID(gf.ST_GeomFromText(literal(ls_wkt)), literal(4326))
+    line_geography, _route_geom = _corridor_geographies(coordinates)
     route_length_stmt = select(gf.ST_Length(line_geography))
     route_length_m = float((await session.execute(route_length_stmt)).scalar_one())
-
-    cats = tuple(categories)
-    within_filter = ST_DWithin(Feature.geom, line_geography, literal(buffer_meters))
-    cat_filter = Feature.category.in_(cats)
-    renderable_filter = _renderable_corridor_filter()
 
     count_stmt = (
         select(func.count())
         .select_from(Feature)
-        .where(cat_filter)
-        .where(within_filter)
-        .where(renderable_filter)
+        .where(*_corridor_match_filters(categories, line_geography, buffer_meters))
     )
     feature_count_total = int((await session.execute(count_stmt)).scalar_one())
 
-    point_geom = sa_cast(
-        Feature.geom, Geometry(srid=4326, spatial_index=False, dimension=2)
-    )
-    along_route = ST_LineLocatePoint(route_geom, point_geom).label("along_route")
-
-    stmt = (
-        select(Feature, along_route)
-        .where(cat_filter)
-        .where(within_filter)
-        .where(renderable_filter)
-        .order_by(along_route.asc(), Feature.id.asc())
-        .limit(limit + 1)
-    )
+    stmt = corridor_features_select(coordinates, categories, buffer_meters, limit=limit)
     rows = (await session.execute(stmt)).all()
 
     truncated = len(rows) > limit

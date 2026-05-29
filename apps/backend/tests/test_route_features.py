@@ -11,6 +11,7 @@ from starlette.testclient import TestClient
 from scout.api import route_features as route_features_module
 from scout.api.restrooms import restrooms_dependency
 from scout.clients.restrooms.types import Bbox, Restroom
+from scout.data.schema import CorridorResponse
 from scout.main import app
 
 _VALID_LINE = {"type": "LineString", "coordinates": [[-77.1, 38.9], [-77.0, 39.0]]}
@@ -88,26 +89,75 @@ def test_route_features_contract(monkeypatch: pytest.MonkeyPatch) -> None:
         resp = client.post("/api/route-features", json=payload)
         assert resp.status_code == 200
         body = resp.json()
-        base = body["features"][0]
-        props = base["properties"]
+        # The strongest contract assertion: the wire payload round-trips through
+        # the declared response model (extra="forbid" rejects drift in either
+        # direction). This also pins the GeoJSON envelope + `meta` extension.
+        CorridorResponse.model_validate(body)
+        assert body["type"] == "FeatureCollection"
+        assert body["meta"]["time_taken_ms"] == 12.34
+        props = body["features"][0]["properties"]
         assert props["category"] == "curb_ramps"
         assert props["along_route_meters"] == 140.6
         assert body["meta"]["truncated"] is False
         assert body["meta"]["feature_count_total"] == 1
-        appendix_keys = (
-            "id",
-            "category",
-            "kind",
-            "condition",
-            "condition_normalized",
-            "inspected_year",
-            "source_dataset",
-            "source_id",
-            "attributes",
-            "along_route_meters",
+
+
+def test_route_features_response_carries_every_appendix_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """M1-F07 S6: each feature exposes the normalized appendix §A fields."""
+
+    # MOCK: short-circuit PostGIS retrieval so CI stays offline-first.
+    async def _stub(
+        session: Any,
+        **_kwargs: Any,  # noqa: ARG001
+    ) -> tuple[list[dict[str, Any]], float, bool, int]:
+        feats = [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [-77.0369, 38.9072]},
+                "properties": {
+                    "id": "fixture:point",
+                    "category": "curb_ramps",
+                    "kind": "obstacle",
+                    "condition": "Good",
+                    "condition_normalized": "good",
+                    "inspected_year": 2020,
+                    "source_dataset": "fixture",
+                    "source_id": "1",
+                    "attributes": {},
+                    "along_route_meters": 140.6,
+                },
+            }
+        ]
+        return feats, 1.0, False, 1
+
+    monkeypatch.setattr(route_features_module, "corridor_features_geojson", _stub)
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/route-features",
+            json={
+                "route_geometry": _VALID_LINE,
+                "buffer_meters": 30,
+                "categories": ["curb_ramps"],
+            },
         )
-        for key in appendix_keys:
-            assert key in props
+
+    props = resp.json()["features"][0]["properties"]
+    appendix_keys = (
+        "id",
+        "category",
+        "kind",
+        "condition",
+        "condition_normalized",
+        "inspected_year",
+        "source_dataset",
+        "source_id",
+        "attributes",
+        "along_route_meters",
+    )
+    assert all(key in props for key in appendix_keys)
 
 
 def test_route_features_buffer_too_large() -> None:
@@ -181,6 +231,10 @@ def test_route_features_truncated_meta_reflects_uncapped_total(
     data = resp.json()
     assert data["meta"]["truncated"] is True
     assert data["meta"]["feature_count_total"] == 9_012
+    # S6: a missing inspection year serializes as JSON `null` exactly — never 0,
+    # never omitted — so the FE can render "Inspection date unknown".
+    props = data["features"][0]["properties"]
+    assert "inspected_year" in props and props["inspected_year"] is None
 
 
 def _one_pg_feature(

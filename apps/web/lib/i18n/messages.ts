@@ -93,8 +93,9 @@ export const en = {
   mapMarkersLegend:
     "Shape shows aids vs obstacles. Color adds severity reading left to right on this map.",
 
-  /** Cluster keyboard focus announcement; replace `{n}` with digits. */
-  corridorClusterGroupedTemplate: "{n} grouped here. Press Enter.",
+  /** Cluster announcement fallback when the category mix can't be read;
+   * replace `{n}` with digits. DEC-024 §2 prefers the spelled-out mix below. */
+  corridorClusterGroupedTemplate: "{n} features grouped here. Press Enter to zoom in.",
 
   lastInspectedShort: "last inspected",
 
@@ -139,6 +140,24 @@ export function summarizeMetersFromStartRounded(meters: number): string {
 
 export function corridorItemsAnnouncement(count: number): string {
   return en.corridorItemsListedTemplate.replace("{n}", String(count));
+}
+
+/**
+ * DEC-024 §2: a cluster's screen-reader text spells out its category mix, e.g.
+ * "Cluster of 5: 3 curb ramps, 2 barriers; press Enter to zoom in." Falls back
+ * to the bare-count template when no category labels resolve.
+ */
+export function corridorClusterMixAnnouncement(
+  total: number,
+  parts: readonly { readonly label: string; readonly count: number }[],
+): string {
+  if (parts.length === 0) {
+    return en.corridorClusterGroupedTemplate.replace("{n}", String(total));
+  }
+  const mix = parts
+    .map((part) => `${String(part.count)} ${part.label.toLowerCase()}`)
+    .join(", ");
+  return `Cluster of ${String(total)}: ${mix}; press Enter to zoom in.`;
 }
 
 /** Polite corridor success line; avoids generic “features” wording (voice §6). */

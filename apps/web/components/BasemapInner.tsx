@@ -30,10 +30,61 @@ import {
   registerScoutRouteMarkerSprites,
 } from "@/lib/map/markers";
 import { resolveColorToken } from "@/design/tokens/colors";
-import { en } from "@/lib/i18n/messages";
+import { corridorClusterMixAnnouncement, en } from "@/lib/i18n/messages";
 import { useProfile } from "@/lib/profile";
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+/** Tally a cluster's leaves into label+count parts, busiest category first, so
+ * the screen-reader text can read "3 curb ramps, 2 barriers" (DEC-024 §2). */
+function clusterCategoryParts(
+  leaves: readonly GeoJSON.Feature[],
+  categoryById: ReadonlyMap<string, ApiCategory>,
+): { label: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const leaf of leaves) {
+    const category = leaf.properties?.["category"];
+    if (typeof category === "string") {
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([id, count]) => ({ label: categoryById.get(id)?.label ?? id, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+/** Bounding box over a cluster's member points; null when no usable coords. */
+function lngLatBoundsForLeaves(
+  leaves: readonly GeoJSON.Feature[],
+): maplibregl.LngLatBoundsLike | null {
+  let minLon = Infinity;
+  let minLat = Infinity;
+  let maxLon = -Infinity;
+  let maxLat = -Infinity;
+  let seen = false;
+
+  for (const leaf of leaves) {
+    if (leaf.geometry.type !== "Point") {
+      continue;
+    }
+    const [lon, lat] = leaf.geometry.coordinates;
+    if (lon === undefined || lat === undefined) {
+      continue;
+    }
+    seen = true;
+    minLon = Math.min(minLon, lon);
+    maxLon = Math.max(maxLon, lon);
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  return seen
+    ? [
+        [minLon, minLat],
+        [maxLon, maxLat],
+      ]
+    : null;
+}
 
 function lngLatBoundsForRoute(
   line: GeoJSON.LineString,
@@ -519,40 +570,65 @@ export default function BasemapInner({
             return;
           }
 
-          const clusterProp = Number(hit.properties?.point_count ?? NaN);
-          if (
-            !Number.isNaN(clusterProp) &&
-            clusterProp !== lastAnnouncedClusterRef.current
-          ) {
-            lastAnnouncedClusterRef.current = clusterProp;
-            announce(
-              en.corridorClusterGroupedTemplate.replace("{n}", String(clusterProp)),
-            );
-          }
-
+          const clusterCount = Number(hit.properties?.point_count ?? NaN);
           const clusterRaw = Number(hit.properties?.cluster_id ?? NaN);
-          const clusterSource = map.getSource(
-            "cluster-points",
-          ) as maplibregl.GeoJSONSource;
-
           if (Number.isNaN(clusterRaw)) {
             return;
           }
 
+          const clusterSource = map.getSource(
+            "cluster-points",
+          ) as maplibregl.GeoJSONSource;
+
+          const announceCount = (): void => {
+            if (Number.isNaN(clusterCount)) {
+              return;
+            }
+            lastAnnouncedClusterRef.current = clusterCount;
+            announce(
+              en.corridorClusterGroupedTemplate.replace("{n}", String(clusterCount)),
+            );
+          };
+
           void clusterSource
-            .getClusterExpansionZoom(clusterRaw)
-            .then((zoom) => {
-              map.easeTo({
-                zoom: prefersReducedMotion ? zoom : zoom + 1,
-                center: evt.lngLat,
+            .getClusterLeaves(clusterRaw, Infinity, 0)
+            .then((leaves) => {
+              // DEC-024 §2: read the category mix on activation, deduped per size.
+              if (
+                !Number.isNaN(clusterCount) &&
+                clusterCount !== lastAnnouncedClusterRef.current
+              ) {
+                lastAnnouncedClusterRef.current = clusterCount;
+                announce(
+                  corridorClusterMixAnnouncement(
+                    clusterCount,
+                    clusterCategoryParts(leaves, categoryByIdRef.current),
+                  ),
+                );
+              }
+
+              // Frame the members directly; fitBounds decomposes the cluster more
+              // reliably than a center+zoom guess.
+              const bounds = lngLatBoundsForLeaves(leaves);
+              if (bounds === null) {
+                map.zoomIn({ animate: prefersReducedMotion ? false : true });
+                return;
+              }
+              map.fitBounds(bounds, {
+                padding: 64,
+                maxZoom: 17,
                 animate: prefersReducedMotion ? false : true,
                 duration: prefersReducedMotion ? 0 : 360,
               });
             })
             .catch(() => {
-              map.zoomIn({
-                animate: prefersReducedMotion ? false : true,
-              });
+              if (
+                !Number.isNaN(clusterCount) &&
+                clusterCount !== lastAnnouncedClusterRef.current
+              ) {
+                announceCount();
+              }
+              map.zoomIn({ animate: prefersReducedMotion ? false : true });
             });
         });
 
