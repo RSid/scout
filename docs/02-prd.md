@@ -914,17 +914,27 @@ The implementation of `/api/route-features` (M1-F07) reduces to:
 
 ```sql
 SELECT *,
-       ST_Distance(geom, ST_StartPoint(:line)::geography) AS along_route_m
+       ST_LineLocatePoint(:line, geom::geometry) AS along_route_frac
 FROM   features
 WHERE  category = ANY(:enabled_categories)
   AND  ST_DWithin(geom, :line::geography, :buffer_m)
-ORDER  BY along_route_m
+ORDER  BY along_route_frac, id
 LIMIT  500;
 ```
 
-(`ST_LineSubstring` and `ST_LineLocatePoint` provide a more accurate
-along-route distance than `ST_Distance` from start; refine during
-implementation.)
+`ST_LineLocatePoint` returns the 0..1 fraction along the route; the handler
+multiplies it by the route's geography length (`ST_Length`) to produce the
+`properties.along_route_meters` each feature carries, and breaks ties on `id`
+for deterministic ordering. This replaces the earlier `ST_Distance`-from-start
+sketch (it mis-orders features near switchbacks). An identical `count(*)` over
+the same `WHERE` yields the uncapped total behind `meta.truncated`.
+
+**Response envelope.** The endpoint returns a GeoJSON `FeatureCollection`
+(`{type, features}`) extended with a non-standard top-level `meta` object
+(`{truncated, time_taken_ms, feature_count_total}`). The `meta` key (not
+`metadata`) is the canonical name across the backend response model, the web
+client, and this appendix. Each feature's normalized properties follow
+`appendix-data-schema.md` §A plus `along_route_meters`.
 
 ## §10. Open questions
 
