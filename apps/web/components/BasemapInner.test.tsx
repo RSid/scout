@@ -418,8 +418,8 @@ describe("BasemapInner", () => {
 
       expect(mapStub.fitBounds.mock.calls[0]?.[1]).toEqual(
         expect.objectContaining({
-          padding: 48,
-          maxZoom: 16,
+          padding: 24,
+          maxZoom: 17,
           animate: false,
           duration: 0,
         }),
@@ -451,8 +451,8 @@ describe("BasemapInner", () => {
 
       expect(mapStub.fitBounds.mock.calls.at(-1)?.[1]).toEqual(
         expect.objectContaining({
-          padding: 48,
-          maxZoom: 16,
+          padding: 24,
+          maxZoom: 17,
           animate: true,
           duration: 600,
         }),
@@ -529,8 +529,8 @@ describe("BasemapInner", () => {
         expect.objectContaining({
           animate: false,
           duration: 0,
-          padding: 48,
-          maxZoom: 16,
+          padding: 24,
+          maxZoom: 17,
         }),
       );
     });

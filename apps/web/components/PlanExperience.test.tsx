@@ -358,7 +358,14 @@ describe("PlanExperience", () => {
         ).toBe(true);
       });
 
-      expect(screen.getByText(en.alongRouteEmptyState, { exact: false })).toBeVisible();
+      // A failed corridor fetch is now a distinct error state, not the
+      // "nothing matched" empty state.
+      expect(
+        screen.queryByText(en.alongRouteEmptyState, { exact: false }),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByText(en.corridorListingErrorTitle).length).toBeGreaterThan(
+        0,
+      );
     });
   });
 });

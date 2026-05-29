@@ -37,8 +37,23 @@ export const en = {
     "Wheelchair-aware routing wasn't available, so we used standard walking directions.",
   routeWarningsNoticesHeading: "Notices along this route",
   routeSummaryPendingWalkingTime: "Calculating…",
-  routeSummaryPendingHint:
-    "Finding a walking route for your start and destination. Distance below is a straight-line preview.",
+  /** Distance/time placeholder before a real route returns (no straight-line estimate). */
+  routeSummaryUnavailableValue: "Unavailable",
+
+  /** Planner status strip (single home for planner-wide state). */
+  plannerPendingTitle: "Finding a walking route…",
+  plannerPendingDetail:
+    "We'll show the route, distance, and walking time as soon as it's ready. " +
+    "No line is drawn until then.",
+  plannerSampleTitle: "Pick a start and a destination",
+  plannerSampleDetail:
+    "Until you set both points, Scout shows a sample route across DC.",
+
+  /** Corridor fetch failed — distinct from "nothing matched" (no longer silent). */
+  corridorListingErrorTitle: "Couldn't load nearby features",
+  corridorListingErrorDetail:
+    "We couldn't refresh the items along your route. Try again once your route " +
+    "settles, or widen your categories.",
 
   /** M1-F09 — parallel corridor list heading (DEC-021 sentence case). */
   alongRouteHeading: "Along your route",

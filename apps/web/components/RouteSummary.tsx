@@ -8,8 +8,6 @@ export type RouteSummaryMode = "live" | "approx-fallback" | "sample" | "pending"
 type RouteSummaryProps = Readonly<{
   summary: RouteSummaryPayload | null;
   mode: RouteSummaryMode;
-  /** Straight-line approximation distance in meters (`roughDistanceMeters` / segment sum). */
-  approximateDistanceMeters: number;
 }>;
 
 /** Human-readable meters or kilometers (rounded) for the summary row */
@@ -45,26 +43,27 @@ export function formatWalkingMinutes(seconds: number): string {
   return `${String(minutes)} ${minutes === 1 ? "minute" : "minutes"}`;
 }
 
-export default function RouteSummary({
-  summary,
-  mode,
-  approximateDistanceMeters,
-}: RouteSummaryProps) {
-  const distanceCandidate =
-    mode === "live" && summary !== null
-      ? summary.distanceMeters
-      : approximateDistanceMeters;
-
-  const distanceHuman = formatRouteDistanceLine(distanceCandidate);
+export default function RouteSummary({ summary, mode }: RouteSummaryProps) {
+  /**
+   * Numbers are shown only for a real route (`live`) or the frozen first-load
+   * sample. While routing is pending or unavailable we show a textual
+   * placeholder rather than a straight-line estimate, which would imply a path
+   * that doesn't follow streets.
+   */
+  const distanceHuman =
+    summary !== null ? formatRouteDistanceLine(summary.distanceMeters) : null;
 
   const walkingDisplay =
+    summary !== null && summary.durationSeconds > 0
+      ? formatWalkingMinutes(summary.durationSeconds)
+      : null;
+
+  const placeholderValue =
     mode === "pending"
       ? en.routeSummaryPendingWalkingTime
-      : mode === "live" && summary !== null && summary.durationSeconds > 0
-        ? formatWalkingMinutes(summary.durationSeconds)
-        : null;
+      : en.routeSummaryUnavailableValue;
 
-  const showFallbackSentence = mode === "live" && summary?.fallbackProfileUsed === true;
+  const showFallbackSentence = summary?.fallbackProfileUsed === true;
 
   const warningItems =
     summary?.warnings.map((warning, index) => ({
@@ -72,10 +71,7 @@ export default function RouteSummary({
       text: String(warning),
     })) ?? [];
 
-  const profileDescription =
-    mode === "approx-fallback" || mode === "sample" || mode === "pending"
-      ? "—"
-      : en.routeProfileWheelchair;
+  const profileDescription = summary !== null ? en.routeProfileWheelchair : "—";
 
   return (
     <section
@@ -91,38 +87,17 @@ export default function RouteSummary({
         {en.routeSummaryHeading}
       </h2>
 
-      {mode === "pending" ? (
-        <p className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
-          {en.routeSummaryPendingHint}
-        </p>
-      ) : null}
-
-      {mode === "approx-fallback" ? (
-        <div
-          data-testid="scout-route-unavailable-warning"
-          className="mt-[var(--space-4)] rounded-tokenSm border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] p-[var(--space-4)] text-[color:var(--color-warning-text)]"
-        >
-          <p className="text-sm font-semibold">{en.routeUnavailableTitle}</p>
-          <p className="mt-[var(--space-2)] text-sm">
-            {en.routeApproxFallbackExplanation}
-          </p>
-        </div>
-      ) : null}
-
-      {mode === "sample" ? (
-        <p className="mt-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
-          Pick start and destination to calculate walking directions. Until then, Scout
-          shows a sample route across DC.
-        </p>
-      ) : null}
-
       <dl className="mt-[var(--space-5)] space-y-[var(--space-4)]">
         <div>
           <dt className="text-sm font-semibold text-[color:var(--color-text-muted)]">
             {en.routeDistanceLabel}
           </dt>
           <dd className="text-2xl font-bold text-[color:var(--color-text)]">
-            {distanceHuman}
+            {distanceHuman ?? (
+              <span className="text-lg font-semibold normal-case text-[color:var(--color-text-muted)]">
+                {placeholderValue}
+              </span>
+            )}
           </dd>
         </div>
 
@@ -133,9 +108,7 @@ export default function RouteSummary({
           <dd className="text-2xl font-bold text-[color:var(--color-text)]">
             {walkingDisplay ?? (
               <span className="text-lg font-semibold normal-case text-[color:var(--color-text-muted)]">
-                {mode === "sample"
-                  ? "Available after routing"
-                  : "Unavailable for this preview"}
+                {placeholderValue}
               </span>
             )}
           </dd>

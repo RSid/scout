@@ -31,13 +31,11 @@ describe("formatWalkingMinutes", () => {
 });
 
 describe("RouteSummary", () => {
-  it("shows pending copy while routing is in flight", async () => {
-    const { container } = render(
-      <RouteSummary summary={null} mode="pending" approximateDistanceMeters={400} />,
-    );
+  it("shows calculating placeholders (no straight-line estimate) while routing is in flight", async () => {
+    const { container } = render(<RouteSummary summary={null} mode="pending" />);
 
-    expect(screen.getByText(/straight-line preview/i)).toBeVisible();
-    expect(screen.getByText(/calculating/i)).toBeVisible();
+    // Distance and walking time both read "Calculating…"; no straight-line number.
+    expect(screen.getAllByText(/calculating/i).length).toBeGreaterThan(0);
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
@@ -50,13 +48,7 @@ describe("RouteSummary", () => {
   };
 
   it("renders live distance, walking time, profile, and axe passes", async () => {
-    const { container } = render(
-      <RouteSummary
-        summary={baseSummary}
-        mode="live"
-        approximateDistanceMeters={100}
-      />,
-    );
+    const { container } = render(<RouteSummary summary={baseSummary} mode="live" />);
 
     expect(screen.getByRole("heading", { name: /^route summary$/i })).toBeVisible();
     expect(screen.getByText("850 meters")).toBeVisible();
@@ -72,7 +64,6 @@ describe("RouteSummary", () => {
       <RouteSummary
         summary={{ ...baseSummary, fallbackProfileUsed: false }}
         mode="live"
-        approximateDistanceMeters={1}
       />,
     );
 
@@ -84,7 +75,6 @@ describe("RouteSummary", () => {
       <RouteSummary
         summary={{ ...baseSummary, fallbackProfileUsed: true }}
         mode="live"
-        approximateDistanceMeters={1}
       />,
     );
 
@@ -103,7 +93,6 @@ describe("RouteSummary", () => {
           ],
         }}
         mode="live"
-        approximateDistanceMeters={1}
       />,
     );
 
@@ -112,30 +101,40 @@ describe("RouteSummary", () => {
     expect(screen.getByText(/injection attempt/i)).toBeVisible();
   });
 
-  it("shows a routing-unavailable warning when mode is approx-fallback", async () => {
+  // The routing-unavailable message now lives in the StatusStrip (see
+  // StatusStrip / derivePlannerStatus / PlanExperience tests). RouteSummary
+  // itself becomes numbers-only and shows "Unavailable" placeholders.
+  it("shows unavailable placeholders without an inline warning when routing failed", async () => {
     const { container } = render(
-      <RouteSummary
-        summary={null}
-        mode="approx-fallback"
-        approximateDistanceMeters={422}
-      />,
+      <RouteSummary summary={null} mode="approx-fallback" />,
     );
 
-    expect(screen.getByText(/walking directions unavailable/i)).toBeVisible();
-    expect(screen.getByText(/couldn't reach the routing service/i)).toBeVisible();
+    expect(
+      screen.queryByText(/walking directions unavailable/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/^unavailable$/i).length).toBeGreaterThan(0);
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
   });
 
-  it("shows sample copy before full routing is available", () => {
+  // Sample copy moved to the StatusStrip; the summary now shows the frozen
+  // example route's real numbers instead of a straight-line estimate.
+  it("shows the frozen sample route's real numbers on first load", () => {
     render(
-      <RouteSummary summary={null} mode="sample" approximateDistanceMeters={1200} />,
+      <RouteSummary
+        summary={{
+          distanceMeters: 1089,
+          durationSeconds: 731.4,
+          fallbackProfileUsed: false,
+          warnings: [],
+        }}
+        mode="sample"
+      />,
     );
 
-    expect(screen.getByText(/sample route across dc/i)).toBeVisible();
-    expect(screen.getByText("1.2 kilometers")).toBeVisible();
-    expect(screen.getByText(/available after routing/i)).toBeVisible();
+    expect(screen.getByText("1.1 kilometers")).toBeVisible();
+    expect(screen.getByText("12 minutes")).toBeVisible();
   });
 
   it("lists notices as chips when warnings are present", async () => {

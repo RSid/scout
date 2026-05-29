@@ -136,9 +136,12 @@ function fitMapViewportToRoute(
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const shouldAnimate = opts?.preferInstant !== true && reduceMotion === false;
+  // Tight padding + a generous zoom cap keep short routes (e.g. the first-load
+  // sample) filling the frame instead of sitting small inside it. Long routes
+  // settle well below the cap, so this only changes the close-up cases.
   map.fitBounds(fitted, {
-    padding: 48,
-    maxZoom: 16,
+    padding: 24,
+    maxZoom: 17,
     animate: shouldAnimate,
     duration: shouldAnimate ? 600 : 0,
   });
@@ -711,7 +714,12 @@ export default function BasemapInner({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || scoutMapBootstrapDone !== true || !map.isStyleLoaded?.()) {
+    // Intentionally not gated on `isStyleLoaded()`: the `route-line` source is
+    // added during the bootstrap `load` handler (before `scoutMapBootstrapDone`
+    // flips), but `isStyleLoaded()` momentarily reports false while those newly
+    // added sources load. Gating here dropped the one-shot initial fit, leaving
+    // the map at its default zoom on first load.
+    if (!map || scoutMapBootstrapDone !== true) {
       return;
     }
 
