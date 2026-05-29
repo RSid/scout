@@ -204,7 +204,12 @@ export function removeScoutRouteMarkerSprites(map: maplibregl.Map): void {
   }
 }
 
-/** Adds `scout_severity` GeoJSON props for cluster + symbol layouts. */
+/**
+ * Adds `scout_severity` and `scout_kind` GeoJSON props for cluster + symbol
+ * layouts. `scout_kind` collapses the category to the support/obstacle split
+ * the marker shapes already use (`severity === "aid"` ⇔ a support), so cluster
+ * bubbles can tally supports vs obstacles without re-deriving from categories.
+ */
 export function corridorFeatureWithMarkerSeverity(
   feature: CorridorResponse["features"][number],
 ): GeoJSON.Feature {
@@ -222,6 +227,7 @@ export function corridorFeatureWithMarkerSeverity(
     properties: {
       ...props,
       scout_severity: severity,
+      scout_kind: severity === "aid" ? "aid" : "obstacle",
       category:
         typeof props?.category === "string" ? props.category : String(props?.category),
     },

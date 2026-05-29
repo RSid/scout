@@ -114,6 +114,40 @@ export const en = {
 
   lastInspectedShort: "last inspected",
 
+  // ---- DEC-024 Phase 1: route-level category summary strip ----
+
+  /** sr-only heading for the whole summary strip section. */
+  routeCategorySummaryHeading: "Categories on your route",
+
+  /** Group headings — house words from voice-and-copy §6 (never "Aids"). */
+  routeSupportsHeading: "Supports",
+  routeObstaclesHeading: "Obstacles",
+
+  /**
+   * Polite live-region copy after the filter chip is toggled on.
+   * Replace `{label}` with category label (lowercase) and `{count}` with digit.
+   * FK ≤ 6: short sentences, common words.
+   */
+  filteredToCategoryTemplate: "Filtered to {label}. {count} along route.",
+
+  /** Polite live-region copy after the active filter is cleared. */
+  filterCleared: "Filter cleared. Showing all features.",
+
+  /**
+   * DEC-024 §4 — first-visit inline explainer copy (prompt-specified verbatim).
+   * FK is borderline; kept exact per prompt guidance.
+   */
+  markerDensityExplainerCopy:
+    "Each marker is a separately inspected feature. " +
+    "Multiple markers at one corner mean the corner was inspected multiple times, " +
+    "not that data is duplicated.",
+
+  /** aria-label for the explainer dismiss button — ≤10 words, §9.2. */
+  markerDensityExplainerDismiss: "Dismiss explainer",
+
+  /** aria-label for the explainer aside landmark. */
+  markerDensityExplainerLandmarkLabel: "Marker density explanation",
+
   /** Raster marker registration failed mid-load — factual, terse (voice §9.5 ≤12 words). */
   mapSpriteLoadFailure: "Scout couldn't load walking-route icons.",
 
@@ -215,4 +249,11 @@ export function routeAnnouncementLoaded(
 /** Announced when routing failed and UI falls back to a straight segment. */
 export function routeAnnouncementApproxFallback(): string {
   return en.routeAnnouncementApproxFallback;
+}
+
+/** DEC-024 §2 — polite announcement when a category filter chip is toggled on. */
+export function filteredToCategoryAnnouncement(label: string, count: number): string {
+  return en.filteredToCategoryTemplate
+    .replace("{label}", label.toLowerCase())
+    .replace("{count}", String(count));
 }

@@ -306,6 +306,8 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   - Tapping/focusing a marker opens a popup with the Feature's category, condition,
     inspected year, and a freshness warning if `inspected_year < current_year - 3`.
   - Markers are keyboard-focusable in along-route order.
+  - A route-level category summary strip displays the supports and obstacles present
+    on the route as filterable, individually-hideable chips with counts. See `DEC-024`.
 - **Accessibility notes:** WCAG 2.2 — 1.4.1 (use of color), 2.1.1, 2.4.7
   (focus visible).
 - **Estimate:** L
@@ -527,11 +529,17 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Persona:** P1
 - **User value:** *So I can flip categories on and off in real time to compare.*
 - **Depends on:** M1-F06, M1-F08, M1-F09
+- **Status:** Partially delivered by DEC-024 Phase 1 (`RouteCategorySummary` eye-toggle
+  hides/shows per-category map markers client-side; `FeatureListView` is filterable by
+  category chip). The remaining scope — bulk category toggles outside the strip, or
+  any cross-category controls beyond the per-chip eye-toggle — is narrowed to that
+  remainder here.
 - **Acceptance criteria:** Toggling a category re-renders the features but does not
   trigger a new ORS call. The full Feature set within the corridor is fetched
-  once and filtered client-side by category.
+  once and filtered client-side by category. Per-category map-layer visibility
+  is toggled via the eye-icon in the category summary strip (DEC-024 Phase 1).
 - **Accessibility notes:** Toggle changes are announced via `aria-live`.
-- **Estimate:** S
+- **Estimate:** S (remaining cross-category bulk-toggle work, if needed)
 - **Prompt seed:** Generate stories for client-side category filtering and the
   associated UX/announcement.
 

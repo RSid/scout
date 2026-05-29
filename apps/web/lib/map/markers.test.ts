@@ -58,6 +58,20 @@ describe("corridorFeatureWithMarkerSeverity", () => {
       "blocking",
     );
   });
+
+  it.each([
+    ["aid", "aid"],
+    ["obstacle", "obstacle"],
+  ])(
+    "tags %s features with scout_kind=%s so clusters can tally supports vs obstacles",
+    (kind, expected) => {
+      const out = corridorFeatureWithMarkerSeverity(
+        fakeCorridorFeature({ kind, condition_normalized: "fair" }),
+      );
+
+      expect((out.properties as Record<string, unknown>)?.scout_kind).toBe(expected);
+    },
+  );
 });
 
 describe("registerScoutRouteMarkerSprites", () => {

@@ -114,6 +114,10 @@ const stubs = vi.hoisted(() => {
       removeEventListener: vi.fn(),
     });
 
+    readonly getLayer = vi.fn((_id: string) => null);
+
+    readonly setLayoutProperty = vi.fn();
+
     readonly getSource = vi.fn((id: string) => {
       let stub = this.sourceStubs.get(id);
       if (!stub) {
@@ -315,6 +319,30 @@ describe("BasemapInner", () => {
       ),
     ).toBeInTheDocument();
     await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
+  });
+
+  it("creates the cluster source with supports/obstacles tallies (DEC-024 Phase 1)", async () => {
+    render(
+      <AnnounceProvider>
+        <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+      </AnnounceProvider>,
+    );
+
+    await flushMapLoads();
+
+    const mapStub = stubs.instances[0] as unknown as {
+      addSource: ReturnType<typeof vi.fn>;
+    };
+    const clusterCall = mapStub.addSource.mock.calls.find(
+      (call) => call[0] === "cluster-points",
+    );
+    const clusterProperties = (
+      clusterCall?.[1] as { clusterProperties?: Record<string, unknown> } | undefined
+    )?.clusterProperties;
+
+    expect(Object.keys(clusterProperties ?? {})).toEqual(
+      expect.arrayContaining(["scout_n_aid", "scout_n_obstacle"]),
+    );
   });
 
   // Acceptance criteria carried forward from #50 into the follow-up #51:

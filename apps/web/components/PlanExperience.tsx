@@ -5,6 +5,8 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import BasemapView from "@/components/BasemapView";
 import FeatureListView from "@/components/FeatureListView";
 import ProfilePanel from "@/components/ProfilePanel";
+import RouteCategorySummary from "@/components/RouteCategorySummary";
+import RouteMarkerExplainer from "@/components/RouteMarkerExplainer";
 import RouteSummary, { type RouteSummaryMode } from "@/components/RouteSummary";
 import StatusStrip from "@/components/StatusStrip";
 
@@ -22,6 +24,7 @@ import {
 import {
   corridorFetchSuccessAnnouncement,
   en,
+  filteredToCategoryAnnouncement,
   routeAnnouncementApproxFallback,
   routeAnnouncementLoaded,
 } from "@/lib/i18n/messages";
@@ -88,6 +91,13 @@ export default function PlanExperience() {
   /** Corridor fetch UX for the paired list/map (M1-F09). */
   const [corridorListingStatus, setCorridorListingStatus] =
     useState<CorridorListingStatus>("idle");
+
+  /** DEC-024 Phase 1: category filter for the list view (null = show all). */
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+  /** DEC-024 Phase 1: categories whose markers are hidden from the map. */
+  const [hiddenCategoryIds, setHiddenCategoryIds] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
 
   const mapShellRef = useRef<HTMLDivElement | null>(null);
 
@@ -285,6 +295,44 @@ export default function PlanExperience() {
     setDestinationHit(hit);
   }
 
+  const handleFilterChange = useCallback(
+    (id: string | null) => {
+      setFilterCategoryId(id);
+      if (id === null) {
+        announce(en.filterCleared);
+      } else {
+        const count = corridorFeatures.filter(
+          (f) => f.properties?.category === id,
+        ).length;
+        const cat = categories.find((c) => c.id === id);
+        if (cat !== undefined) {
+          announce(filteredToCategoryAnnouncement(cat.label, count));
+        }
+      }
+    },
+    [announce, categories, corridorFeatures],
+  );
+
+  const handleMapVisibilityChange = useCallback((id: string, makeVisible: boolean) => {
+    setHiddenCategoryIds((prev) => {
+      const next = new Set(prev);
+      if (makeVisible) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  /** Features shown in the list — filtered by active category chip (map unaffected). */
+  const listFeatures = useMemo(() => {
+    if (filterCategoryId === null) {
+      return corridorFeatures;
+    }
+    return corridorFeatures.filter((f) => f.properties?.category === filterCategoryId);
+  }, [corridorFeatures, filterCategoryId]);
+
   useEffect(() => {
     if (!isReady) {
       setCorridorListingStatus("idle");
@@ -315,7 +363,18 @@ export default function PlanExperience() {
           corridorFetchSuccessAnnouncement(payload.features.length, payload.meta),
         );
       })
-      .catch(() => {
+      .catch((reason: unknown) => {
+        const aborted = reason instanceof DOMException && reason.name === "AbortError";
+
+        const maybeErr = reason as { name?: string | undefined };
+
+        const alsoAbort =
+          typeof maybeErr.name === "string" && maybeErr.name === "AbortError";
+
+        if (aborted || alsoAbort) {
+          return;
+        }
+
         setCorridorFeatures([]);
         setCorridorListingStatus("error");
         announce(en.corridorListingFailedBrief);
@@ -409,10 +468,21 @@ export default function PlanExperience() {
         />
       </fieldset>
 
+      {/* DEC-024 Phase 1: first-visit explainer and category summary strip. */}
+      <RouteMarkerExplainer />
+      <RouteCategorySummary
+        features={corridorFeatures}
+        categories={categories}
+        filterCategoryId={filterCategoryId}
+        onFilterChange={handleFilterChange}
+        hiddenCategoryIds={hiddenCategoryIds}
+        onMapVisibilityChange={handleMapVisibilityChange}
+      />
+
       <div className="flex flex-col gap-[var(--space-10)] md:flex-row md:items-start">
         <div className="order-1 min-w-0 flex-1 md:mr-[var(--space-6)]">
           <FeatureListView
-            features={corridorFeatures}
+            features={listFeatures}
             listingStatus={corridorListingStatus}
             selectedFeatureId={selectedCorridorFeatureId}
             onShowOnMap={handleOpenCorridorRowOnMap}
@@ -453,6 +523,7 @@ export default function PlanExperience() {
                 route={mapRoute}
                 selectedFeatureId={selectedCorridorFeatureId}
                 onSelectFeature={setSelectedCorridorFeatureId}
+                hiddenCategoryIds={hiddenCategoryIds}
               />
             </div>
           </div>

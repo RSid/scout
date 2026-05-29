@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 
 import { AnnounceProvider } from "./a11y/AnnounceProvider";
 import PlanExperience from "./PlanExperience";
@@ -326,6 +326,82 @@ describe("PlanExperience", () => {
       // The map + features pipeline still runs even though routing failed.
       await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
     }, 60_000);
+  });
+
+  describe("corridor request aborted by a categories change", () => {
+    it("does not flash the corridor error strip when the in-flight request is aborted", async () => {
+      const user = userEvent.setup({ delay: null });
+
+      // Two enabled categories so toggling one off still leaves the corridor
+      // effect with work to do, forcing it to re-run (and abort the first request)
+      // rather than short-circuiting into the empty-results branch.
+      await stubCategoriesPayload([
+        {
+          id: "curb_ramps",
+          label: "Curb ramps",
+          description: "Sidewalk transitions.",
+          kind: "obstacle",
+          default_enabled: true,
+        },
+        {
+          id: "barriers",
+          label: "Sidewalk barriers",
+          description: "Trip hazards.",
+          kind: "obstacle",
+          default_enabled: true,
+        },
+      ]);
+
+      // MOCK: fetchCorridorFeatures — the first call is the in-flight request that
+      // gets aborted when categories change post-mount; we reject it on demand with
+      // the same AbortError a cancelled fetch throws. Later calls stay pending so the
+      // planner sits in its loading/sample state and any erroneous error strip would
+      // persist for the assertion (the beforeEach mock resolves immediately, which
+      // can't exercise the abort path).
+      let rejectFirstCorridor: (reason: unknown) => void = () => {};
+      const firstInFlight = new Promise<CorridorResponse>((_resolve, reject) => {
+        rejectFirstCorridor = reject;
+      });
+      const stillPending = new Promise<CorridorResponse>(() => {});
+
+      corridorSpy
+        .mockReset()
+        .mockReturnValueOnce(firstInFlight)
+        .mockReturnValue(stillPending);
+
+      render(
+        <AnnounceProvider>
+          <ProfileProvider>
+            <PlanExperience />
+          </ProfileProvider>
+        </AnnounceProvider>,
+      );
+
+      await screen.findByRole("heading", { name: /^plan a walking route$/i });
+
+      // First load kicks off the in-flight corridor request we expect to abort.
+      await waitFor(() => expect(corridorSpy).toHaveBeenCalledTimes(1));
+
+      // Toggling a category off changes `enabledCategories`, which re-runs the
+      // corridor effect; its cleanup aborts the first request and starts a new one.
+      await user.click(screen.getByRole("button", { name: /my accessibility needs/i }));
+      await user.click(
+        await screen.findByRole("checkbox", { name: /sidewalk barriers/i }),
+      );
+
+      await waitFor(() => expect(corridorSpy).toHaveBeenCalledTimes(2));
+
+      // Now the aborted first request rejects — after the re-run, mirroring how a
+      // real cancelled fetch settles once the effect cleanup has already fired.
+      await act(async () => {
+        rejectFirstCorridor(
+          new DOMException("The operation was aborted.", "AbortError"),
+        );
+      });
+
+      // The abort must NOT surface as the red "Couldn't load nearby features" strip.
+      expect(screen.queryAllByText(en.corridorListingErrorTitle)).toHaveLength(0);
+    });
   });
 
   describe("corridor retrieval errors", () => {

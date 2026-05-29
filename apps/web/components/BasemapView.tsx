@@ -21,6 +21,8 @@ type BasemapProps = Readonly<{
   route: GeoJSON.Feature<GeoJSON.LineString> | null;
   selectedFeatureId?: string | null | undefined;
   onSelectFeature?: ((id: string | null) => void) | undefined;
+  /** DEC-024 Phase 1: categories whose markers are hidden from the map. */
+  hiddenCategoryIds?: ReadonlySet<string> | undefined;
 }>;
 
 export default function BasemapView({
@@ -28,6 +30,7 @@ export default function BasemapView({
   route,
   selectedFeatureId = null,
   onSelectFeature,
+  hiddenCategoryIds,
 }: BasemapProps) {
   const mapMode =
     process.env.NEXT_PUBLIC_SCOUT_MAP_MODE === "stub" ? "stub" : "interactive";
@@ -42,6 +45,7 @@ export default function BasemapView({
       route={route}
       selectedFeatureId={selectedFeatureId}
       onSelectFeature={onSelectFeature}
+      hiddenCategoryIds={hiddenCategoryIds}
     />
   );
 }

@@ -35,6 +35,14 @@ import { useProfile } from "@/lib/profile";
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
+/**
+ * Font stack for on-map text. Must match the glyph PBF folder name under
+ * `public/fonts/glyphs/` exactly (the style's `glyphs` URL fills `{fontstack}`
+ * with this). Atkinson Hyperlegible keeps map text consistent with the UI and
+ * low-vision-legible (DEC-015).
+ */
+const SCOUT_MAP_FONT_STACK = "Atkinson Hyperlegible Regular";
+
 /** Tally a cluster's leaves into label+count parts, busiest category first, so
  * the screen-reader text can read "3 curb ramps, 2 barriers" (DEC-024 §2). */
 function clusterCategoryParts(
@@ -152,7 +160,68 @@ export type BasemapInnerProps = Readonly<{
   route: GeoJSON.Feature<GeoJSON.LineString> | null;
   selectedFeatureId?: string | null | undefined;
   onSelectFeature?: ((id: string | null) => void) | undefined;
+  /** DEC-024 Phase 1: categories whose markers are hidden from the map. */
+  hiddenCategoryIds?: ReadonlySet<string> | undefined;
 }>;
+
+/** Cluster accumulator keys for supports vs obstacles within each cluster. */
+const CLUSTER_N_AID = "scout_n_aid";
+const CLUSTER_N_OBSTACLE = "scout_n_obstacle";
+
+/**
+ * DEC-024 Phase 1: per-cluster tallies of supports and obstacles, keyed off the
+ * static `scout_kind` feature property. These expressions don't depend on the
+ * (async-loaded) category manifest, so they're safe to define once at
+ * `addSource` time — unlike a per-category scheme.
+ */
+const CLUSTER_KIND_PROPERTIES: Record<string, [unknown, unknown]> = {
+  [CLUSTER_N_AID]: [
+    ["+", ["accumulated"], ["get", CLUSTER_N_AID]],
+    ["case", ["==", ["get", "scout_kind"], "aid"], 1, 0],
+  ],
+  [CLUSTER_N_OBSTACLE]: [
+    ["+", ["accumulated"], ["get", CLUSTER_N_OBSTACLE]],
+    ["case", ["==", ["get", "scout_kind"], "obstacle"], 1, 0],
+  ],
+};
+
+/** `"1 support"` / `"3 supports"` — singular-aware count phrase for one kind. */
+function clusterCountPhrase(
+  countExpr: unknown,
+  singular: string,
+  plural: string,
+): unknown {
+  return [
+    "case",
+    ["==", countExpr, 1],
+    `1 ${singular}`,
+    ["concat", ["to-string", countExpr], ` ${plural}`],
+  ];
+}
+
+/**
+ * DEC-024 Phase 1: text below each cluster bubble, spelling the supports /
+ * obstacles mix so a glance at the cluster is informative (e.g.
+ * "2 supports · 3 obstacles"). Single-kind clusters drop the separator
+ * ("5 obstacles"). Fully static — no category dependency.
+ */
+function buildClusterKindLabelExpression(): unknown {
+  const aid = ["get", CLUSTER_N_AID];
+  const obstacle = ["get", CLUSTER_N_OBSTACLE];
+  return [
+    "case",
+    ["==", obstacle, 0],
+    clusterCountPhrase(aid, "support", "supports"),
+    ["==", aid, 0],
+    clusterCountPhrase(obstacle, "obstacle", "obstacles"),
+    [
+      "concat",
+      clusterCountPhrase(aid, "support", "supports"),
+      " · ",
+      clusterCountPhrase(obstacle, "obstacle", "obstacles"),
+    ],
+  ];
+}
 
 const scoutPmtilesProtocol = new Protocol();
 let scoutPmtilesRegistered = false;
@@ -194,6 +263,7 @@ export default function BasemapInner({
   route,
   selectedFeatureId = null,
   onSelectFeature,
+  hiddenCategoryIds = new Set<string>(),
 }: BasemapInnerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -238,9 +308,23 @@ export default function BasemapInner({
     [corridorPrepared],
   );
 
+  /**
+   * DEC-024 Phase 1: features visible on the map — excludes any category the
+   * user has hidden via the eye-toggle. Hidden categories don't contribute to
+   * cluster counts either (see `cluster-points` source setup below).
+   */
+  const visibleMarkerCollection = useMemo(() => {
+    const visible = (corridorPrepared as GeoJSON.Feature[]).filter((f) => {
+      const cat = (f.properties as Record<string, unknown> | null)?.["category"];
+      return typeof cat !== "string" || !hiddenCategoryIds.has(cat);
+    });
+    return featureCollection(visible);
+  }, [corridorPrepared, hiddenCategoryIds]);
+
   const corridorPointRowsRef = useRef(corridorPointRows);
   const categoryByIdRef = useRef(new Map<string, ApiCategory>());
   const markerCollectionRef = useRef(markerCollection);
+  const visibleMarkerCollectionRef = useRef(visibleMarkerCollection);
   const routeRef = useRef(route);
 
   useEffect(() => {
@@ -250,6 +334,10 @@ export default function BasemapInner({
   useEffect(() => {
     markerCollectionRef.current = markerCollection;
   }, [markerCollection]);
+
+  useEffect(() => {
+    visibleMarkerCollectionRef.current = visibleMarkerCollection;
+  }, [visibleMarkerCollection]);
 
   useEffect(() => {
     routeRef.current = route;
@@ -514,10 +602,16 @@ export default function BasemapInner({
 
         map.addSource("cluster-points", {
           type: "geojson",
-          data: markerCollectionRef.current,
+          data: visibleMarkerCollectionRef.current,
           cluster: true,
           clusterMaxZoom: 15,
           clusterRadius: 50,
+          // DEC-024 Phase 1: tally supports vs obstacles on each cluster so the
+          // cluster-label layer can spell the mix at a glance.
+          clusterProperties: CLUSTER_KIND_PROPERTIES as Record<
+            string,
+            maplibregl.ExpressionSpecification
+          >,
         });
 
         map.addLayer({
@@ -540,12 +634,37 @@ export default function BasemapInner({
           filter: ["has", "point_count"],
           layout: {
             "text-field": ["to-string", ["get", "point_count"]],
+            "text-font": [SCOUT_MAP_FONT_STACK],
             "text-size": 12,
           },
           paint: {
             "text-color": resolveColorToken("text-inverse"),
             "text-halo-color": resolveColorToken("text-muted"),
             "text-halo-width": 1,
+          },
+        });
+
+        // DEC-024 Phase 1: supports/obstacles breakdown below the cluster
+        // bubble (e.g. "2 supports · 3 obstacles"). Fully static expression —
+        // it reads cluster accumulators, not the async category manifest.
+        map.addLayer({
+          id: "cluster-label",
+          type: "symbol",
+          source: "cluster-points",
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field":
+              buildClusterKindLabelExpression() as maplibregl.ExpressionSpecification,
+            "text-font": [SCOUT_MAP_FONT_STACK],
+            "text-size": 10,
+            "text-anchor": "top",
+            "text-offset": [0, 2.5],
+            "text-max-width": 12,
+          },
+          paint: {
+            "text-color": resolveColorToken("text"),
+            "text-halo-color": resolveColorToken("surface"),
+            "text-halo-width": 1.5,
           },
         });
 
@@ -709,8 +828,8 @@ export default function BasemapInner({
     }
 
     const src = map.getSource("cluster-points") as maplibregl.GeoJSONSource | undefined;
-    src?.setData?.(markerCollection);
-  }, [markerCollection, scoutMapBootstrapDone]);
+    src?.setData?.(visibleMarkerCollection);
+  }, [visibleMarkerCollection, scoutMapBootstrapDone]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -798,6 +917,11 @@ function buildDcBasemapStyle(
 
   return {
     version: 8,
+    // Self-hosted SDF glyphs (NF-PRIV-01: no font CDN). Required for any
+    // `text-field` layer — without it cluster labels render nothing. PBFs are
+    // generated from the OFL Atkinson Hyperlegible TTF; see
+    // `apps/web/public/fonts/glyphs/README.md`.
+    glyphs: "/fonts/glyphs/{fontstack}/{range}.pbf",
     sources: {
       [sourceId]: {
         attribution:
