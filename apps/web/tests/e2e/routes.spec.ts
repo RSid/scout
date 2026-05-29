@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   await scoutMockApis(page);
 });
 
-const ROUTES_STUB_AXE = ["/", "/about", "/privacy", "/plan"] as const;
+const ROUTES_STUB_AXE = ["/", "/about", "/privacy", "/accessibility", "/plan"] as const;
 
 ROUTES_STUB_AXE.forEach((pathname) => {
   test(`axe scan succeeds for ${pathname}`, async ({ page }) => {
