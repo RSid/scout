@@ -111,8 +111,9 @@ residents; caregivers planning a route for someone else; visitors to DC.
 
 ## Constraints
 
-- **Zero budget.** Hosting on Fly.io free tier; tiles via self-hosted Protomaps; routing
-  via OpenRouteService public API (with self-hosting as a documented fallback).
+- **Zero budget.** Hosting is host-neutral and free/cheap-first (`DEC-025`);
+  tiles via self-hosted Protomaps; routing via OpenRouteService public API (with
+  self-hosting as a documented fallback).
 - **Solo developer.** Scope must be ruthlessly small at each milestone.
 - **AGPL-3.0** licensed to prevent closed-source forks of a civic-good project.
 

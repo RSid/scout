@@ -1,187 +1,150 @@
-# Prompt: Dockerize Scout and deploy to Fly.io
+# Prompt: Dockerize Scout and deploy (host-neutral)
 
 ## Role
 
 You are a senior DevOps engineer. You package Scout into a single, small Docker
-image and configure Fly.io deployment + CI.
+image that runs unchanged on any host, and you wire up CI. You do **not** marry
+Scout to a specific provider — provider choice is a deployment-time decision
+(`DEC-025`).
 
 ## Inputs (read these before coding)
 
 - `docs/02-prd.md` §6.1 ticket M1-F15 and §7.2 (Performance).
-- `docs/03-decisions.md` DEC-006, DEC-011, DEC-016, DEC-017, **DEC-019
-  (sibling Postgres VM topology — read this carefully)**.
+- `docs/03-decisions.md` **DEC-025 (host-neutral deploy — read first)**,
+  DEC-006 (superseded, retained as history), DEC-011, DEC-016, DEC-017, and
+  **DEC-019 (sibling Postgres topology)**.
+- `docs/proposals/green-hosting-shortlist.md` — the green-host evaluation, for
+  when a concrete provider is chosen.
+- `infra/runbooks/first-deploy.md` — the host-neutral bootstrap procedure and
+  the full environment contract.
+
+## The contract (what "host-neutral" means)
+
+Scout deploys to **any host that can run an OCI/Docker image and reach a
+PostgreSQL 16 + PostGIS database.** That is the entire requirement. Concretely:
+
+- **One public port.** The runtime image bundles a Caddy reverse proxy
+  (`infra/Caddyfile`) that listens on `$PORT` and routes `/api/*` to the backend
+  and everything else to the Next.js server. No host-provided proxy is needed.
+- **One DB URL.** The database is reached only via `SCOUT_DATABASE_URL`.
+- **Env-injected secrets.** Nothing host-specific is committed.
+- **Migrations on boot.** The container runs `alembic upgrade head` at startup.
 
 ## What to build
 
 ```
 infra/
-├── Dockerfile                 # app: multi-stage; final image runs API + web
-├── Dockerfile.postgres        # PG VM: pins postgis/postgis:16-3.4 by digest
-├── docker-compose.yml         # local dev: app + web + postgis + healthcheck
-├── fly.app.toml               # Fly.io app VM config
-├── fly.postgres.toml          # Fly.io Postgres VM config (sibling app)
+├── Dockerfile                 # multi-stage; runtime = Caddy + API + Next + tiles
+├── Dockerfile.postgres        # PG image: pins postgis/postgis:16-3.4 by digest
+├── Caddyfile                  # in-image proxy: /api/* -> :8081, /* -> :3000
+├── start.sh                   # entrypoint: alembic, uvicorn, Next, Caddy
+├── docker-compose.yml         # local dev: db + backend + web
+├── docker-compose.prod.yml    # host-neutral prod: app + db (+ ingest profile)
 ├── runbooks/
-│   └── first-deploy.md        # bring up PG VM, set secrets, run migrations,
-│                              # run scripts/ingest_dc.py
+│   └── first-deploy.md        # provider-agnostic bootstrap + env contract
 ├── .dockerignore
-└── README.md                  # how to build, run, deploy
+└── README.md
 
 .github/workflows/
-├── ci.yml                     # PR checks: tests, lint, axe (with PG service)
-└── deploy.yml                 # push to main → Fly deploy of the APP VM only
-                               # (PG VM is deployed manually + rarely)
+├── ci.yml                     # PR checks: tests, lint, axe, build image (no push)
+└── deploy.yml                 # push to main → build + push image; deploy step
+                               # is a thin, provider-specific call (see appendix)
 ```
-
-## Required behaviors
 
 ### Dockerfile (app, multi-stage)
 
-1. **`builder-web`** (Node): installs frontend deps, runs `pnpm build`,
-   outputs `apps/web/.next/standalone` + `static` + `public`.
-2. **`builder-tiles`**: runs `scripts/build_pmtiles.sh` (which uses
-   `tippecanoe` or fetches a pre-built DC PMTiles extract from Protomaps).
-3. **`runtime`** (Python slim-bookworm): copies the API code, the Alembic
-   migrations, the built Next.js standalone bundle, and the PMTiles file.
-   Runs a small process supervisor (`honcho` or `s6-overlay`) that starts:
-   - `uvicorn scout.main:app --host 0.0.0.0 --port 8080`
-     - on startup, the app runs `alembic upgrade head` against
-       `SCOUT_DATABASE_URL`.
-   - the Next.js standalone server (or skip if we serve the static export
-     directly via FastAPI's `StaticFiles`).
-4. **Data is NOT baked into the image.** The DB is in the sibling PG VM.
-   `scripts/ingest_dc.py` is run separately against `SCOUT_DATABASE_URL`
-   (typically once after the first deploy, then on data refresh).
-5. Final image budget: **< 200 MB compressed**.
+1. **`deps-backend`** (Python+uv): installs backend deps into `/app/.venv`.
+2. **`builder-web`** (Node): installs frontend deps, builds the Next.js
+   **standalone** bundle. Build with a **relative** API base URL (leave
+   `NEXT_PUBLIC_SCOUT_API_BASE_URL` empty) so the browser calls `/api/*` on the
+   same origin Caddy serves.
+3. **`builder-tiles`**: runs `scripts/build_pmtiles.sh` → `dc.pmtiles`.
+4. **`caddy-bin`**: sources the Caddy static binary from the official image.
+5. **`runtime`** (Python slim): copies the venv, API code, Alembic migrations,
+   the Next standalone bundle, the PMTiles file, the Caddy binary, and the
+   Caddyfile. `ENTRYPOINT` is `start.sh`, which runs `alembic upgrade head`,
+   then uvicorn (loopback `:8081`), Next (loopback `:3000`), and Caddy (`$PORT`).
+6. **Data is NOT baked into the image.** It is loaded into the DB by the ingest
+   scripts (see the runbook). Final image budget: **< 200 MB compressed**.
 
-### Dockerfile.postgres
+### docker-compose.prod.yml (single-host baseline)
 
-- `FROM postgis/postgis:16-3.4@sha256:<pin>` — pin by digest.
-- Override `POSTGRES_USER`, `POSTGRES_DB` via env. Password injected via Fly
-  secret at deploy time.
-- Mount the Fly volume at `/var/lib/postgresql/data`.
-- Expose port 5432 on the internal network only (no public listener on Fly).
+- `db`: `postgis/postgis` with a named volume; password from `SCOUT_DB_PASSWORD`;
+  internal-only (no published port).
+- `app`: the `runtime` image; publishes `${SCOUT_HTTP_PORT:-8080}:8080`; env per
+  the contract; `SCOUT_DATABASE_URL` points at `db:5432`.
+- `ingest-features` / `ingest-addresses`: profile-gated one-off services for
+  first-deploy data loading.
 
-### docker-compose.yml (local dev)
+### CI workflow (`ci.yml`) — unchanged in spirit
 
-- `db` service:
-  - `image: postgis/postgis:16-3.4`
-  - Named volume `scout-pg-data` mounted at `/var/lib/postgresql/data`.
-  - Healthcheck: `pg_isready -U scout`.
-  - Exposes port 5432 to the compose network only (no host port unless the
-    contributor passes `-p 5432:5432` themselves).
-- `backend` service:
-  - Depends on `db` (with `condition: service_healthy`).
-  - Runs `uvicorn --reload` via the backend Dockerfile in dev mode.
-  - `SCOUT_DATABASE_URL=postgresql+asyncpg://scout:scout@db:5432/scout`.
-- `web` service:
-  - Runs `pnpm dev` in `apps/web/`.
-- Shared bind-mount for `./data/` so the host's source GeoJSONs are visible to
-  the ingest script.
-- A single command (`docker compose up`) brings the whole stack up locally.
-- A second command (`docker compose run --rm backend python scripts/ingest_dc.py`)
-  loads the data into the running PG.
-
-### fly.app.toml (the app VM)
-
-- `app = "scout"` (or your chosen Fly app name; if conflict, fall back to
-  `scout-dc`).
-- Single small VM (`shared-cpu-1x`, 512 MB RAM — measure during staging).
-- Internal port 8080.
-- `auto_stop_machines = "stop"`, `auto_start_machines = true`,
-  `min_machines_running = 0` for the free tier.
-- HTTP health check on `/api/health`. Health check must tolerate the cold-
-  start window during which `alembic upgrade head` runs.
-- Secrets (set via `flyctl secrets set`): `SCOUT_DATABASE_URL` (pointing to
-  `scout-pg.internal:5432`), `SCOUT_ORS_API_KEY`.
-
-### MAR address snapshot bootstrap
-
-MAR rows are bundled as `data/dc_addresses.jsonl` and uploaded into Postgres via
-`scripts/ingest_dc_addresses.py`. Run this alongside (or immediately after)
-`scripts/ingest_dc.py` on first deploy whenever the PG volume is recreated.
-
-### fly.postgres.toml (the sibling Postgres VM)
-
-- `app = "scout-pg"`.
-- Single VM (`shared-cpu-1x`, 512 MB RAM is enough for M1; bump later if
-  needed). The free tier permits this.
-- 3 GB Fly volume named `scout_pg_data`, mounted at `/var/lib/postgresql/data`.
-- Internal-only (no `[[services]]` block exposing 5432 publicly). Reachable
-  by the app via Fly's private 6PN network at `scout-pg.internal:5432`.
-- Secrets: `POSTGRES_PASSWORD` (matches the app's `SCOUT_DATABASE_URL`).
-- Healthcheck: `pg_isready` via Fly's `[checks]` mechanism.
-- **No auto-stop** — DB must be available whenever the app wakes up.
-
-### CI workflow (`ci.yml`)
-
-On every PR:
-
-- Set up Python (uv) + Node (pnpm).
-- Cache uv and pnpm stores.
-- Start a `postgis/postgis:16-3.4` **service container** so backend tests can
-  hit a real PG (no SQLite-as-PG mocking — we want fidelity).
-- Run `ruff check`, `mypy --strict`, backend `pytest` (with
-  `SCOUT_DATABASE_URL` pointing at the service container).
-- Run frontend `eslint`, Vitest, then Playwright + axe.
-- Build the app Docker image (no push); cache layers.
+On every PR: set up Python (uv) + Node; cache stores; start a
+`postgis/postgis:16-3.4` **service container**; run `ruff`, `mypy --strict`,
+backend `pytest`; run frontend `eslint`, Vitest, Playwright + axe; build the app
+image (no push). This is provider-independent.
 
 ### Deploy workflow (`deploy.yml`)
 
-On push to `main`:
-
-- Re-run CI.
-- Build the app Docker image; tag with the commit SHA and `latest`.
-- `flyctl deploy --config infra/fly.app.toml --image <tag>` using a
-  `FLY_API_TOKEN` repo secret.
-- App startup runs `alembic upgrade head` automatically, so schema changes
-  ship with the app deploy.
-- **The PG VM is NOT redeployed on app pushes.** It has its own
-  `infra/fly.postgres.toml`; redeploys happen manually + rarely (e.g., for
-  PostGIS version bumps), per `infra/runbooks/postgres-upgrade.md`.
-- On failure, fail loud and don't roll the alias.
-
-### First-deploy runbook (`infra/runbooks/first-deploy.md`)
-
-Document the bootstrap sequence:
-
-1. `flyctl apps create scout-pg`
-2. `flyctl volumes create scout_pg_data --size 3 --app scout-pg`
-3. `flyctl secrets set POSTGRES_PASSWORD=... --app scout-pg`
-4. `flyctl deploy --config infra/fly.postgres.toml --app scout-pg`
-5. Wait for PG to be healthy (`flyctl checks list --app scout-pg`).
-6. `flyctl apps create scout`
-7. `flyctl secrets set SCOUT_DATABASE_URL='postgresql+asyncpg://scout:...@scout-pg.internal:5432/scout' --app scout`
-8. `flyctl secrets set SCOUT_ORS_API_KEY=... --app scout`
-9. `flyctl deploy --config infra/fly.app.toml --app scout`  (this runs
-   `alembic upgrade head`)
-10. `flyctl ssh console --app scout -C 'python scripts/ingest_dc_addresses.py'` to load MAR rows into `dc_addresses`.
-11. `flyctl ssh console --app scout -C 'python scripts/ingest_dc.py'` for accessibility corridor features (`features` table).
-12. `flyctl status --app scout` confirms healthy.
+On push to `main`: re-run CI, build the image, tag with the commit SHA + push to
+a registry. **The actual "go live" step is one provider-specific command** — keep
+it isolated at the end of the job so swapping hosts is a few lines, not a
+rewrite. Store whatever credential the chosen host needs as a GHA secret.
 
 ## Performance budgets to verify
 
-- Cold-start (machine wake) → first 200 from `/api/health`: < 8 s.
-- Image pull on cold deploy: < 30 s.
-- Image size: < 200 MB.
+- Cold-start (container boot) → first 200 from `/api/health`: < 8 s.
+- Image size: < 200 MB compressed.
 
 ## Don't
 
-- Don't ship secrets in the image. Use Fly secrets for `SCOUT_ORS_API_KEY`,
-  `SCOUT_DATABASE_URL`, etc.
-- Don't include the source GeoJSONs in the final image (they're loaded into
-  the DB by a separate command). Saves ~50 MB.
-- Don't bake any DB data into the app image. The DB is the only source of
-  truth for features.
-- Don't expose the PG VM publicly on Fly. Internal-only via 6PN.
-- Don't run Playwright in the deploy workflow (only in CI).
+- Don't hardcode a provider name, hostname, or CLI into application code or the
+  image. Provider specifics live in the appendix + the chosen host's runbook.
+- Don't ship secrets in the image. Use the host's secret store.
+- Don't bake DB data or source GeoJSONs into the runtime image.
+- Don't expose the database publicly.
 - Don't use `latest` tags for base images; pin by digest where reasonable.
 
 ## Deliverable
 
-A working `infra/` and CI/CD that:
+A working `infra/` + CI that:
 
-- Builds locally: `docker compose up` works.
-- Deploys: `flyctl deploy` works after `flyctl secrets set …`.
+- Builds locally: `docker compose up` (dev) and `docker build -f infra/Dockerfile .`
+  (prod) both work.
+- Runs host-neutral: `docker compose -f infra/docker-compose.prod.yml up`
+  serves `/` and `/api/health` on a single port.
 - CI is green on a representative PR.
 
-Commit message: `feat(infra): dockerize and deploy to Fly per PRD M1-F15`.
+Commit message: `feat(infra): host-neutral dockerize + deploy per PRD M1-F15 (DEC-025)`.
+
+---
+
+## Appendix — per-provider deploy notes
+
+Pick one when ready; see `docs/proposals/green-hosting-shortlist.md` for the
+trade-offs and the required Third-party TOS review (AGENTS.md rule #12). Each is
+a thin mapping of the same image + env contract.
+
+### Single VPS (any Linux box with Docker)
+
+- `git clone` the repo, set `.env`, `docker compose -f infra/docker-compose.prod.yml up -d --build`.
+- Front with a TLS terminator (Cloudflare proxy, or an outer Caddy/nginx).
+- Deploy = pull + `up -d`. CI can `ssh` and run that.
+
+### Google Cloud — Cloud Run + Cloud SQL (GWF-verified green)
+
+- Push the image to Artifact Registry; deploy to Cloud Run (it injects `$PORT`
+  and terminates TLS). Cloud Run runs the single container as-is.
+- Provision Cloud SQL for PostgreSQL, enable PostGIS, set `SCOUT_DATABASE_URL`
+  (via the Cloud SQL connector or a private IP).
+- Deploy step: `gcloud run deploy`.
+
+### Render / Railway (easiest; not GWF-verified)
+
+- Connect the repo or push the image; the platform builds the Dockerfile and
+  injects `$PORT`. Add a managed Postgres and `CREATE EXTENSION postgis`.
+- Set env from the contract; deploy is automatic on push (or `render deploy`).
+
+### Hetzner (GWF-verified green, EU regions)
+
+- Same as the VPS path, on a Hetzner Cloud server in an EU (hydropower) region;
+  accept the transatlantic latency for the DC audience.

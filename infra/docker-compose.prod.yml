@@ -1,0 +1,132 @@
+# Host-neutral production stack for Scout (DEC-025).
+#
+# The lowest-common-denominator deploy: a single host running the Scout
+# runtime image (API + Next + tiles behind one Caddy port) plus a PostGIS
+# database with a persistent volume. Runs as-is on any VPS; the same image
+# also drops into a managed platform (Cloud Run / Render) pointed at a managed
+# Postgres via SCOUT_DATABASE_URL.
+#
+# Quick start (from the repo root, on the host):
+#   cp .env.example .env          # then set the secrets below
+#   docker compose -f infra/docker-compose.prod.yml up -d --build
+#   # first deploy only — load data (see infra/runbooks/first-deploy.md):
+#   docker compose -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
+#
+# Required env (set in .env or the shell):
+#   SCOUT_DB_PASSWORD   - Postgres password (no default; deploy fails without it)
+#   SCOUT_ORS_API_KEY   - OpenRouteService key (omit only if routing is stubbed)
+#
+# TLS: the in-image Caddy serves plain HTTP on the published port. Front this
+# with your platform's TLS terminator (Cloudflare, a host load balancer, or an
+# outer Caddy/nginx). See infra/runbooks/first-deploy.md.
+
+name: scout-prod
+
+services:
+
+  db:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.postgres
+    image: scout-postgis:local
+    container_name: scout-prod-db
+    environment:
+      POSTGRES_DB: scout
+      POSTGRES_USER: scout
+      POSTGRES_PASSWORD: ${SCOUT_DB_PASSWORD:?set SCOUT_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scout -d scout -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    # Internal only — no published host port. The app reaches it over the
+    # compose network at db:5432.
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: runtime
+    image: scout-app:prod
+    container_name: scout-prod-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Standard PostgreSQL DSN — the only DB coupling (DEC-025 / DEC-019).
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:${SCOUT_DB_PASSWORD:?set SCOUT_DB_PASSWORD in .env}@db:5432/scout
+      # Real adapters in prod (stub only in dev/CI).
+      SCOUT_ROUTING_PROVIDER: openrouteservice
+      SCOUT_GEOCODING_PROVIDER: local_dc
+      SCOUT_RESTROOMS_PROVIDER: refuge
+      SCOUT_ORS_API_KEY: ${SCOUT_ORS_API_KEY:-}
+      # Behind the in-image Caddy, the real client IP arrives in X-Forwarded-For.
+      # If a host edge sets a different header (e.g. Cf-Connecting-IP on
+      # Cloudflare), change SCOUT_CLIENT_IP_HEADER to match — no code change.
+      SCOUT_TRUST_PROXY_HEADERS: "true"
+      SCOUT_CLIENT_IP_HEADER: "X-Forwarded-For"
+      # CORS stays closed: the browser hits /api on the same origin as the app.
+      SCOUT_LOG_LEVEL: INFO
+      # Public Caddy port inside the container; mapped to the host below.
+      PORT: "8080"
+    ports:
+      - "${SCOUT_HTTP_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  # First-deploy / refresh only. Loads the bundled DC MAR address snapshot
+  # (DEC-023) into the `dc_addresses` table over the compose network.
+  # Uses the dev-backend target because it carries the bind-mounted scripts;
+  # the runtime image intentionally omits scripts + source GeoJSONs.
+  ingest-addresses:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-prod-ingest-addresses
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:${SCOUT_DB_PASSWORD:?set SCOUT_DB_PASSWORD in .env}@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/ingest_dc_addresses.py"]
+    restart: "no"
+
+  # First-deploy / refresh only. UPSERTs the DC accessibility corridor
+  # features (curb ramps, signals, obstacles, ...) into the `features` table
+  # from the bundled GeoJSONs under ./data.
+  ingest-features:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-prod-ingest-features
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:${SCOUT_DB_PASSWORD:?set SCOUT_DB_PASSWORD in .env}@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/ingest_dc.py"]
+    restart: "no"
+
+volumes:
+  pgdata:

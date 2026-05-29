@@ -121,7 +121,8 @@ when traffic exceeds 1500 req/day (per OQ-10).
 
 - We commit to instrumenting routing call volume from day one.
 - Fallback plan adds a future M2/M3 ops task to deploy a self-hosted ORS
-  container on Fly.io (memory profile: ~2 GB for a DC-region extract).
+  container alongside the app (a sibling container / host per `DEC-025`;
+  memory profile: ~2 GB for a DC-region extract).
 - Cache results aggressively (M1-F04) to delay hitting limits.
 
 ---
@@ -158,7 +159,14 @@ retained for traceability; DEC-019 is the active decision.
 
 ---
 
-## DEC-006 — Hosting: Fly.io for app + tiles; no separate CDN in M1
+## DEC-006 — _Superseded by DEC-025._ (Original: Hosting: Fly.io for app + tiles; no separate CDN in M1)
+
+**Status.** Superseded by `DEC-025`. The original Fly.io choice rested on
+research the owner later found faulty (Fly is not a Green Web Foundation–verified
+host, among other gaps). `DEC-025` replaces the "pick Fly now" stance with a
+host-neutral container contract and keeps the green-hosting evaluation as a
+separate research record. The body below — including the upgrade-path table —
+is retained as history; read `DEC-025` for the active hosting decision.
 
 **Context.** Zero budget. Need durable, container-native hosting.
 
@@ -452,7 +460,8 @@ No `/api/*` caching in M1.
 - `ci.yml`: runs on every PR. Lints (`ruff` for Python, `eslint` for TS), unit
   tests, Playwright E2E with axe, builds the Docker image (no push).
 - `deploy.yml`: runs on push to `main`. Re-runs tests, builds + pushes the image,
-  deploys to Fly via `flyctl deploy`.
+  then triggers the host's deploy (the exact command is provider-specific and
+  lives with the chosen host's runbook, per `DEC-025`).
 - Branch protection on `main`: requires green CI + 1 review for human contributors;
   solo-dev can self-merge with a documented exception.
 
@@ -462,7 +471,8 @@ No `/api/*` caching in M1.
 
 **Consequences.**
 
-- Fly API token stored as a GHA secret. Rotate on key incidents.
+- The deploy credential (whatever the chosen host needs) is stored as a GHA
+  secret. Rotate on key incidents.
 
 ---
 
@@ -485,9 +495,15 @@ on the final brand decision before M1 ships.
 
 ---
 
-## DEC-019 — Data store: PostgreSQL + PostGIS from M1, self-hosted in a sibling Fly VM
+## DEC-019 — Data store: PostgreSQL + PostGIS from M1, self-hosted in a sibling container
 
 **Supersedes:** DEC-004. **Folds in:** DEC-014.
+
+> **Note (DEC-025).** This decision originally specified a "sibling Fly VM".
+> Hosting is now provider-neutral per `DEC-025`; the substance is unchanged
+> (a self-hosted Postgres + PostGIS reachable from the app via
+> `SCOUT_DATABASE_URL`). The Fly-specific details below are retained as one
+> illustrative topology, not a commitment.
 
 **Context.** ~88k point features in M1 (read-only DC data), growing to include
 user contributions in M3 (writes, moderation queue, accounts). We considered
@@ -498,9 +514,9 @@ the start. The owner's already-declared `psycopg2-binary` / `sqlalchemy` /
 `alembic` dependencies signaled the intended end-state.
 
 **Decision.** PostgreSQL 16 with the PostGIS 3.x extension is the data store
-for M1 through M4. Self-hosted in a **sibling Fly VM** (separate `fly.toml`
-from the app) with a Fly-managed volume for persistence, fitting the
-zero-budget constraint (Fly's free tier includes 3 GB of persistent volume).
+for M1 through M4. Self-hosted in a **sibling container / host** (a separate
+deploy unit from the app) with a persistent volume, fitting the zero-budget
+constraint (most candidate hosts include a few GB of free persistent volume).
 The app connects via `SCOUT_DATABASE_URL`. SQLAlchemy 2.x is the ORM,
 GeoAlchemy2 provides the PostGIS bindings, Alembic owns the schema.
 
@@ -539,9 +555,10 @@ without per-query reprojection.
   `load_extension` quirks) and most contributors don't know it.
 - **PostgreSQL + PostGIS, Fly Managed Postgres.** Lowest ops; small monthly
   cost above the smallest free tier; subject to Fly's pricing-model changes.
-- **PostgreSQL + PostGIS, self-hosted in a Fly VM** _(chosen)._ Owner-confirmed
-  preference; fits zero budget; uses Fly's free volume; same DB engine across
-  dev, CI, and prod.
+- **PostgreSQL + PostGIS, self-hosted alongside the app** _(chosen)._
+  Owner-confirmed preference; fits zero budget; reuses the host's persistent
+  volume; same DB engine across dev, CI, and prod. (Host is provider-neutral
+  per `DEC-025`.)
 
 **Hosting topology.**
 
@@ -549,11 +566,13 @@ without per-query reprojection.
   volume. `apps/backend` connects via the compose network.
 - **CI (GitHub Actions):** a `postgis/postgis:16-3.4` service container;
   ephemeral.
-- **Prod (Fly):** a separate Fly app (`scout-pg`) running
-  `postgis/postgis:16-3.4` (or building from official Dockerfile pinned by
-  digest) on a `shared-cpu-1x` machine with a 3 GB volume. The app connects
-  via Fly's private network at `scout-pg.internal:5432`. Password injected via
-  Fly secrets; no public listener.
+- **Prod (provider-neutral, per `DEC-025`):** a separate deploy unit running
+  `postgis/postgis:16-3.4` (pinned by digest) with a persistent volume, reachable
+  from the app over a private network on `:5432`. The DSN is supplied via
+  `SCOUT_DATABASE_URL`; the password is injected as a secret; no public
+  listener. (On a single VPS this is the `db` service in
+  `infra/docker-compose.prod.yml`; on a managed platform it is a managed
+  Postgres + PostGIS instance.)
 
 **Rationale.**
 
@@ -575,7 +594,7 @@ without per-query reprojection.
 - Backups: not required in M1 (data is reproducible from source GeoJSONs).
   Required in M3+ (user contributions). Documented as a runbook hand-off in
   `infra/runbooks/postgres-backup.md` to be authored when M3 starts.
-- One sibling Fly app to operate. Trade-off accepted.
+- One sibling database deploy unit to operate. Trade-off accepted.
 
 ---
 
@@ -728,7 +747,7 @@ implementing-agent's read at decision time, not a guarantee.)_
   upgrade lever in `DEC-006`. ~85% confidence.
 - **Komoot's hosted Photon at `photon.komoot.io`** — same engine, no infra,
   "low-volume / fair use" upstream policy. Adopted as the _dev / soft-launch_
-  endpoint while self-hosting on Fly is staged in a follow-up PR. ~55%
+  endpoint while self-hosting is staged in a follow-up PR. ~55%
   confidence on long-term suitability; sufficient for M1's friend-of-author
   soft-launch (`DEC-PEND-E`).
 - **Mapbox Geocoding.** Best-in-class autocomplete, generous free tier.
@@ -754,11 +773,11 @@ phased PRs:
    provider switches to `backend` (calls our own API). `SCOUT_PHOTON_BASE_URL`
    defaults to `https://photon.komoot.io` so `make docker-up-realistic-run`
    exercises real Photon traffic without a local index build.
-2. **Follow-up PR (Fly-deploy ticket):** Self-host Photon on a sibling Fly
-   machine with a DC-scoped search index (built via the Nominatim → Photon
+2. **Follow-up PR (deploy ticket):** Self-host Photon on a sibling host
+   with a DC-scoped search index (built via the Nominatim → Photon
    import path documented in `infra/runbooks/photon-deploy.md`, authored
    alongside that PR). Production flips `SCOUT_PHOTON_BASE_URL` to the
-   internal Fly hostname. No application code changes.
+   internal hostname. No application code changes.
 
 **Rationale.**
 
@@ -767,7 +786,7 @@ phased PRs:
 - Backend-proxying centralizes the rate-limit, UA, attribution, and
   (future) cache concerns where we can enforce them. Browsers cannot.
 - The two-phase rollout gets us out of the TOS violation today while
-  keeping the Fly-deploy work to a self-contained PR.
+  keeping the self-hosting deploy work to a self-contained PR.
 - The `GeocodingProvider` adapter shape from `DEC-020` is unchanged at the
   application boundary; this DEC is an engine/transport swap, not an API
   contract change. Frontend callers continue to consume `AddressHit`.
@@ -848,7 +867,7 @@ no silent fallback geocoder.
   `SCOUT_GEOCODING_PROVIDER` becomes `local_dc`.
 - Operational refresh is manual or scripted quarterly; tracked in
   `infra/runbooks/refresh-dc-addresses.md`.
-- Fly / bandwidth risks from hosted Photon evaporate from the posture table
+- Hosting / bandwidth risks from hosted Photon evaporate from the posture table
   (`DEC-006` lever row updated accordingly).
 - `DEC-022` documented the intermediate compliant engine swap; retain it as
   history but treat `DEC-023` as authoritative for autocomplete source.
@@ -1036,6 +1055,85 @@ clustering when its own follow-on `DEC-NNN` and migration land.
   - **Phase 2, new ticket(s)** — _Intersection-aware feature
     aggregation (backend + frontend)._ Filed at the start of the
     next milestone with its own `DEC-NNN`.
+
+---
+
+## DEC-025 — Hosting: host-neutral container deploy (supersedes DEC-006)
+
+**Supersedes:** DEC-006.
+
+**Context.** DEC-006 committed Scout to Fly.io. The owner has since determined
+that recommendation rested on faulty research and re-evaluated hosting against
+explicit constraints: (1) prefer green / renewable-powered hosting (e.g.
+[Green Web Foundation](https://app.greenweb.org/directory/)–verified providers);
+(2) free or very cheap until there are users, with some willingness to pay more
+for green; (3) easy, user-friendly deploys; (4) must support the current stack
+(a Dockerized FastAPI API + Next.js standalone server + PostgreSQL/PostGIS); and
+(5) maximize portability so the host can change without a rename or refactor.
+
+A code audit confirmed there is **no hard Fly lock-in**: the runtime image
+already reads `SCOUT_DATABASE_URL` and secrets from the environment, external
+services sit behind the `DEC-020` adapters, and the rate limiter's trusted-proxy
+header is configurable (`SCOUT_CLIENT_IP_HEADER`, default `X-Forwarded-For` —
+not hardcoded to `Fly-Client-IP`). The one structural coupling was that the
+runtime image ran two processes (uvicorn + the Next server) and relied on an
+**external** reverse proxy to split `/api/*` from `/*`.
+
+**Decision.** Scout does **not** commit to a specific hosting provider. The
+deploy target is _"any host that can run an OCI/Docker image and reach a
+PostgreSQL 16 + PostGIS database."_ Provider selection is a deployment-time
+choice expressed through environment/config and a per-host runbook — never
+through application code or a hardcoded vendor.
+
+To make that contract real:
+
+- **One public port.** The runtime image is self-contained behind a single HTTP
+  port (`$PORT`, default `8080`). A bundled Caddy reverse proxy in the image
+  routes `/api/*` to the backend and everything else to the Next server,
+  removing the dependency on a host-provided proxy.
+- **Standard DB DSN.** The database is reached only via `SCOUT_DATABASE_URL`
+  (a standard PostgreSQL DSN). Any managed or self-hosted Postgres + PostGIS
+  satisfies it.
+- **Env-injected secrets.** Nothing host-specific is committed; configuration
+  comes from `SCOUT_*` env vars.
+- **Lowest-common-denominator deploy.** A provider-agnostic runbook
+  (`infra/runbooks/first-deploy.md`) plus a single-VPS
+  `infra/docker-compose.prod.yml` are the baseline; per-provider notes live in
+  an appendix to `docs/prompts/06-dockerize-and-deploy.md`.
+
+**Concrete provider selection is deferred** and recorded as research (not
+binding) in [`docs/proposals/green-hosting-shortlist.md`](proposals/green-hosting-shortlist.md),
+which scores Google Cloud, Render/Railway, indie green VPS hosts (Sustainable
+Hosting, Brownrice, Viridio), and Hetzner against the constraints — including
+Green Web Foundation verification status. Picking one is intended to be a
+one-runbook, one-env change.
+
+**Rationale.**
+
+- Portability was an explicit owner constraint; a host-neutral contract
+  satisfies it directly and de-risks any future migration.
+- The green-hosting goal is a tiebreaker the owner wants preserved but not
+  blocked on today; recording the shortlist keeps the option warm without
+  stalling M1.
+- Internalizing the reverse proxy removes the one real coupling and simplifies
+  every candidate host to "one port, one container, one DB URL".
+
+**Consequences.**
+
+- DEC-003, DEC-019, and DEC-022 drop "Fly VM" phrasing in favor of "a sibling
+  container / host"; their substance (self-host ORS, sibling Postgres, self-host
+  Photon) is unchanged.
+- The M1 deploy work (`M1-T05b`, the deferred Fly machinery) is reframed as
+  host-neutral packaging; provider-specific IaC is out of scope until a host is
+  chosen.
+- Per `AGENTS.md` rule #12, the chosen provider's acceptable-use / ToS must be
+  reviewed and recorded before production cutover; the shortlist proposal
+  carries a placeholder for this.
+- One new dependency in the image: **Caddy** (a single static binary, copied
+  from the official `caddy` image). Justification: removes the host-proxy
+  coupling with a tiny, well-maintained footprint; rejected alternatives were a
+  host-provided proxy (the coupling we are removing) and nginx (heavier config,
+  no automatic-HTTPS upside we need behind a platform TLS terminator).
 
 ---
 

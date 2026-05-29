@@ -1,0 +1,27 @@
+# In-image reverse proxy for the Scout runtime (DEC-025).
+#
+# Makes the image self-contained behind a single public port so it runs
+# unchanged on any host (VPS, Cloud Run, Render, ...) with no host-provided
+# proxy. TLS is terminated by whatever platform sits in front, so we serve
+# plain HTTP here and let the platform handle HTTPS.
+#
+#   /api/*  -> FastAPI / uvicorn on loopback :8081
+#   /*      -> Next.js standalone server on loopback :3000
+#
+# $PORT is supplied by the host (Cloud Run / Render / etc.); defaults to 8080
+# for local + docker-compose use.
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:{$PORT:8080} {
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

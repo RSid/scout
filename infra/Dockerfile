@@ -91,6 +91,17 @@ RUN chmod +x /scout/scripts/build_pmtiles.sh \
 
 
 # --------------------------------------------------------------------------
+# caddy-bin: source the Caddy static binary from the official image (DEC-025).
+#
+# Caddy is a single statically-linked Go binary, so the alpine image's
+# /usr/bin/caddy runs unchanged on the debian-slim runtime base. Pinned by
+# tag here; re-pin by digest (`docker buildx imagetools inspect caddy:2.8.4`)
+# alongside the PostGIS digest refresh in infra/README.md.
+# --------------------------------------------------------------------------
+FROM caddy:2.8.4-alpine AS caddy-bin
+
+
+# --------------------------------------------------------------------------
 # dev-backend: Compose dev target. The workspace venv at /app/.venv lives
 # OUTSIDE the bind-mount path (/app/apps/backend) so it never gets
 # shadowed by the host source mount.
@@ -147,7 +158,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/apps/backend \
     PATH="/app/.venv/bin:/usr/local/bin:${PATH}" \
     NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    # Public port for the in-image Caddy proxy (DEC-025). Hosts that inject
+    # their own $PORT (Cloud Run, Render, ...) override this; local + compose
+    # use the default. uvicorn (:8081) and Next (:3000) stay on loopback.
+    PORT=8080 \
+    # Keep Caddy's storage in a writable, non-persistent location so it runs
+    # as the unprivileged `scout` user without owning /app.
+    XDG_DATA_HOME=/tmp/caddy/data \
+    XDG_CONFIG_HOME=/tmp/caddy/config
 
 # Node runtime needed for the Next.js standalone server. The NodeSource
 # apt repo pulls ~200MB of recommended packages; the official tarball is
@@ -195,13 +214,18 @@ COPY --chown=scout:scout --from=builder-web /app/web/public           /app/web/p
 # Tiles: vector basemap served at /tiles/dc.pmtiles (range requests).
 COPY --chown=scout:scout --from=builder-tiles /out/dc.pmtiles /app/web/public/tiles/dc.pmtiles
 
+# In-image reverse proxy (DEC-025): one public port fronts uvicorn + Next.
+COPY --chmod=0755 --from=caddy-bin /usr/bin/caddy /usr/local/bin/caddy
+COPY --chown=scout:scout infra/Caddyfile /app/Caddyfile
+
 COPY --chown=scout:scout --chmod=0755 infra/start.sh /app/start.sh
 
 USER scout
 
-EXPOSE 8080 3000
+# Only the Caddy port is public; uvicorn (:8081) and Next (:3000) are loopback.
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)"]
+  CMD ["python", "-c", "import os,urllib.request,sys; port=os.environ.get('PORT','8080'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health', timeout=3).status==200 else 1)"]
 
 ENTRYPOINT ["/app/start.sh"]

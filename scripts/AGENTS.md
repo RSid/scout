@@ -8,8 +8,8 @@ This folder holds two distinct categories, with different rules:
    the DB. Subject to the _Stack_, _CLI shape_, _Idempotency_, and _Tests_
    sections below.
 2. **External-CLI wrappers** (shell) — thin, read-only or single-purpose
-   wrappers around tools like `gh`, `fly`, `docker`. Subject only to the
-   _External-CLI wrappers_ section below.
+   wrappers around tools like `gh`, `docker`, or the chosen host's deploy CLI.
+   Subject only to the _External-CLI wrappers_ section below.
 
 When in doubt, write Python. Reach for shell only when the entire job is
 "shape some args, call one external CLI, pass its output through."

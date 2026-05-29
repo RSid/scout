@@ -86,9 +86,9 @@ make docker-down      # stop, preserve the pgdata volume
 `make dev` is an alias for `make docker-up`. See `infra/README.md` for
 service layout, volume rationale, and how to reset the database.
 
-Fly.io (or whatever production host we eventually commit to) is tracked
-separately under `M1-T05b` and intentionally not part of the local
-workflow — you should not need a host account to develop Scout.
+Production hosting is host-neutral (`DEC-025`) and tracked separately under
+`M1-T05b`; it is intentionally not part of the local workflow — you should not
+need a host account to develop Scout.
 
 There is intentionally no stub `fastapi dev main.py` entrypoint;
 `apps/backend/` is scaffolded in `M1-T01` and runs via Compose.

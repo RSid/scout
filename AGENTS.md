@@ -86,7 +86,7 @@ AI agents work in this repo. They override comfort or speed.
 11. **Prefer registered scripts over ad-hoc CLI invocations.** Recurring
     operations (querying GitHub issues, ingesting data, generating fixtures)
     are checked into `scripts/`. Consult the *Tool registry* in
-    `scripts/AGENTS.md` before reconstructing a `gh` / `fly` / `docker`
+    `scripts/AGENTS.md` before reconstructing a `gh` / `docker` / host-CLI
     call by hand. If a recurring operation is missing, add a script and a
     registry row in the same PR.
 12. **Always read and respect the terms of use for any third-party API you
@@ -115,7 +115,7 @@ scout/
 │   └── web/             Next.js app — apps/web/AGENTS.md
 ├── data/                Source GeoJSONs (read-only inputs)
 ├── scripts/             Ingestion and dev utilities — scripts/AGENTS.md
-├── infra/               Dockerfiles, fly.toml, GH workflows, runbooks
+├── infra/               Dockerfiles, Caddyfile, compose, GH workflows, runbooks
 ├── docs/                PRD, decisions, prompts, schema
 ├── AGENTS.md            This file
 └── README.md
@@ -200,8 +200,8 @@ choices are left to the implementing agent; the principles are not.
 - **CORS is closed by default** (PRD M1-F12). Opt-in per env var for dev.
 - **Secrets never leave the env.** Configuration via `pydantic-settings` from
   env vars; nothing committed. Local dev uses `.env` (gitignored). Production
-  uses Fly secrets. Add `gitleaks` (or equivalent) to pre-commit when
-  scaffolding.
+  uses the host's secret store (per `DEC-025`, the host is provider-neutral).
+  Add `gitleaks` (or equivalent) to pre-commit when scaffolding.
 - **PII-safe logs.** Never log API keys, full request bodies, raw form
   values, user-entered addresses, email addresses, IP addresses (after the
   7-day retention per `NF-PRIV-04`), session tokens, or raw geolocation. *Do*
@@ -213,7 +213,7 @@ choices are left to the implementing agent; the principles are not.
 - **No third-party scripts in M1** (`NF-PRIV-01`). No analytics, no fonts
   from a CDN, no embedded widgets. Even harmless-looking ones (Google Fonts,
   gtag, Hotjar) leak IPs.
-- **L7 DDoS / WAF** is principally handled by whatever sits in front of Fly
+- **L7 DDoS / WAF** is principally handled by whatever sits in front of the app
   (Cloudflare or equivalent) once we have a hostname. The app's job is per-IP
   rate limits, cheap health checks, and capping any unbounded query (e.g.
   the 500-feature cap in `/api/route-features`).

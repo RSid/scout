@@ -21,7 +21,7 @@ needs the prompt + this repo to do its job.
 | 03 | `03-scaffold-frontend-m1.md` | Scaffold the Next.js app, map view, list view, profile panel | `apps/web/` |
 | 04 | `04-data-ingestion-m1.md` | Build the `scripts/ingest_dc.py` pipeline per the data schema | `scripts/` |
 | 05 | `05-wcag-audit.md` | Produce a WCAG 2.2 AA audit checklist for M1 | `docs/a11y-checklist.md` |
-| 06 | `06-dockerize-and-deploy.md` | Dockerfile, docker-compose, fly.toml, CI workflow | `infra/`, `.github/workflows/` |
+| 06 | `06-dockerize-and-deploy.md` | Dockerfile, in-image Caddy, docker-compose(.prod), CI workflow (host-neutral, DEC-025) | `infra/`, `.github/workflows/` |
 | 07 | `07-design-system.md` | Produce the design tokens, marker shapes, and key-screen mockups | `apps/web/design/` |
 | 08 | `08-category-copy-audit.md` | Audit and rewrite API-driven category labels (`ApiCategory.label`, `ApiCategory.description`) for voice consistency per DEC-021 | One PR; sources vary (backend / fixtures / PRD) |
 | 09 | `09-route-summary-strip.md` | Implement DEC-024 Phase 1: the supports/obstacles route-summary strip, cluster-bubble copy fix, and first-visit inline explainer | `apps/web/` |
