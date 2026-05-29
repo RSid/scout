@@ -30,17 +30,6 @@ guaranteed service-level agreement. That said, our targets are:
   timeline) shortly after acknowledgement.
 - Progress updates through the advisory thread until the issue is resolved.
 
-## Disclosure and embargo
-
-We follow coordinated disclosure. Please give us a reasonable window to fix the
-issue before disclosing it publicly — we suggest a **minimum of 90 days** from
-acknowledgement, unless we mutually agree on a shorter timeline (for example,
-when a fix ships sooner or the issue is already public).
-
-We will credit you in the release notes for the fix unless you prefer to remain
-anonymous. Scout has no bug-bounty budget, so reports are recognized with
-credit, not payment.
-
 ## Out of scope
 
 The following are generally **not** treated as security vulnerabilities:
