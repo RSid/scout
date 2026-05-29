@@ -1,5 +1,6 @@
 import { axe } from "jest-axe";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import SkipLink from "./a11y/SkipLink";
@@ -14,6 +15,25 @@ describe("SkipLink", () => {
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
+  });
+
+  it("moves focus to the in-page target when activated from the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <section id="scout-route-list" tabIndex={-1}>
+          Route list
+        </section>
+        <SkipLink href="#scout-route-list" label="Skip to list" preset="flow" />
+      </>,
+    );
+
+    const link = screen.getByRole("link", { name: "Skip to list" });
+    await user.click(link);
+
+    await waitFor(() => {
+      expect(document.getElementById("scout-route-list")).toHaveFocus();
+    });
   });
 
   it("accepts flow presets so section-local skips reuse the landmark styling", async () => {
