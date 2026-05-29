@@ -153,11 +153,39 @@ class CorridorRequest(BaseModel):
         return val
 
 
+class RestroomFeatureProperties(BaseModel):
+    """Normalized `Feature.properties` for a restroom (appendix §A + §B.8).
+
+    Mirrors `CorridorFeatureProperties` minus `along_route_meters`, since the
+    standalone restroom layer is not bound to a route.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    category: Literal["restrooms"]
+    kind: Literal["aid"]
+    condition: str | None
+    condition_normalized: str
+    inspected_year: int | None = Field(ge=1900, le=2100)
+    source_dataset: str
+    source_id: str
+    attributes: dict[str, Any]
+
+
+class RestroomGeoJSONFeature(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["Feature"] = "Feature"
+    geometry: CorridorPointGeoJSON
+    properties: RestroomFeatureProperties
+
+
 class RestroomsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
-    features: list[dict[str, Any]]
+    features: list[RestroomGeoJSONFeature]
 
 
 class ApiAddressHit(BaseModel):
