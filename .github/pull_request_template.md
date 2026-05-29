@@ -3,7 +3,7 @@ This template mirrors the PR description required by CONTRIBUTING.md and
 the "Working with this repo as an agent" rules in AGENTS.md. Fill in every
 section; reviewers will use it as a checklist.
 
-Do **not** delete the <!-- prefill:… --> HTML comments; `scripts/gh-pr.sh`
+Do **not** delete the prefill:…  HTML comments; `scripts/gh-pr.sh`
 fills the blocks between paired start/end comments when you draft a PR
 locally.
 
@@ -23,9 +23,7 @@ Title: Conventional Commits, with the ticket id.
 ## Tickets closed
 
 <!--
-Cite at least one. Use IDs from docs/02-prd.md (M{n}-F{nn}), the
-scaffolding importer (M{n}-T{nn}), docs/03-decisions.md (DEC-NNN), or
-open questions (OQ-NN).
+Cite at least one.
 -->
 <!-- prefill:tickets:start -->
 -
@@ -41,16 +39,6 @@ docs/proposals/DEC-NNN-followup.md and wait for sign-off.
 <!-- prefill:decisions:start -->
 -
 <!-- prefill:decisions:end -->
-
-## Tests added or changed
-
-<!--
-What new tests cover the behavior. Cite paths. If you changed an existing
-test, explain why — and confirm you did not weaken it (AGENTS.md rule #2).
--->
-<!-- prefill:tests:start -->
--
-<!-- prefill:tests:end -->
 
 ## Screenshots
 
@@ -68,6 +56,7 @@ relevant. Axe report attachments are welcome for a11y-touching work.
 ## Author checklist
 
 - [ ] PR title uses Conventional Commits and cites the ticket id.
+- [ ] Unit tested and manually tested, including for accessibility
 - [ ] **New dependency?** I added the one-sentence justification (what
       need, what was rejected, why this) and ran the local security scan
       (`pip-audit` for Python, `npm audit --omit=dev` for Node). See
@@ -76,5 +65,3 @@ relevant. Axe report attachments are welcome for a11y-touching work.
       the PRD §9.2 DDL, and added an Alembic migration in this PR.
 - [ ] **Closed an `OQ-NN`?** I marked it RESOLVED in `docs/02-prd.md` §10
       with a pointer to this PR.
-- [ ] I ran the local equivalents of CI. (Workflow gating is pending
-      `M1-T05`; once it lands this becomes "CI is green.")
