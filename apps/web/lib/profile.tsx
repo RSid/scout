@@ -27,9 +27,26 @@ type ProfileContextValue = Readonly<{
   persist: () => void;
   refreshRemote: () => Promise<void>;
   isReady: boolean;
+  /** True when localStorage can't be written (private mode / quota): we keep
+   * working from in-memory defaults but warn the user nothing will be saved. */
+  storageBlocked: boolean;
 }>;
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
+
+function localStorageWritable(): boolean {
+  if (typeof window === "undefined") {
+    return true; // SSR: assume available; the client re-checks after hydration.
+  }
+  try {
+    const probe = "scout.profile.probe";
+    window.localStorage.setItem(probe, "1");
+    window.localStorage.removeItem(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function readSelections(): PersistedPreferences | null {
   if (typeof window === "undefined") {
@@ -76,6 +93,7 @@ export function ProfileProvider({ children }: Readonly<{ children: React.ReactNo
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [selections, setSelections] = useState<Record<string, boolean>>({});
   const [ready, setReady] = useState(false);
+  const [storageBlocked, setStorageBlocked] = useState(false);
 
   const hydrateFromCategories = useCallback(async () => {
     const remote = await fetchCategories();
@@ -88,6 +106,7 @@ export function ProfileProvider({ children }: Readonly<{ children: React.ReactNo
 
     setCategories(remote.length > 0 ? remote : [...SAMPLE_CATEGORIES_FALLBACK]);
     setSelections(merged);
+    setStorageBlocked(!localStorageWritable());
     setReady(true);
   }, []);
 
@@ -97,6 +116,7 @@ export function ProfileProvider({ children }: Readonly<{ children: React.ReactNo
       const fallback = SAMPLE_CATEGORIES_FALLBACK;
       setSelections(mergeDefaults(fallback, stored));
       setCategories([...fallback]);
+      setStorageBlocked(!localStorageWritable());
       setReady(true);
     });
   }, [hydrateFromCategories]);
@@ -123,7 +143,14 @@ export function ProfileProvider({ children }: Readonly<{ children: React.ReactNo
     }
 
     const payload: PersistedPreferences = { version: 1, selections: { ...selections } };
-    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(payload));
+    try {
+      window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(payload));
+      setStorageBlocked(false);
+    } catch {
+      // Private mode / quota: keep the in-memory selections working and let the
+      // panel surface the "won't be saved on this device" notice.
+      setStorageBlocked(true);
+    }
   }, [selections]);
 
   const value = useMemo<ProfileContextValue>(
@@ -135,6 +162,7 @@ export function ProfileProvider({ children }: Readonly<{ children: React.ReactNo
       persist,
       refreshRemote: hydrateFromCategories,
       isReady: ready,
+      storageBlocked,
     }),
     [
       categories,
@@ -144,6 +172,7 @@ export function ProfileProvider({ children }: Readonly<{ children: React.ReactNo
       persist,
       hydrateFromCategories,
       ready,
+      storageBlocked,
     ],
   );
 
@@ -158,12 +187,74 @@ export function useProfile(): ProfileContextValue {
   return ctx;
 }
 
+/**
+ * Bundled mirror of the backend `/api/categories` manifest
+ * (`apps/backend/scout/data/categories.py`). Used only when the endpoint is
+ * unreachable so the panel still offers the full M1 category set rather than a
+ * single-row stub. Keep in sync with the backend if the canonical list changes.
+ */
 const SAMPLE_CATEGORIES_FALLBACK: ApiCategory[] = [
   {
     id: "curb_ramps",
     label: "Curb ramps",
-    description: "Pedestrian curb ramps and transitions.",
+    description: "DC ADA curb ramps; obstacles when non-compliant or missing.",
     kind: "obstacle",
     default_enabled: true,
+  },
+  {
+    id: "barriers",
+    label: "Sidewalk barriers",
+    description: "Trip hazards and missing sidewalk spans.",
+    kind: "obstacle",
+    default_enabled: true,
+  },
+  {
+    id: "audible_signals",
+    label: "Audible pedestrian signals",
+    description: "Presence or absence of audible crossing signals.",
+    kind: "aid",
+    default_enabled: true,
+  },
+  {
+    id: "bus_stops",
+    label: "Accessible bus stops",
+    description: "Metrobus ADA stop inventory (mostly M2).",
+    kind: "aid",
+    default_enabled: false,
+  },
+  {
+    id: "restrooms",
+    label: "Accessible restrooms",
+    description: "Community restroom data layered from Refuge Restrooms.",
+    kind: "aid",
+    default_enabled: true,
+  },
+  {
+    id: "rest_spots",
+    label: "Rest / seating spots",
+    description: "Benches mapped from auxiliary sources.",
+    kind: "aid",
+    default_enabled: true,
+  },
+  {
+    id: "water_cooling",
+    label: "Water / cooling spots",
+    description: "Drinking fountains and related aids.",
+    kind: "aid",
+    default_enabled: true,
+  },
+  {
+    id: "driveways",
+    label: "Driveway crossings",
+    description: "Minor curb transitions (opt-in category).",
+    kind: "obstacle",
+    default_enabled: false,
+  },
+  {
+    id: "median_cut_throughs",
+    label: "Median cut-throughs",
+    description: "Pedestrian refuges crossing medians.",
+    kind: "aid",
+    default_enabled: false,
   },
 ];

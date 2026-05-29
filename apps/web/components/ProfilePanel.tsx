@@ -7,14 +7,27 @@ import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 import { useProfile } from "@/lib/profile";
 
 export default function ProfilePanel() {
-  const { categories, selections, toggle, resetToDefaults, persist, isReady } =
-    useProfile();
+  const {
+    categories,
+    selections,
+    toggle,
+    resetToDefaults,
+    persist,
+    isReady,
+    storageBlocked,
+  } = useProfile();
   const announce = useAnnounce();
+
+  const handleToggle = (id: string, value: boolean): void => {
+    toggle(id, value);
+    const label = categories.find((category) => category.id === id)?.label ?? id;
+    announce(`${label} turned ${value ? "on" : "off"}.`);
+  };
 
   return (
     <Dialog.Root>
       <Dialog.Trigger className="inline-flex min-h-tap shrink-0 items-center justify-center rounded-tokenMd bg-accent px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark">
-        Accessibility profile
+        My accessibility needs
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-[rgba(34,28,20,0.55)] backdrop-blur-sm dark:bg-[rgba(10,12,22,0.65)]" />
@@ -39,13 +52,21 @@ export default function ProfilePanel() {
           >
             Pick which categories to show on the map and in the feature list.
           </p>
+          {storageBlocked ? (
+            <p
+              role="status"
+              className="mt-[var(--space-4)] rounded-tokenSm border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] px-[var(--space-4)] py-[var(--space-3)] text-sm text-[color:var(--color-warning-text)]"
+            >
+              Preferences won&apos;t be saved on this device.
+            </p>
+          ) : null}
           {isReady ? (
             <>
               <div className="mt-[var(--space-6)] max-h-[50vh] space-y-[var(--space-4)] overflow-y-auto border border-border px-[var(--space-4)] py-[var(--space-4)] rounded-tokenMd">
                 <ProfileCategoryFields
                   categories={categories}
                   selections={selections}
-                  onToggle={(id, value) => toggle(id, value)}
+                  onToggle={handleToggle}
                 />
               </div>
               <div className="mt-[var(--space-6)] flex flex-wrap gap-[var(--space-3)]">
@@ -67,7 +88,7 @@ export default function ProfilePanel() {
                   onClick={() => {
                     resetToDefaults();
                     persist();
-                    announce("Categories reset to defaults.");
+                    announce("Preferences reset to defaults.");
                   }}
                 >
                   Reset to defaults
