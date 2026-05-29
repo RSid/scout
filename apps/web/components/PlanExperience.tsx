@@ -6,10 +6,12 @@ import BasemapView from "@/components/BasemapView";
 import FeatureListView from "@/components/FeatureListView";
 import ProfilePanel from "@/components/ProfilePanel";
 import RouteSummary, { type RouteSummaryMode } from "@/components/RouteSummary";
+import StatusStrip from "@/components/StatusStrip";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
-import { DEMO_ROUTE } from "@/lib/fixtures/route-plan-fixtures";
+import { DEMO_ROUTE, DEMO_ROUTE_SUMMARY } from "@/lib/fixtures/route-plan-fixtures";
+import { derivePlannerStatus } from "@/lib/planner-status";
 
 import {
   fetchCorridorFeatures,
@@ -26,47 +28,10 @@ import {
 
 import type { CorridorListingStatus } from "@/components/FeatureListView";
 
-import { roughDistanceMeters } from "@/lib/geo";
-
 import type { AddressHit } from "@/lib/providers/geocoding";
 import { useProfile } from "@/lib/profile";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-function distanceAlongFallbackRoute(
-  route: GeoJSON.Feature<GeoJSON.LineString>,
-): number {
-  const coords = route.geometry.coordinates;
-  if (coords.length < 2) {
-    return 0;
-  }
-
-  let total = 0;
-  for (let i = 0; i < coords.length - 1; i += 1) {
-    const head = coords[i];
-    const tail = coords[i + 1];
-    if (!head || !tail || head.length < 2 || tail.length < 2) {
-      continue;
-    }
-
-    const lon0 = head[0];
-    const lat0 = head[1];
-    const lon1 = tail[0];
-    const lat1 = tail[1];
-    if (
-      lon0 === undefined ||
-      lat0 === undefined ||
-      lon1 === undefined ||
-      lat1 === undefined
-    ) {
-      continue;
-    }
-
-    total += roughDistanceMeters(lon0, lat0, lon1, lat1);
-  }
-
-  return total;
-}
 
 function straightLinePreview(
   start: AddressHit,
@@ -147,8 +112,6 @@ export default function PlanExperience() {
     return () => mq.removeEventListener("change", syncViewport);
   }, []);
 
-  const demoApproxMeters = useMemo(() => distanceAlongFallbackRoute(DEMO_ROUTE), []);
-
   const enabledCategories = useMemo(() => {
     if (!isReady) {
       return [];
@@ -170,16 +133,6 @@ export default function PlanExperience() {
       : null;
 
   desiredRouteKeyRef.current = routeKey;
-
-  const straightLineMeters =
-    startHit !== null && destinationHit !== null
-      ? roughDistanceMeters(
-          startHit.lon,
-          startHit.lat,
-          destinationHit.lon,
-          destinationHit.lat,
-        )
-      : demoApproxMeters;
 
   useEffect(() => {
     if (routeKey === null || startHit === null || destinationHit === null) {
@@ -268,35 +221,36 @@ export default function PlanExperience() {
   }, [destinationHit, routeFetch, routeKey, startHit]);
 
   /**
-   * Line drawn on the map. Null when routing failed: a straight crow-flies line
-   * would imply a real walking path that doesn't follow streets, so we draw
-   * nothing and surface the "directions unavailable" warning instead.
+   * Line drawn on the map. We never draw a straight crow-flies line: it would
+   * imply a walking path that doesn't follow streets. So we draw the frozen
+   * sample route on first load, the real route once it resolves, and nothing
+   * at all while routing is pending or unavailable (the status strip explains
+   * why).
    */
   const mapRoute = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
-    if (routeFetch.kind === "error" && routeFetch.routeKey === routeKey) {
-      return null;
+    if (startHit === null || destinationHit === null) {
+      return DEMO_ROUTE;
     }
-    return corridorRouteFeature;
-  }, [corridorRouteFeature, routeFetch, routeKey]);
+    if (
+      routeFetch.kind === "ok" &&
+      routeFetch.routeKey === routeKey &&
+      routeKey !== null
+    ) {
+      return routeFetch.line;
+    }
+    return null;
+  }, [destinationHit, routeFetch, routeKey, startHit]);
 
   const summaryModel = useMemo((): Readonly<{
     mode: RouteSummaryMode;
     summary: RouteSummaryPayload | null;
-    approxMeters: number;
   }> => {
     if (routeKey === null || startHit === null || destinationHit === null) {
-      return {
-        mode: "sample",
-        summary: null,
-        approxMeters: demoApproxMeters,
-      };
+      // First-load sample: show the frozen example route's real numbers.
+      return { mode: "sample", summary: DEMO_ROUTE_SUMMARY };
     }
 
-    const pending = {
-      mode: "pending" as const,
-      summary: null,
-      approxMeters: straightLineMeters,
-    };
+    const pending = { mode: "pending" as const, summary: null };
 
     switch (routeFetch.kind) {
       case "unset":
@@ -304,29 +258,23 @@ export default function PlanExperience() {
         return pending;
       case "error":
         return routeFetch.routeKey === routeKey
-          ? {
-              mode: "approx-fallback",
-              summary: null,
-              approxMeters: straightLineMeters,
-            }
+          ? { mode: "approx-fallback", summary: null }
           : pending;
       case "ok":
         return routeFetch.routeKey === routeKey
-          ? {
-              mode: "live",
-              summary: routeFetch.summary,
-              approxMeters: routeFetch.summary.distanceMeters,
-            }
+          ? { mode: "live", summary: routeFetch.summary }
           : pending;
     }
-  }, [
-    demoApproxMeters,
-    destinationHit,
-    routeFetch,
-    routeKey,
-    startHit,
-    straightLineMeters,
-  ]);
+  }, [destinationHit, routeFetch, routeKey, startHit]);
+
+  const plannerStatus = useMemo(
+    () =>
+      derivePlannerStatus({
+        summaryMode: summaryModel.mode,
+        corridorStatus: corridorListingStatus,
+      }),
+    [summaryModel.mode, corridorListingStatus],
+  );
 
   function handlePickStart(hit: AddressHit) {
     setStartHit(hit);
@@ -369,7 +317,7 @@ export default function PlanExperience() {
       })
       .catch(() => {
         setCorridorFeatures([]);
-        setCorridorListingStatus("ready");
+        setCorridorListingStatus("error");
         announce(en.corridorListingFailedBrief);
       });
 
@@ -427,11 +375,7 @@ export default function PlanExperience() {
         <ProfilePanel />
       </header>
 
-      <RouteSummary
-        mode={summaryModel.mode}
-        summary={summaryModel.summary}
-        approximateDistanceMeters={summaryModel.approxMeters}
-      />
+      <RouteSummary mode={summaryModel.mode} summary={summaryModel.summary} />
 
       <fieldset
         aria-labelledby="scout-planner-heading"
@@ -441,6 +385,14 @@ export default function PlanExperience() {
         <legend id="scout-planner-heading" className="sr-only">
           Plan a route
         </legend>
+        {plannerStatus !== null ? (
+          <StatusStrip
+            severity={plannerStatus.severity}
+            title={plannerStatus.title}
+            detail={plannerStatus.detail}
+            className="sticky top-0 z-[10] shadow-modal"
+          />
+        ) : null}
         <AddressAutocomplete
           id="scout-start"
           label="Starting point"

@@ -28,8 +28,9 @@ import { useEffect, useMemo, useState } from "react";
 
 export type CorridorFeatureProps = CorridorResponse["features"][number];
 
-/** Corridor fetch UX: `idle` before profile ready or no categories enabled. */
-export type CorridorListingStatus = "idle" | "loading" | "ready";
+/** Corridor fetch UX: `idle` before profile ready or no categories enabled;
+ *  `error` when the fetch failed (kept distinct from a legitimately empty `ready`). */
+export type CorridorListingStatus = "idle" | "loading" | "ready" | "error";
 
 type Props = Readonly<{
   features: readonly CorridorFeatureProps[];
@@ -335,7 +336,9 @@ export default function FeatureListView({
   }, [features]);
 
   const showUpdating = listingStatus === "loading" && features.length === 0;
-  const showEmpty = listingStatus === "ready" && sortedPointFeatures.length === 0;
+  const showError = listingStatus === "error";
+  const showEmpty =
+    !showError && listingStatus === "ready" && sortedPointFeatures.length === 0;
 
   return (
     <section
@@ -367,13 +370,19 @@ export default function FeatureListView({
         </p>
       ) : null}
 
+      {showError ? (
+        <p className="rounded-tokenLg border border-[color:var(--color-danger-border)] bg-[color:var(--color-danger-surface)] px-[var(--space-4)] py-[var(--space-4)] text-sm text-[color:var(--color-danger-text)]">
+          {en.corridorListingErrorTitle}
+        </p>
+      ) : null}
+
       {showEmpty ? (
         <p className="rounded-tokenLg border border-dashed border-border bg-surface-elevated px-[var(--space-4)] py-[var(--space-4)] text-sm text-[color:var(--color-text-muted)]">
           {en.alongRouteEmptyState}
         </p>
       ) : null}
 
-      {!showEmpty && sortedPointFeatures.length > 0 ? (
+      {!showEmpty && !showError && sortedPointFeatures.length > 0 ? (
         <ol className="space-y-[var(--space-3)]">
           {sortedPointFeatures.map((feat, idx) => {
             const catId =
