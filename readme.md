@@ -87,6 +87,17 @@ end-to-end dev loop. `make help` lists every shortcut (lint, tests,
 Compose, `make ingest` dry tally, `make ingest-write`, …). Copy `.env.example` to `.env` and adjust
 `SCOUT_*` variables when you need host-side overrides.
 
+Once the stack is up, populate the `features` table from DC OpenData
+(`scripts/ingest_dc.py`, M1-F11):
+
+```bash
+docker compose --project-directory . -f infra/docker-compose.yml \
+    --profile ingest run --rm ingest
+```
+
+`make ingest` runs the same script in dry-run mode against your active
+`SCOUT_DATABASE_URL` — useful for previewing counts before a real write.
+
 ### Connect with a GUI (Beekeeper Studio, TablePlus, DBeaver, …)
 
 Once the stack is up (`make docker-up`), Postgres/PostGIS is exposed on your

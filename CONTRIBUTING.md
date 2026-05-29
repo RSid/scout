@@ -92,6 +92,20 @@ workflow — you should not need a host account to develop Scout.
 There is intentionally no stub `fastapi dev main.py` entrypoint;
 `apps/backend/` is scaffolded in `M1-T01` and runs via Compose.
 
+### Loading the DC data
+
+```bash
+make ingest                            # dry-run smoke (no DB writes)
+
+# Real write against the Compose database (M1-F11 / M1-T03):
+docker compose --project-directory . -f infra/docker-compose.yml \
+    --profile ingest run --rm ingest
+```
+
+Idempotent: re-running with unchanged inputs writes zero rows. See
+`scripts/README.md` for flags, the Overpass cache, and the testcontainers-
+backed test suite under `apps/backend/tests/test_ingest_db.py`.
+
 ### Running tests
 
 ```bash

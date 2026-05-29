@@ -149,7 +149,9 @@ services:
       PYTHONPATH: /app/apps/backend
     volumes:
       - ./apps/backend:/app/apps/backend
-      - ./data:/app/data:ro
+      # Writable so the Overpass cache (data/derived/) can be populated on
+      # first run; everything else under /app/data stays untouched.
+      - ./data:/app/data
       - ./scripts:/app/scripts:ro
     working_dir: /app
     # The dev-backend image bakes /app/.venv (with python + deps) onto $PATH
