@@ -54,8 +54,7 @@ export default function AccessibilityPage() {
         <p className="text-[color:var(--color-text-muted)]">
           Every page is checked automatically for accessibility problems (using a tool
           called axe-core) before any change ships, and a change can&apos;t go live with
-          a known WCAG 2.2 AA problem. People also test Scout by keyboard and with
-          screen readers — VoiceOver, NVDA, and TalkBack.
+          a known WCAG 2.2 AA problem.
         </p>
         <p className="text-[color:var(--color-text-muted)]">
           The first full manual review hasn&apos;t been finished yet. Until it has,
