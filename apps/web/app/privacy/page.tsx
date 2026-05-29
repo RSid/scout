@@ -136,6 +136,43 @@ export default function PrivacyPage() {
       </section>
 
       <section
+        aria-labelledby="privacy-questions-heading"
+        className="space-y-[var(--space-3)]"
+      >
+        <h2
+          id="privacy-questions-heading"
+          className="text-2xl font-semibold text-[color:var(--color-text)]"
+        >
+          Privacy questions
+        </h2>
+        <p className="text-[color:var(--color-text-muted)]">
+          Scout has no accounts and no contact form. For a privacy question, or to flag
+          something on this page, open a GitHub issue. To report a security or privacy
+          vulnerability, use GitHub&apos;s private security advisories instead of a
+          public issue.
+        </p>
+        <ul className="list-disc space-y-[var(--space-2)] pl-[var(--space-6)] text-[color:var(--color-text)]">
+          <li>
+            <Link
+              href={`${GITHUB_REPO}/issues`}
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+            >
+              Open a GitHub issue
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={`${GITHUB_REPO}/security`}
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+            >
+              Security disclosures (GitHub Security tab)
+            </Link>
+          </li>
+        </ul>
+      </section>
+
+      <section
         aria-labelledby="privacy-changes-heading"
         className="space-y-[var(--space-3)]"
       >
