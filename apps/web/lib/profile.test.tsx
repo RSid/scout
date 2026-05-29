@@ -138,3 +138,40 @@ describe("ProfileProvider offline hydrate", () => {
     expect(vi.mocked(fetch).mock.calls.length).toBe(1);
   });
 });
+
+describe("ProfileProvider storage availability", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ categories: [REMOTE_CATEGORY] }),
+      } satisfies Partial<Response>),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("flags storageBlocked when localStorage writes throw (private mode/quota)", async () => {
+    // MOCK: simulate Safari private mode / quota by making setItem throw.
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+
+    function StorageProbe(): ReactNode {
+      const { isReady, storageBlocked } = useProfile();
+      return isReady ? <p>{storageBlocked ? "blocked" : "writable"}</p> : null;
+    }
+
+    render(
+      <ProfileProvider>
+        <StorageProbe />
+      </ProfileProvider>,
+    );
+
+    expect(await screen.findByText("blocked")).toBeInTheDocument();
+  });
+});

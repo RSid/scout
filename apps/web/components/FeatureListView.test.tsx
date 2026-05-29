@@ -139,4 +139,98 @@ describe("FeatureListView", () => {
       /Data may be outdated \(last inspected 2016\)/,
     );
   });
+
+  it("renders exactly one details row per corridor point feature", async () => {
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "a",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Good",
+            condition_normalized: "good",
+            inspected_year: 2021,
+            along_route_meters: 10,
+          }),
+          corridorPoint({
+            id: "b",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Fair",
+            condition_normalized: "difficult",
+            inspected_year: 2021,
+            along_route_meters: 40,
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /^Along your route/ });
+
+    expect(container.querySelectorAll("details")).toHaveLength(2);
+  });
+
+  it("labels a missing inspection year rather than printing a placeholder number", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:no-year",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Good",
+            condition_normalized: "good",
+            inspected_year: null,
+            along_route_meters: 12,
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await user.click(container.querySelector("summary") as HTMLElement);
+
+    expect(await screen.findByText(/inspection date unknown/i)).toBeInTheDocument();
+  });
+
+  it("renders refuge restroom notes as plain text, never as HTML", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:restroom",
+            category: "restrooms",
+            kind: "aid",
+            condition: "Accessible",
+            condition_normalized: "good",
+            inspected_year: 2022,
+            source_dataset: "refugerestrooms",
+            along_route_meters: 20,
+            attributes: { notes: "<img src=x onerror=alert(1)>Ramp at side door" },
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await user.click(container.querySelector("summary") as HTMLElement);
+
+    // The raw string is shown verbatim; no <img> element is injected.
+    expect(
+      await screen.findByText(/<img src=x onerror=alert\(1\)>Ramp at side door/),
+    ).toBeInTheDocument();
+    expect(container.querySelector("img[src='x']")).toBeNull();
+  });
 });

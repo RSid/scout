@@ -185,8 +185,16 @@ test.describe("plan view keyboard affordances", () => {
   });
 
   test("Skip map activates the textual route list landmark", async ({ page }) => {
+    const corridorLoaded = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/route-features") &&
+        response.request().method() === "POST" &&
+        response.status() === 200,
+    );
+
     await page.goto("/plan");
     await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+    await corridorLoaded;
 
     await page.getByRole("link", { name: "Skip to list", exact: true }).focus();
     await page.keyboard.press("Enter");
