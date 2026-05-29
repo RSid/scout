@@ -145,5 +145,5 @@ Use the GitHub Issues tab. You'll see two structured templates:
 
 **Security vulnerabilities** do not go in public issues — open a private
 security advisory on this repo's **Security** tab instead. See
-`CONTRIBUTING.md` for the full process; `SECURITY.md` lands with `M1-T09`.
+`CONTRIBUTING.md` and `SECURITY.md` for the full disclosure process.
 Washington, DC accessibility navigation — monorepo layout per PRD §8 (`docs/02-prd.md`): `apps/`, `data/`, `scripts/`, `infra/`, `docs/`.

@@ -766,7 +766,7 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **NF-OSS-01** License: AGPL-3.0. `LICENSE` file present.
 - **NF-OSS-02** ~~`CONTRIBUTING.md` explains how to set up the dev env, run tests,
   and submit a PR.~~ **DONE** — see `CONTRIBUTING.md`.
-- **NF-OSS-03** `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
+- **NF-OSS-03** ~~`CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).~~ **DONE** — see `CODE_OF_CONDUCT.md`.
 - **NF-OSS-04** Issue templates for "Data is wrong about a place" (links to M3
   flow when shipped) and "Found a bug."
 - **NF-OSS-05** Public roadmap (this PRD) linked from the README.
