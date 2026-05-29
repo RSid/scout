@@ -45,4 +45,18 @@ describe("ProfileCategoryFields", () => {
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
   });
+
+  it("renders each category's kind as text, not color alone", () => {
+    render(
+      <ProfileCategoryFields
+        categories={SAMPLE}
+        selections={{ curb_ramps: true, narrow_paths: false }}
+        onToggle={vi.fn()}
+      />,
+    );
+
+    // curb_ramps -> aid -> "Support"; narrow_paths -> obstacle -> "Obstacle".
+    expect(screen.getByText("Support")).toBeInTheDocument();
+    expect(screen.getByText("Obstacle")).toBeInTheDocument();
+  });
 });

@@ -63,7 +63,6 @@ services:
       # Compose-network DSN — inside the bridge, `db` resolves to the
       # PostGIS container. The host-side override lives in `.env.example`.
       SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
-      SCOUT_NOMINATIM_USER_AGENT: "scout-dev/0.1 (compose)"
       # Provider stubs let the stack boot without external secrets.
       SCOUT_ROUTING_PROVIDER: stub
       SCOUT_GEOCODING_PROVIDER: stub
@@ -102,7 +101,10 @@ services:
       # new host port (not the container port 8080), hence the interpolation.
       NEXT_PUBLIC_SCOUT_API_BASE_URL: "http://localhost:${SCOUT_BACKEND_HOST_PORT:-8080}"
       NEXT_PUBLIC_SCOUT_MAP_MODE: stub
-      NEXT_PUBLIC_SCOUT_STUB_GEOCODE: "1"
+      # Per DEC-022 the frontend's only geocoder transports are `backend`
+      # (calls our own /api/geocode/*) and `stub`. The stubbed stack here
+      # keeps the in-process stub for offline dev.
+      NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: "stub"
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
       - ./apps/web:/app/web
@@ -116,11 +118,21 @@ services:
     restart: unless-stopped
 
   # Profile-gated. Stays out of `docker compose up` until invoked
-  # explicitly so it cannot block the dev loop.
+  # explicitly so it cannot block the dev loop. Runs inside the bridge
+  # network so `db:5432` resolves and the host-side DSN / host-port
+  # remapping never enters the picture.
+  #
+  #   make ingest-dc-addresses
+  #   # raw equivalent:
   #   docker compose --project-directory . -f infra/docker-compose.yml \
-  #     --profile ingest run --rm ingest --dry-run
-  # (Drop `--dry-run` to actually write rows. The DC PMTiles build is
-  # produced separately via scripts/build_pmtiles.sh.)
+  #                  --profile ingest run --rm ingest
+  #
+  # Extra args pass through:
+  #   docker compose ... --profile ingest run --rm ingest --dry-run
+  #
+  # When scripts/ingest_dc.py (M1-F11 / M1-T03) lands, give it its own
+  # service or argument switch — keep this one focused on DC MAR per
+  # DEC-023 so the failure surface stays small.
   ingest:
     profiles: ["ingest"]
     build:
@@ -141,8 +153,11 @@ services:
       # first run; everything else under /app/data stays untouched.
       - ./data:/app/data
       - ./scripts:/app/scripts:ro
-    working_dir: /app/apps/backend
-    entrypoint: ["uv", "run", "python", "/app/scripts/ingest_dc.py"]
+    working_dir: /app
+    # The dev-backend image bakes /app/.venv (with python + deps) onto $PATH
+    # via the deps-backend stage; we invoke its python directly. PYTHONPATH
+    # above is what lets `from scout.config import ...` resolve.
+    entrypoint: ["python", "/app/scripts/ingest_dc_addresses.py"]
     restart: "no"
 
 volumes:

@@ -25,6 +25,10 @@ const stubs = vi.hoisted(() => {
 
   class NavigationControl {}
   class Popup {
+    readonly on = vi.fn();
+
+    readonly off = vi.fn();
+
     addTo() {
       return this;
     }
@@ -32,6 +36,10 @@ const stubs = vi.hoisted(() => {
     remove() {}
 
     setHTML() {
+      return this;
+    }
+
+    setDOMContent() {
       return this;
     }
 
@@ -54,6 +62,7 @@ const stubs = vi.hoisted(() => {
       {
         setData: ReturnType<typeof vi.fn>;
         getClusterExpansionZoom: () => Promise<number>;
+        getClusterLeaves: () => Promise<GeoJSON.Feature[]>;
       }
     >();
     styleLoaded = false;
@@ -108,10 +117,24 @@ const stubs = vi.hoisted(() => {
     readonly getSource = vi.fn((id: string) => {
       let stub = this.sourceStubs.get(id);
       if (!stub) {
+        const leaf = (category: string, lon: number, lat: number): GeoJSON.Feature => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [lon, lat] },
+          properties: { category },
+        });
         stub = {
           setData: vi.fn(),
-          /* Resolve so cluster taps exercise map.easeTo (reduced-motion branch). */
           getClusterExpansionZoom: () => Promise.resolve(14),
+          /* 3 curb ramps + 2 rest spots so cluster taps exercise the DEC-024
+             category-mix announcement and fitBounds framing. */
+          getClusterLeaves: () =>
+            Promise.resolve([
+              leaf("curb_ramps", -77.03, 38.9),
+              leaf("curb_ramps", -77.031, 38.901),
+              leaf("curb_ramps", -77.032, 38.902),
+              leaf("rest_spots", -77.033, 38.903),
+              leaf("rest_spots", -77.034, 38.904),
+            ]),
         };
         this.sourceStubs.set(id, stub);
       }
@@ -125,6 +148,8 @@ const stubs = vi.hoisted(() => {
     readonly easeTo = vi.fn();
 
     readonly zoomIn = vi.fn();
+
+    readonly fitBounds = vi.fn();
   }
 
   return {
@@ -137,6 +162,46 @@ const stubs = vi.hoisted(() => {
     },
     NavigationControl,
     Popup,
+  };
+});
+
+vi.mock("@/lib/map/markers", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/map/markers")>();
+
+  return {
+    ...actual,
+    registerScoutRouteMarkerSprites: vi.fn(async () => undefined),
+  };
+});
+
+vi.mock("@/lib/profile", () => {
+  const categories = [
+    {
+      id: "curb_ramps",
+      label: "Curb ramps",
+      description: "Test curb copy.",
+      kind: "obstacle" as const,
+      default_enabled: true,
+    },
+    {
+      id: "rest_spots",
+      label: "Rest spots",
+      description: "Test bench copy.",
+      kind: "aid" as const,
+      default_enabled: true,
+    },
+  ];
+
+  return {
+    useProfile: (): unknown => ({
+      categories,
+      selections: {},
+      toggle: (): void => undefined,
+      resetToDefaults: (): void => undefined,
+      persist: (): void => undefined,
+      refreshRemote: async (): Promise<void> => undefined,
+      isReady: true,
+    }),
   };
 });
 
@@ -219,6 +284,39 @@ describe("BasemapInner", () => {
     expect(stubs.instances[0]?.constructorOptions?.keyboard).toBe(true);
   });
 
+  it("announces the cluster category mix and fits its members on activation (M1-F08.S2, DEC-024)", async () => {
+    render(
+      <AnnounceProvider>
+        <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+      </AnnounceProvider>,
+    );
+
+    await flushMapLoads();
+
+    const mapStub = stubs.instances[0]!;
+    const clusterEvt = {
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-77.03, 38.9] },
+          properties: { point_count: 5, cluster_id: 1 },
+        },
+      ],
+      lngLat: { lng: -77.03, lat: 38.9 },
+    };
+
+    for (const fn of mapStub.listeners.get("click") ?? []) {
+      fn(clusterEvt);
+    }
+
+    expect(
+      await screen.findByText(
+        "Cluster of 5: 3 curb ramps, 2 rest spots; press Enter to zoom in.",
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
+  });
+
   // Acceptance criteria carried forward from #50 into the follow-up #51:
   // data prop changes must NOT recreate the MapLibre instance; they must push
   // through getSource(id).setData. A synthetic ResizeObserver firing must call
@@ -285,7 +383,7 @@ describe("BasemapInner", () => {
       });
     });
 
-    it("calls map.resize() when its container reports a new size", async () => {
+    it("calls map.resize() after ResizeObserver settles on the next animation frame", async () => {
       render(
         <AnnounceProvider>
           <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
@@ -302,7 +400,63 @@ describe("BasemapInner", () => {
       expect(resizeObserverCallbacks).toHaveLength(1);
       resizeObserverCallbacks[0]([], {} as ResizeObserver);
 
-      expect(map.resize).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(map.resize).toHaveBeenCalledTimes(1));
+    });
+
+    it("fits the viewport instantly on first bootstrap, then animates when the route swaps", async () => {
+      const { rerender } = render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const mapStub = stubs.instances[0];
+      await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
+
+      expect(mapStub.fitBounds.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      expect(mapStub.fitBounds.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({
+          padding: 48,
+          maxZoom: 16,
+          animate: false,
+          duration: 0,
+        }),
+      );
+
+      mapStub.fitBounds.mockClear();
+
+      const shiftedRoute: typeof DEMO_ROUTE = {
+        ...DEMO_ROUTE,
+        id: "reroute-shifted",
+        geometry: {
+          ...DEMO_ROUTE.geometry,
+          coordinates: [
+            [-77.099, 38.892],
+            [-76.98, 39.025],
+          ],
+        },
+      };
+
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={shiftedRoute} />
+        </AnnounceProvider>,
+      );
+
+      await waitFor(() =>
+        expect(mapStub.fitBounds.mock.calls.length).toBeGreaterThanOrEqual(1),
+      );
+
+      expect(mapStub.fitBounds.mock.calls.at(-1)?.[1]).toEqual(
+        expect.objectContaining({
+          padding: 48,
+          maxZoom: 16,
+          animate: true,
+          duration: 600,
+        }),
+      );
     });
   });
 
@@ -324,7 +478,7 @@ describe("BasemapInner", () => {
       );
     });
 
-    it("clusters easeTo snaps without easing when prefers-reduced-motion is set", async () => {
+    it("cluster fitBounds snaps without easing when prefers-reduced-motion is set", async () => {
       render(
         <AnnounceProvider>
           <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
@@ -346,13 +500,39 @@ describe("BasemapInner", () => {
       });
 
       await waitFor(() => {
-        expect(mapStub.easeTo).toHaveBeenCalledWith(
+        // padding/maxZoom distinguish the cluster framing from route framing.
+        expect(mapStub.fitBounds).toHaveBeenCalledWith(
+          expect.anything(),
           expect.objectContaining({
+            padding: 64,
+            maxZoom: 17,
             animate: false,
             duration: 0,
           }),
         );
       });
+    });
+
+    it("fitBounds skips route framing animation when prefers-reduced-motion is set", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const mapStub = stubs.instances[0];
+      await waitFor(() => expect(mapStub.fitBounds).toHaveBeenCalled());
+
+      expect(mapStub.fitBounds).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          animate: false,
+          duration: 0,
+          padding: 48,
+          maxZoom: 16,
+        }),
+      );
     });
   });
 });

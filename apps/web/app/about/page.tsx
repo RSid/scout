@@ -99,6 +99,52 @@ export default function AboutPage() {
         </section>
 
         <section
+          aria-labelledby="online-services-heading"
+          className="space-y-[var(--space-5)]"
+        >
+          <h2
+            id="online-services-heading"
+            className="text-2xl font-semibold text-[color:var(--color-text)]"
+          >
+            Search &amp; routing services
+          </h2>
+          <p className="text-[color:var(--color-text-muted)]">
+            Scout pulls address suggestions from District of Columbia open data —
+            specifically the&nbsp;
+            <Link
+              href="https://opendata.dc.gov/pages/addressing-in-dc"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Master Address Repository
+            </Link>{" "}
+            (MAR) curated by OCTO&apos;s GIS program. Addresses are refreshed
+            periodically and loaded into Scout&apos;s servers; no third-party geocoder
+            is involved at autocomplete time (<code>/api/geocode/search</code>). Routing
+            still uses{" "}
+            <Link
+              href="https://openrouteservice.org/"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              OpenRouteService
+            </Link>
+            , which computes mobility-aware directions over{" "}
+            <Link
+              href="https://www.openstreetmap.org/copyright"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              OpenStreetMap
+            </Link>
+            .
+          </p>
+        </section>
+
+        <section
           id="disclaimer"
           aria-labelledby="disclaimer-heading"
           className="space-y-[var(--space-4)] rounded-tokenLg border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] p-[var(--space-6)] text-[color:var(--color-warning-text)]"

@@ -1527,7 +1527,7 @@ dev = [
     { name = "pytest-randomly", specifier = ">=4.1.0" },
     { name = "respx", specifier = ">=0.23.1" },
     { name = "ruff", specifier = ">=0.15.6" },
-    { name = "testcontainers", extras = ["postgres"], specifier = ">=4.10.0" },
+    { name = "testcontainers", extras = ["postgres"], specifier = ">=4.14.2" },
 ]
 
 [[package]]

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="Audible pedestrian signals - obstacle when absent">
+  <title>Audible pedestrian signals</title>
+  <polygon points="20,4 34,12 34,28 20,36 6,28 6,12" fill="currentColor" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M 13 17 L 17 17 L 22 13 L 22 27 L 17 23 L 13 23 Z" fill="#ffffff"/>
+  <path d="M 25 16 Q 28 20 25 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

@@ -1,24 +1,28 @@
-"""Wheelchair-first walking routes via adapters (DEC-020)."""
+"""Walking routes via DEC-020 routing adapters.
+
+The wire field is `profile` (PRD §6.1 M1-F04). M1 accepts only
+`profile="wheelchair"`; future stories (M2-F18, etc.) may extend the
+literal. The handler passes the caller's mode through unchanged; the
+concrete adapter chooses how to honor it (and may fall back, per S3).
+"""
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from scout.api.deps import HttpDepends, SettingsDepends
-from scout.clients import get_routing_provider
 from scout.clients.routing.protocol import RoutingProvider
 from scout.data.schema import RouteComputeRequest, RouteResponse
 from scout.errors import RouteNotFoundError
 from scout.security.rate_limit import POLICIES, limiter
 
 
-async def routing_dependency(
-    settings: SettingsDepends, client: HttpDepends
-) -> RoutingProvider:
-    return get_routing_provider(settings, client)
+async def routing_dependency(request: Request) -> RoutingProvider:
+    """Lifespan-bound routing adapter (TTL cache survives across requests)."""
+
+    return cast(RoutingProvider, request.app.state.routing_provider)
 
 
 RoutingDependency = Annotated[RoutingProvider, Depends(routing_dependency)]
@@ -35,8 +39,10 @@ async def compute_route(
     routing: RoutingDependency,
 ) -> JSONResponse:
     del request
-    route = await routing.walking_wheelchair_route(
-        [float(body.frm[0]), float(body.frm[1])], [float(body.to[0]), float(body.to[1])]
+    route = await routing.walking_route(
+        [float(body.frm[0]), float(body.frm[1])],
+        [float(body.to[0]), float(body.to[1])],
+        profile=body.profile,
     )
     geojson_fc: dict[str, Any] = dict(route.geojson_fc)
     features_raw = geojson_fc.get("features") or []
@@ -50,17 +56,9 @@ async def compute_route(
         "warnings": list(route.warnings),
     }
 
-    if not features:
-        summary_feature = {
-            "type": "Feature",
-            "geometry": None,
-            "properties": summary_props,
-        }
-        features = [summary_feature]
-    else:
-        first_props = dict(features[0].get("properties") or {})
-        merged = {**first_props, **summary_props}
-        features[0]["properties"] = merged
+    first_props = dict(features[0].get("properties") or {})
+    merged = {**first_props, **summary_props}
+    features[0]["properties"] = merged
 
     payload = RouteResponse(features=features)
     return JSONResponse(status_code=200, content=payload.model_dump(mode="json"))

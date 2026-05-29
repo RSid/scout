@@ -6,11 +6,16 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from starlette.responses import Response
 
 LOGGER = logging.getLogger("scout")
+
+ROUTE_SERVICE_DEFAULT_USER_MESSAGE = (
+    "Routing is taking longer than usual. You can wait or pick a closer destination."
+)
 
 
 class ScoutError(Exception):
@@ -30,11 +35,45 @@ class InvalidInputError(ScoutError):
         super().__init__(code=code, message=message, status_code=400)
 
 
+class BufferTooLargeError(ScoutError):
+    """`buffer_meters` above the corridor ceiling (issue M1-F07.S1)."""
+
+    def __init__(self, *, maximum_meters: int = 200) -> None:
+        super().__init__(
+            code="BUFFER_TOO_LARGE",
+            message=f"buffer_meters must be {maximum_meters} meters or smaller.",
+            status_code=400,
+        )
+
+
+class UnknownCategoryError(ScoutError):
+    """One or more category IDs are not in the canonical manifest."""
+
+    def __init__(self, *, unknown_ids: tuple[str, ...]) -> None:
+        joined = ", ".join(sorted(unknown_ids))
+        super().__init__(
+            code="UNKNOWN_CATEGORY",
+            message=f"Unknown categories: {joined}",
+            status_code=400,
+        )
+
+
 class RouteNotFoundError(ScoutError):
-    def __init__(
-        self, *, message: str = "We couldn't find a walkable route for that pairing."
-    ) -> None:
+    def __init__(self, *, message: str = "No route found") -> None:
         super().__init__(code="ROUTE_NOT_FOUND", message=message, status_code=404)
+
+
+class RouteServiceUnavailableError(ScoutError):
+    def __init__(
+        self,
+        *,
+        message: str = ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
+    ) -> None:
+        super().__init__(
+            code="ROUTE_SERVICE_UNAVAILABLE",
+            message=message,
+            status_code=502,
+        )
 
 
 class UpstreamUnavailableError(ScoutError):
@@ -87,8 +126,41 @@ async def scout_rate_limit_exceeded_handler(
     return injected
 
 
+def _first_validation_issue_message(exc: RequestValidationError) -> str:
+    """Single-sentence summary for HTTP 400 (voice-and-copy, no codes to users)."""
+
+    errors = exc.errors()
+    if not errors:
+        return "Some input could not be read."
+    row = errors[0]
+    loc_bits = [str(part) for part in row.get("loc", ()) if part not in ("body",)]
+    suffix = ""
+    if loc_bits:
+        suffix = " (" + ", ".join(loc_bits) + ")"
+    detail = row.get("msg")
+    raw = (
+        detail if isinstance(detail, str) else "Something in the request was not valid."
+    )
+    return f"{raw}{suffix}".strip()
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Wire canonical `{ \"error\": { code, message } }` envelopes."""
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_exc(
+        _request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        del _request
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "code": "INVALID_INPUT",
+                    "message": _first_validation_issue_message(exc),
+                }
+            },
+        )
 
     @app.exception_handler(ScoutError)
     async def _scout_exc(_request: Any, exc: ScoutError) -> JSONResponse:

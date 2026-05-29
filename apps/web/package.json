@@ -10,12 +10,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:stub": "playwright test --grep-invert @interactive",
+    "e2e:interactive": "playwright test --grep @interactive"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "~1.1.3",

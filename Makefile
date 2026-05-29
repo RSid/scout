@@ -9,7 +9,7 @@ COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest docker-up docker-down docker-reset-web-deps
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -94,21 +94,42 @@ migrate: ## run alembic upgrade head when backend scaffold is present
 		echo 'skipping migrations: apps/backend/alembic.ini not present yet (M1-T01)'; \
 	fi
 
-ingest: ## dry-run DC ingest (scripts/ingest_dc.py) when present
+ingest-dc-addresses: ## load bundled DC MAR addresses into Postgres (migration 0002 + data/dc_addresses.jsonl)
+	@test -f "$(ROOT)/scripts/ingest_dc_addresses.py" || { echo 'missing scripts/ingest_dc_addresses.py'; exit 1; }
+	@# Runs inside the Compose bridge network so `db:5432` resolves and the
+	@# host-side .env / SCOUT_DB_HOST_PORT remap never enter the picture.
+	@# Pass extra args after `--`, e.g. `make ingest-dc-addresses ARGS='--dry-run'`.
+	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest $(ARGS)
+
+ingest: ## dry-run DC GeoJSON ingest tally (parses files; no Postgres write)
 	@if [ -f "$(ROOT)/scripts/ingest_dc.py" ]; then \
-		uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
+		PYTHONPATH="$(ROOT)/apps/backend" uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py" --dry-run; \
 	else \
 		echo 'skipping ingest: scripts/ingest_dc.py not present yet (M1-F11 / M1-T03)'; \
 	fi
 
-docker-up: ## docker compose up (infra/docker-compose.yml)
+ingest-write: ## UPSERT DC GeoJSON (+ optional OSM amenities) into PostGIS features
+	@test -f "$(ROOT)/scripts/ingest_dc.py" || { echo 'missing scripts/ingest_dc.py'; exit 1; }
+	PYTHONPATH="$(ROOT)/apps/backend" uv run --directory "$(ROOT)/apps/backend" python "$(ROOT)/scripts/ingest_dc.py"
+
+docker-up: ## docker compose up — all third parties stubbed (alias: docker-up-stubbed-run)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
 	docker compose $(COMPOSE_FLAGS) up
 
-docker-up-interactive-map:
-	docker compose --project-directory . -f infra/docker-compose.yml \
-	run --rm --service-ports \
-	-e NEXT_PUBLIC_SCOUT_MAP_MODE=interactive web
+docker-up-stubbed-run: docker-up ## alias of docker-up — boots stack with stub providers (no outbound calls)
+
+# NOTE (MAR geocoding, DEC-023): the realistic stack keeps geocoding on the
+# bundled District of Columbia MAR snapshot (`dc_addresses` in Postgres —
+# hydrated with `make ingest-dc-addresses` whenever you recreate the pgdata volume).
+#
+# ORS / Refuge integrations still hit upstream services per this overlay — see
+# `infra/docker-compose.realistic.yml`. When adding a net-new vendor adapter,
+# extend that overlay first (scripts/AGENTS.md Tool registry reminder).
+docker-up-realistic-run: ## docker compose up with real ORS/Refuge + MAR-backed autocomplete
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	@test -f "$(ROOT)/infra/docker-compose.realistic.yml" || { echo 'missing infra/docker-compose.realistic.yml'; exit 1; }
+	@test -f "$(ROOT)/apps/web/public/tiles/dc.pmtiles" || printf '%s\n' 'note: apps/web/public/tiles/dc.pmtiles is missing — the interactive basemap will render empty until you run scripts/build_pmtiles.sh.'
+	docker compose $(COMPOSE_FLAGS) -f "$(ROOT)/infra/docker-compose.realistic.yml" up
 
 docker-down: ## docker compose down (infra/docker-compose.yml)
 	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
@@ -120,3 +141,14 @@ docker-reset-web-deps: ## wipe web node_modules/.next volumes (pgdata untouched)
 	docker compose $(COMPOSE_FLAGS) rm -sf web 2>/dev/null || true
 	docker volume rm -f scout_web-node_modules scout_web-next 2>/dev/null || true
 	@printf '%s\n' 'Next: docker compose $(COMPOSE_FLAGS) up --build   (Rebuild web image when package*.json changed; volumes re-seed from the image.)'
+
+# Backend deps (slowapi, httpx, etc.) live in the image-baked /app/.venv,
+# not a named volume — so the only way to refresh them is to drop the image
+# and rebuild. Symptom that this is the target you want: container crash-loops
+# with `ModuleNotFoundError` after a `uv add` / lockfile bump.
+docker-reset-backend-deps: ## drop scout-backend:dev image so next up rebuilds /app/.venv; use after backend deps change
+	@test -f "$(COMPOSE)" || { echo 'missing $(COMPOSE) (M1-T05a)'; exit 1; }
+	docker compose $(COMPOSE_FLAGS) stop backend 2>/dev/null || true
+	docker compose $(COMPOSE_FLAGS) rm -sf backend 2>/dev/null || true
+	docker image rm -f scout-backend:dev 2>/dev/null || true
+	@printf '%s\n' 'Next: docker compose $(COMPOSE_FLAGS) up --build   (Rebuilds scout-backend:dev so /app/.venv picks up new uv.lock entries.)'

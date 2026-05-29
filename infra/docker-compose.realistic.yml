@@ -1,0 +1,49 @@
+# Compose overlay — "realistic" local run that exercises real third-party
+# providers instead of the in-process stubs (`make docker-up-realistic-run`).
+#
+# Usage (prefer the Makefile target):
+#   make docker-up-realistic-run
+#
+# Equivalent raw invocation:
+#   docker compose --project-directory . \
+#     -f infra/docker-compose.yml \
+#     -f infra/docker-compose.realistic.yml \
+#     up
+#
+# Maintenance contract (see scripts/AGENTS.md "Tool registry"):
+#   Whenever a new third-party integration lands (new vendor adapter under
+#   apps/backend/scout/clients/<concern>/ or apps/web/lib/providers/<concern>/),
+#   add the env-var flip here so this overlay continues to exercise every
+#   real call path the app can make. The whole point of this file is "one
+#   command that touches everything we ship to prod."
+#
+# Prerequisites a human must satisfy before the stack is useful:
+#   1. .env (repo root) defines SCOUT_ORS_API_KEY — without it the backend
+#      adapter will 401 on every routing call. Free dev keys come from
+#      https://openrouteservice.org/dev/#/signup.
+#   2. apps/web/public/tiles/dc.pmtiles exists (run `scripts/build_pmtiles.sh`
+#      once) — otherwise the interactive MapLibre basemap will render empty.
+#   3. `dc_addresses` is loaded (`make ingest-dc-addresses` against the Compose
+#      Postgres volume) so `/api/geocode/*` returns real MAR rows.
+#
+# Geocoding (`DEC-023`): autocomplete reads the bundled DC MAR snapshot in
+# Postgres. The browser still calls only `/api/geocode/*` — no third-party
+# geocoder at request time.
+
+services:
+  backend:
+    environment:
+      SCOUT_ROUTING_PROVIDER: openrouteservice
+      SCOUT_GEOCODING_PROVIDER: local_dc
+      SCOUT_RESTROOMS_PROVIDER: refuge
+      # Pulled from the host .env at compose-resolve time. Empty value means
+      # the backend will surface an explicit "missing key" error on first
+      # routing request, which is the desired loud failure mode.
+      SCOUT_ORS_API_KEY: "${SCOUT_ORS_API_KEY:-}"
+
+  web:
+    environment:
+      NEXT_PUBLIC_SCOUT_MAP_MODE: interactive
+      # Frontend always goes through our backend for geocoding; values are
+      # `backend` (default) and `stub`.
+      NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: backend

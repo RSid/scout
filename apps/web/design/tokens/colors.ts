@@ -52,6 +52,43 @@ export function colorVar(token: ColorToken): string {
 }
 
 /**
+ * Returns the *resolved* hex value for a token (e.g. `"#a8422a"`).
+ *
+ * Use this only for consumers that cannot evaluate `var(--…)` themselves —
+ * primarily MapLibre paint specs and canvas drawing. MapLibre's GL color
+ * parser rejects `var(--…)` strings (no DOM resolution at the WebGL layer)
+ * and `addLayer()` validates the full paint block on insert, so a bad color
+ * silently rejects the entire layer. Resolving against `getComputedStyle` at
+ * runtime keeps theme tokens authoritative without hardcoding hex in
+ * components.
+ *
+ * Resolution order:
+ *   1. The live CSS custom property on `<html>` (so Tailwind / theme overrides win).
+ *   2. The pre-baked `darkTheme[token]` if `prefers-color-scheme: dark` matches.
+ *   3. `lightTheme[token]` (the M1 default theme).
+ *
+ * Caveat: callers cache the returned hex; if the user toggles OS color scheme
+ * mid-session, MapLibre paints stay on the resolved-at-mount hex. Acceptable
+ * for M1 — there is no in-app theme switcher and the basemap re-mounts on a
+ * full page reload anyway.
+ */
+export function resolveColorToken(token: ColorToken): string {
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const cssValue = window
+      .getComputedStyle(document.documentElement)
+      .getPropertyValue(`--color-${token}`)
+      .trim();
+    if (cssValue.length > 0) {
+      return cssValue;
+    }
+    if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+      return darkTheme[token];
+    }
+  }
+  return lightTheme[token];
+}
+
+/**
  * Raw hex values per theme. **Design-time only** — for audit reports, Storybook
  * background swatches, and the contrast-check tooling. Component code must not
  * import these; it must use `colorVar()` or CSS variables so palette swaps
