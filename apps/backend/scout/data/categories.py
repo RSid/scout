@@ -71,6 +71,13 @@ _CATEGORY_ROWS: tuple[tuple[str, str, str, CategoryKind, bool], ...] = (
         "aid",
         False,
     ),
+    (
+        "sidewalk_condition",
+        "Sidewalk condition assessments",
+        "DDOT Sidewalk Condition Assessment (SCA) data: points along line segments.",
+        "obstacle",  # degraded segments = obstacles for pedestrians
+        False,  # opt-in by default
+    ),
 )
 
 

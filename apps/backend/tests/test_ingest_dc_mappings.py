@@ -14,6 +14,7 @@ from scout.ingest.dc import (
     normalize_curb_ramp,
     normalize_driveway,
     normalize_median_cut_through,
+    normalize_sidewalk_condition,
 )
 
 
@@ -151,7 +152,72 @@ def test_feature_id_formatter() -> None:
     )
 
 
+def test_sidewalk_condition_excellent_maps_good_aid() -> None:
+    """Excellent sidewalks return None — the ingest filter only keeps degraded."""
+    props = {
+        "ID": "sc-demo-1",
+        "SCI": 11,
+        "SCI_CATEGORY": "EXCELLENT",
+        "SIDEWALK_LENGTH_FT": 200,
+    }
+    row = normalize_sidewalk_condition(_point_feature(-77.01, 38.905, props))
+    assert row is None  # filtered out by INGEST_SIDEWALK_CONDITION
+
+
+@pytest.mark.parametrize(
+    ("scicat", "normalized", "kind"),
+    [
+        ("FAIR", "mild", "obstacle"),
+        ("POOR", "difficult", "obstacle"),
+        ("FAILED", "blocking", "obstacle"),
+    ],
+)
+def test_sidewalk_condition_sci_category_table(
+    scicat: str, normalized: str, kind: str
+) -> None:
+    """All degraded SCI_CATEGORY values are retained as obstacle rows."""
+    props = {
+        "ID": f"sc-{scicat}",
+        "SCI": 1,
+        "SCI_CATEGORY": scicat,
+        "SIDEWALK_LENGTH_FT": None,
+    }
+    row = normalize_sidewalk_condition(_point_feature(-77.0, 38.9, props))
+    assert row is not None
+    assert row.condition_normalized == normalized
+    assert row.kind == kind
+
+
+def test_sidewalk_condition_na_is_filtered() -> None:
+    """N/A (unknown) sidewalks are also filtered out."""
+    props = {
+        "ID": "sc-na",
+        "SCI": None,
+        "SCI_CATEGORY": "N/A",
+        "SIDEWALK_LENGTH_FT": None,
+    }
+    row = normalize_sidewalk_condition(_point_feature(-77.0, 38.9, props))
+    assert row is None
+
+
+def test_sidewalk_condition_preserves_attributes() -> None:
+    props = {
+        "ID": "sc-attrs",
+        "SCI": 9,
+        "SCI_CATEGORY": "POOR",
+        "SIDEWALK_LENGTH_FT": 420,
+        "OWNERSHIP": "DDOT",
+        "MAINTENANCEPRIORITY": "HIGH",
+    }
+    row = normalize_sidewalk_condition(_point_feature(-77.0, 38.9, props))
+    assert row is not None
+    assert row.attributes["SCI"] == 9
+    assert row.attributes["SIDEWALK_LENGTH_FT"] == 420
+    assert row.attributes["OWNERSHIP"] == "DDOT"
+    assert row.attributes["MAINTENANCEPRIORITY"] == "HIGH"
+
+
 def test_datasets_exclude_accessible_parking_zones_geojson() -> None:
     filenames = {spec.filename for spec in DATASETS}
     assert "Accessible_Parking_Zones.geojson" not in filenames
-    assert len(DATASETS) == 6
+    assert len(DATASETS) == 7

@@ -374,6 +374,94 @@ def normalize_median_cut_through(feature: GeoFeature) -> NormalizedRow | None:
     )
 
 
+def _centroid_from_linestring(geom: object) -> tuple[float, float] | None:
+    """Extract centroid (mean-averaged) coordinates from a LineString geometry.
+
+    SidewalkCondition Assessment uses LineString geometry; the ingest pipeline
+    expects Point centroids for consistent rendering.
+
+    Falls back to `_point_lon_lat` for Point geometries (convenient for tests).
+    """
+    if not isinstance(geom, dict):
+        return None
+    if geom.get("type") == "LineString":
+        coords = geom.get("coordinates")
+        if not isinstance(coords, list) or len(coords) == 0:
+            return None
+        n = len(coords)
+        lon = sum(c[0] for c in coords) / n
+        lat = sum(c[1] for c in coords) / n
+        return (float(lon), float(lat))
+    # Fallback: accept Point geometry (convenient for tests / future-proofing)
+    return _point_lon_lat(geom)
+
+
+# Map SCI_CATEGORY values to normalized condition/kind pairs.
+# Sidewalk condition is a ground *surface quality* indicator — degraded sidewalks
+# are obstacles for wheelchair users, while excellent/good pavement is an aid.
+# Unlike curb ramps (which are discrete objects), sidewalk segments are continuous
+# surface patches; the SCI index (0-11) provides the granularity.
+#
+# Ingest filter: only *degraded* segments (FAIR/POOR/FAILED) are retained as
+# obstacle rows. Excellent/good/N/A segments are skipped to avoid noise
+# (24,577 → ~3,456 rows). The condition_normalized mapping still preserves the
+# nuance among degraded tiers (mild vs difficult vs blocking).
+INGEST_SIDEWALK_CONDITION = {"FAIR", "POOR", "FAILED"}
+
+SCICAT_TO_CONDITION: dict[str, tuple[ConditionNorm, KindNorm]] = {
+    "EXCELLENT": ("good", "aid"),  # SCI=11
+    "GOOD": ("good", "aid"),  # SCI=9
+    "FAIR": ("mild", "obstacle"),  # SCI ~6, moderate degradation
+    "POOR": ("difficult", "obstacle"),  # SCI ~4, significant degradation
+    "FAILED": ("blocking", "obstacle"),  # SCI=0, unusable
+    "N/A": ("n_a", "obstacle"),  # conservative — unknown = treat as obstacle
+}
+
+
+def normalize_sidewalk_condition(feature: GeoFeature) -> NormalizedRow | None:
+    """Normalize DC Sidewalk Condition Assessment features to Scout rows.
+
+    Only retains segments with SCI_CATEGORY in INGEST_SIDEWALK_CONDITION
+    (FAIR/POOR/FAILED). Excellent/good/N/A segments are skipped to keep the
+    features table focused on road-worthy obstacles.
+
+    Source geometry is LineString; the mapper extracts a centroid point like
+    other Scout datasets do for Points.
+    """
+    props_any = feature.get("properties") or {}
+    if not isinstance(props_any, dict):
+        return None
+    props = {str(k): v for k, v in props_any.items()}
+    sci_cat = _safe_str_props(props, "SCI_CATEGORY")
+    # Fast path: filter out non-degraded segments before geometry parsing.
+    if sci_cat is None or sci_cat not in INGEST_SIDEWALK_CONDITION:
+        return None
+    geom_any = feature.get("geometry") or {}
+    pts = _centroid_from_linestring(geom_any)
+    if pts is None:
+        return None
+    gid = _safe_str_props(props, "ID")
+    if gid is None:
+        return None
+    cn, kd = SCICAT_TO_CONDITION.get(sci_cat, ("n_a", "obstacle"))
+    return NormalizedRow(
+        id=feature_id("dc_sidewalk_condition", gid),
+        category="sidewalk_condition",
+        kind=kd,
+        condition=sci_cat,
+        condition_normalized=cn,
+        inspected_year=None,  # no inspection date on this source
+        source_dataset="dc_sidewalk_condition",
+        source_id=gid,
+        attributes=_attrs_subset(
+            props,
+            ("SCI", "SIDEWALK_LENGTH_FT", "OWNERSHIP", "MAINTENANCEPRIORITY"),
+        ),
+        lon=pts[0],
+        lat=pts[1],
+    )
+
+
 DATASETS: tuple[DatasetSpec, ...] = (
     DatasetSpec(
         id="ADA_Curb_Ramp.geojson",
@@ -416,6 +504,13 @@ DATASETS: tuple[DatasetSpec, ...] = (
         category="median_cut_throughs",
         source_dataset="dc_ada_median_cut_through",
         mapper=normalize_median_cut_through,
+    ),
+    DatasetSpec(
+        id="Sidewalk_Condition_Assessment.geojson",
+        filename="Sidewalk_Condition_Assessment.geojson",
+        category="sidewalk_condition",
+        source_dataset="dc_sidewalk_condition",
+        mapper=normalize_sidewalk_condition,
     ),
 )
 
