@@ -1,18 +1,22 @@
 # Infra (M1-T05a)
 
-Host-agnostic local Docker stack and packaging artifacts. Fly.io-specific
-deploy machinery is deferred — see [issue
-#6](https://github.com/grow-therapy/scout/issues/6) (M1-T05b).
+Host-neutral local Docker stack and packaging artifacts (`DEC-025`). The
+runtime image is self-contained behind one port, so it runs on any Docker host
+with a Postgres; see [`runbooks/first-deploy.md`](runbooks/first-deploy.md) for
+the provider-agnostic deploy. Provider-specific "go live" wiring is deferred —
+see [issue #6](https://github.com/grow-therapy/scout/issues/6) (M1-T05b).
 
 ## Files
 
 | Path | Purpose |
 | --- | --- |
-| `Dockerfile` | Multi-stage app image (deps-backend, builder-web, builder-tiles, dev-backend, dev-web, runtime). |
-| `Dockerfile.postgres` | PostGIS pinned by sha256 per DEC-006. |
+| `Dockerfile` | Multi-stage app image (deps-backend, builder-web, builder-tiles, caddy-bin, dev-backend, dev-web, runtime). |
+| `Dockerfile.postgres` | PostGIS pinned by sha256. |
+| `Caddyfile` | In-image reverse proxy (DEC-025): one `$PORT` fronts `/api/*` → uvicorn and `/*` → Next. |
 | `docker-compose.yml` | Local dev stack: `db`, `backend`, `web`, and a profile-gated `ingest` no-op. |
 | `docker-compose.mobile.yml` | Compose **overlay**: same-origin `/api/*` via Next rewrites (`SCOUT_BACKEND_INTERNAL_URL`); pair both `-f`s — see §Testing on a phone. |
 | `start.sh` | Production entrypoint — runs Alembic, uvicorn, and the Next standalone server side-by-side. |
+| `runbooks/first-deploy.md` | Provider-agnostic bootstrap + the full env contract. |
 | `.dockerignore` | Keeps caches, lockable outputs, and editor cruft out of every build context. |
 
 ## DC vector tiles (`dc.pmtiles`)
@@ -234,15 +238,20 @@ away.)
 ## Production image (runtime stage)
 
 The default `docker build -f infra/Dockerfile .` target is `runtime`,
-which produces a single image that boots:
+which produces a single image that boots (`start.sh`):
 
 1. `alembic upgrade head`
-2. `uvicorn scout.main:app` on `:8080`
-3. `node server.js` (Next.js standalone) on `:3000`
+2. `uvicorn scout.main:app` on loopback `:8081`
+3. `node server.js` (Next.js standalone) on loopback `:3000`
+4. `caddy run` on the public `${PORT:-8080}`
 
-A reverse proxy in front of this image is responsible for `/api/*` →
-`:8080` and `/*` → `:3000`. Provisioning that proxy is M1-T05b's
-problem; locally we hit each port directly.
+The bundled Caddy proxy (`infra/Caddyfile`) routes `/api/*` → uvicorn and
+everything else → Next, so the image is **self-contained behind one port** and
+needs no host-provided proxy (`DEC-025`). TLS is terminated by whatever sits in
+front (platform load balancer, Cloudflare, or an outer proxy). Bring the whole
+stack up host-neutrally with
+[`docker-compose.prod.yml`](docker-compose.prod.yml); see
+[`runbooks/first-deploy.md`](runbooks/first-deploy.md).
 
 ## Validating without booting
 

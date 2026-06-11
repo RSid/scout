@@ -130,7 +130,7 @@ apps/backend/
   (60 s cache) for visibility.
 - If DB is unreachable, returns HTTP 503 with `db: "down"` and the same
   shape.
-- Used as the Fly health check for the app VM.
+- Used as the container/platform health check for the app.
 
 ### Data layer (`scout/data/`)
 
@@ -151,8 +151,8 @@ apps/backend/
 Env vars, all optional with sensible defaults:
 
 - `SCOUT_DATABASE_URL` — required; e.g.
-  `postgresql+asyncpg://scout:***@db:5432/scout` (dev) or
-  `postgresql+asyncpg://scout:***@scout-pg.internal:5432/scout` (Fly).
+  `postgresql+asyncpg://scout:***@db:5432/scout` (dev) or the sibling
+  Postgres host in production (provider-neutral per `DEC-025`).
 - **Provider selection** (one env var per concern; defaults pick the real impl):
   - `SCOUT_ROUTING_PROVIDER` — `openrouteservice` (default) | `stub`
   - `SCOUT_GEOCODING_PROVIDER` — `local_dc` (default per DEC-023) | `stub`

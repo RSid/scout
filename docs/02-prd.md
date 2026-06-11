@@ -446,41 +446,43 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Prompt seed:** Generate stories for responsive layout, touch target sizes,
   PWA installability, and the mobile-vs-desktop view toggle.
 
-#### M1-F15 — Dockerized deployment to Fly.io (app + sibling Postgres VM)
+#### M1-F15 — Dockerized, host-neutral deployment (app + sibling Postgres)
 - **Persona:** (operator)
 - **User value:** *So that the app runs in one command for anyone, and deploys with
-  one push.*
+  one push — on any host.*
 - **Depends on:** M1-F12
 - **Acceptance criteria:**
   - Multi-stage `Dockerfile` produces a < 200 MB image with the FastAPI app +
-    built Next.js standalone bundle + the PMTiles file for DC.
-  - **No data baked into the app image.** The DB lives in the sibling PG VM
-    (per DEC-019); the app reads via `SCOUT_DATABASE_URL`.
+    built Next.js standalone bundle + the PMTiles file for DC, fronted by an
+    in-image Caddy proxy so the whole app is served on **one port** (`$PORT`).
+    See DEC-025.
+  - **No data baked into the app image.** The DB lives in a sibling Postgres
+    deploy unit (per DEC-019); the app reads via `SCOUT_DATABASE_URL`.
   - `Dockerfile.postgres` pins `postgis/postgis:16-3.4` by digest.
   - `docker-compose.yml` for local dev includes:
-    - `db` (postgis, named volume `scout-pg-data`),
+    - `db` (postgis, named volume),
     - `backend` (hot-reload),
     - `web` (hot-reload),
     - and waits for `db` to be healthy before starting `backend`.
-  - `fly.app.toml` for the app VM (single `shared-cpu-1x`, autostart on,
-    health check on `/api/health`).
-  - `fly.postgres.toml` for the PG VM (single `shared-cpu-1x`, 3 GB volume
-    attached at `/var/lib/postgresql/data`, internal-only listener).
-  - GitHub Actions workflow runs tests + builds the app image + deploys on
-    push to `main`. PG VM is deployed manually the first time; subsequent
-    schema changes go via `alembic upgrade head` run from the app on startup.
-  - First-deploy runbook in `infra/runbooks/first-deploy.md`: how to bring up
-    the PG VM, set the database password as a Fly secret, run initial
-    Alembic migrations, run `scripts/ingest_dc.py`.
+  - `docker-compose.prod.yml` brings the same runtime image + a PostGIS DB up
+    on any single host (the lowest-common-denominator deploy), with
+    profile-gated ingest services.
+  - GitHub Actions workflow runs tests + builds the app image on push to
+    `main`; the "go live" step is a thin, provider-specific call isolated at
+    the end of the job (per DEC-025). Schema changes go via `alembic upgrade
+    head` run from the app on startup.
+  - First-deploy runbook in `infra/runbooks/first-deploy.md`: provider-agnostic
+    bootstrap (provide a Postgres, set the env contract, run initial Alembic
+    migrations, run `scripts/ingest_dc.py` + `scripts/ingest_dc_addresses.py`).
   - `README.md` updated with one-command-local-run instructions
     (`docker compose up`).
 - **Accessibility notes:** N/A (ops).
-- **Estimate:** M (slightly larger than the original — two Fly apps and a
-  runbook)
-- **Prompt seed:** Generate stories for the Dockerization, two `fly.*.toml`
-  files, GitHub Actions, first-deploy runbook, and README updates. Include
-  cold-start time and image size budgets. Reference DEC-019 for the PG
-  topology.
+- **Estimate:** M
+- **Prompt seed:** Generate stories for the Dockerization (incl. the in-image
+  Caddy proxy), `docker-compose.prod.yml`, GitHub Actions, the host-neutral
+  first-deploy runbook, and README updates. Include cold-start time and image
+  size budgets. Reference DEC-025 (host-neutral contract) and DEC-019 (PG
+  topology).
 
 ---
 
@@ -668,13 +670,13 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   observable now that the DB contains irreplaceable user contributions.*
 - **Depends on:** M3-F25, M3-F26
 - **Acceptance criteria:**
-  - Nightly `pg_dump` to a Fly volume snapshot + an off-Fly destination
+  - Nightly `pg_dump` to a local volume snapshot + an off-host destination
     (e.g., Backblaze B2 or Cloudflare R2 free tier).
   - Documented restore runbook in `infra/runbooks/postgres-restore.md`,
     with a quarterly restore drill that ops walks through.
   - Basic observability: connection-count gauge, slow-query log threshold
-    set to 200 ms, alerting via Fly's built-in mechanisms or self-hosted
-    Plausible-style telemetry (per DEC-006 upgrade paths).
+    set to 200 ms, alerting via the host's built-in mechanisms or self-hosted
+    Plausible-style telemetry (per DEC-025).
   - Disaster-recovery RPO/RTO documented (target: RPO ≤ 24 h, RTO ≤ 4 h —
     appropriate for civic project scale).
 - **Accessibility notes:** N/A (ops).
@@ -813,9 +815,9 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
                                                 ▼
                               ┌─────────────────────────────────┐
                               │ PostgreSQL 16 + PostGIS 3.x      │
-                              │ Self-hosted in a sibling Fly VM │
+                              │ Self-hosted in a sibling server │
                               │ (`scout-pg.internal:5432`)      │
-                              │ 3 GB Fly volume; private network│
+                              │ persistent vol.; private network│
                               │ Single `features` table in M1;  │
                               │ M3 adds submissions, accounts.  │
                               └─────────────────────────────────┘
@@ -841,12 +843,12 @@ scout/
 ├── data/                source GeoJSONs (current top-level *.geojson move here)
 ├── scripts/             ingest_dc.py, build_pmtiles.sh
 ├── infra/
-│   ├── Dockerfile           app image (FastAPI + Next.js)
+│   ├── Dockerfile           app image (Caddy + FastAPI + Next.js)
 │   ├── Dockerfile.postgres  PostGIS image (pinned)
+│   ├── Caddyfile            in-image proxy: one port -> API + web
 │   ├── docker-compose.yml   dev: app + web + postgis
-│   ├── fly.app.toml         deploys the app
-│   ├── fly.postgres.toml    deploys the sibling PG VM
-│   └── runbooks/            ops runbooks (per DEC-006)
+│   ├── docker-compose.prod.yml  host-neutral prod: app + postgis
+│   └── runbooks/            ops runbooks (per DEC-025)
 ├── docs/                this folder
 ├── .github/workflows/   ci.yml, deploy.yml
 ├── LICENSE              AGPL-3.0
@@ -942,9 +944,9 @@ Each open question gets a stable ID (`OQ-NN`) so downstream agents and PRs can
 reference it.
 
 - **OQ-01** ~~SQLite + Spatialite vs. in-memory shapely?~~ **RESOLVED** by
-  DEC-019: PostgreSQL + PostGIS from M1, self-hosted in a sibling Fly VM.
+  DEC-019: PostgreSQL + PostGIS from M1, self-hosted in a sibling Postgres unit.
 - **OQ-02** ~~Bake data file into the Docker image vs. mount as a volume?~~
-  **RESOLVED** by DEC-019: data lives in the sibling PG VM, not in the app
+  **RESOLVED** by DEC-019: data lives in the sibling Postgres unit, not in the app
   image. App image carries only code + Alembic migrations + PMTiles.
 - **OQ-03** ~~Where do we host PMTiles? Same container? Separate static bucket?~~
   **RESOLVED** for M1: same-origin static delivery from `apps/web/public/tiles/dc.pmtiles`,
@@ -978,8 +980,9 @@ reference it.
 - **OQ-10** ORS public API rate limit (~2000 req/day). At what usage do we
   self-host? **Action:** instrument from day one; alert when daily count
   > 1500.
-- **OQ-11** Logging/observability — Fly.io's free tier gives basic logs. Do we
-  need more? **Recommendation:** none in M1; add Plausible (self-hosted) in M2.
+- **OQ-11** Logging/observability — most candidate hosts give basic logs on
+  their free tier. Do we need more? **Recommendation:** none in M1; add Plausible
+  (self-hosted) in M2.
 - **OQ-12** PWA offline scope — caching the SPA shell is easy; caching tiles for
   a user's neighborhood is harder. **Recommendation:** SPA shell only in M1;
   per-neighborhood tile caching in M2 if requested.
