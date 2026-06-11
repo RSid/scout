@@ -11,6 +11,7 @@ deploy machinery is deferred — see [issue
 | `Dockerfile` | Multi-stage app image (deps-backend, builder-web, builder-tiles, dev-backend, dev-web, runtime). |
 | `Dockerfile.postgres` | PostGIS pinned by sha256 per DEC-006. |
 | `docker-compose.yml` | Local dev stack: `db`, `backend`, `web`, and a profile-gated `ingest` no-op. |
+| `docker-compose.mobile.yml` | Compose **overlay**: same-origin `/api/*` via Next rewrites (`SCOUT_BACKEND_INTERNAL_URL`); pair both `-f`s — see §Testing on a phone. |
 | `start.sh` | Production entrypoint — runs Alembic, uvicorn, and the Next standalone server side-by-side. |
 | `.dockerignore` | Keeps caches, lockable outputs, and editor cruft out of every build context. |
 
@@ -46,6 +47,36 @@ docker compose --project-directory . -f infra/docker-compose.yml down
 > the Next.js dev server and uvicorn speak plain HTTP. Firefox in particular
 > renders an `https://localhost:3000` attempt as `NS_ERROR_CONNECTION_REFUSED`
 > because HTTPS-Only Mode upgrades the URL before the request is sent.
+
+## Testing on a phone
+
+Phones resolve `localhost` as the handset itself. The stock web container sets `NEXT_PUBLIC_SCOUT_API_BASE_URL=http://localhost:8080`; cross-device, that sends API calls nowhere useful unless traffic is consolidated to **one origin** — the hostname + port you open on the phone.
+
+Opt-in wiring (GitHub [issue #46](https://github.com/RSid/scout/issues/46)) adds [`docker-compose.mobile.yml`](docker-compose.mobile.yml):
+
+- clears `NEXT_PUBLIC_SCOUT_API_BASE_URL` so the browser hits same-origin `/api/*`;
+- sets `SCOUT_BACKEND_INTERNAL_URL=http://backend:8080`, which activates [`apps/web/next.config.ts`](../apps/web/next.config.ts) rewrites `/api/:path*` → `$SCOUT_BACKEND_INTERNAL_URL/api/:path*`;
+- flips geocoding to the bundled MAR snapshot (`SCOUT_GEOCODING_PROVIDER=local_dc`, `NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER=backend`) so address autocomplete on the phone exercises real DC rows, not the offline stub that always surfaces "1400 U Street Northwest".
+
+**Prerequisite:** load `dc_addresses` once against the Compose Postgres volume (`make ingest-dc-addresses`). Without that table, autocomplete returns no suggestions.
+
+Two Make targets mirror the Compose commands:
+
+| Goal | Target | HTTPS? |
+| --- | --- | --- |
+| Fast Wi-Fi LAN UI checks | [`make dev-mobile-lan`](../Makefile) | Plain `http://<LAN-ip>:<port>` (Geolocation/install-to-home-screen may not behave like HTTPS production). |
+| Geolocation button + HTTPS parity | [`make dev-mobile-tunnel`](../Makefile) | `https://*.trycloudflare.com` Quick Tunnel (**ephemeral URL** exposing your laptop's dev Next port). Requires `cloudflared` (`brew install cloudflare/cloudflare/cloudflared`). Stops cleanly on Ctrl+C (`docker compose … down`). |
+
+Raw Compose (either flow):
+
+```bash
+docker compose --project-directory . \
+  -f infra/docker-compose.yml -f infra/docker-compose.mobile.yml up
+```
+
+Tunnel flow stacks `docker compose … up -d`, waits for Next at `http://127.0.0.1:<SCOUT_WEB_HOST_PORT>/` (same default as Compose: `:3000`), starts `cloudflared`, echoes the HTTPS URL (+ ASCII QR when `qrencode` is installed), then drains `cloudflared` until Ctrl+C.
+
+**Alternative:** [mkcert](https://github.com/FiloSottile/mkcert) + a LAN reverse-proxy gives HTTPS **without** a quick tunnel, but every device needs the issuer CA trusted.
 
 ## Local URLs
 
