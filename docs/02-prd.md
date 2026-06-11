@@ -72,7 +72,8 @@ them personally.**
 2. First-time only: a brief, dismissible onboarding modal explains data freshness and
    asks the user to pick their accessibility preferences (Profile). Default is "all
    categories on."
-3. User enters a start address and a destination address (autocomplete via Nominatim).
+3. User enters a start address and a destination address (autocomplete via Scout's
+   backend `/api/geocode/*`, matching the bundled DC Master Address Repository — see `DEC-023`).
 4. User taps "Find route."
 5. Backend calls ORS wheelchair profile to get a walking route LineString.
 6. Backend computes the corridor (LineString buffered by 30 m) and returns the route
@@ -160,7 +161,7 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **User value:** *So that I have a familiar map of DC to orient on before I do anything.*
 - **Depends on:** —
 - **Acceptance criteria:**
-  - `/map` renders a MapLibre GL JS map centered on DC (38.9072° N, 77.0369° W) at a
+  - `/plan` renders a MapLibre GL JS map centered on DC (38.9072° N, 77.0369° W) at a
     sensible zoom (z=12).
   - Basemap is a self-hosted Protomaps PMTiles file, served from the same origin as
     the app to avoid third-party tile request costs.
@@ -187,8 +188,11 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Depends on:** M1-F02
 - **Acceptance criteria:**
   - Two text inputs labeled "Starting point" and "Destination."
-  - Autocomplete suggestions fetched from Nominatim, scoped to DC bounding box, no
-    more than one request per 500 ms of typing (debounced).
+  - Autocomplete suggestions fetched from Scout's backend `/api/geocode/search`
+    via `LocalDcGeocodingProvider` against MAR rows in Postgres (`dc_addresses`;
+    see `DEC-023`). Suggestions span Washington, DC MAR addresses only. No more
+    than one request per 500 ms of typing (debounced client-side). The browser
+    never calls an upstream geocoder directly.
   - "Use my location" button next to "Starting point" that uses the Geolocation API
     only after explicit user click (no auto-prompt on page load).
   - Suggestions are a proper ARIA combobox: `role="combobox"`, `aria-expanded`,
@@ -762,7 +766,7 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **NF-OSS-01** License: AGPL-3.0. `LICENSE` file present.
 - **NF-OSS-02** ~~`CONTRIBUTING.md` explains how to set up the dev env, run tests,
   and submit a PR.~~ **DONE** — see `CONTRIBUTING.md`.
-- **NF-OSS-03** `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
+- **NF-OSS-03** ~~`CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).~~ **DONE** — see `CODE_OF_CONDUCT.md`.
 - **NF-OSS-04** Issue templates for "Data is wrong about a place" (links to M3
   flow when shipped) and "Found a bug."
 - **NF-OSS-05** Public roadmap (this PRD) linked from the README.
@@ -910,17 +914,27 @@ The implementation of `/api/route-features` (M1-F07) reduces to:
 
 ```sql
 SELECT *,
-       ST_Distance(geom, ST_StartPoint(:line)::geography) AS along_route_m
+       ST_LineLocatePoint(:line, geom::geometry) AS along_route_frac
 FROM   features
 WHERE  category = ANY(:enabled_categories)
   AND  ST_DWithin(geom, :line::geography, :buffer_m)
-ORDER  BY along_route_m
+ORDER  BY along_route_frac, id
 LIMIT  500;
 ```
 
-(`ST_LineSubstring` and `ST_LineLocatePoint` provide a more accurate
-along-route distance than `ST_Distance` from start; refine during
-implementation.)
+`ST_LineLocatePoint` returns the 0..1 fraction along the route; the handler
+multiplies it by the route's geography length (`ST_Length`) to produce the
+`properties.along_route_meters` each feature carries, and breaks ties on `id`
+for deterministic ordering. This replaces the earlier `ST_Distance`-from-start
+sketch (it mis-orders features near switchbacks). An identical `count(*)` over
+the same `WHERE` yields the uncapped total behind `meta.truncated`.
+
+**Response envelope.** The endpoint returns a GeoJSON `FeatureCollection`
+(`{type, features}`) extended with a non-standard top-level `meta` object
+(`{truncated, time_taken_ms, feature_count_total}`). The `meta` key (not
+`metadata`) is the canonical name across the backend response model, the web
+client, and this appendix. Each feature's normalized properties follow
+`appendix-data-schema.md` §A plus `along_route_meters`.
 
 ## §10. Open questions
 
@@ -932,9 +946,11 @@ reference it.
 - **OQ-02** ~~Bake data file into the Docker image vs. mount as a volume?~~
   **RESOLVED** by DEC-019: data lives in the sibling PG VM, not in the app
   image. App image carries only code + Alembic migrations + PMTiles.
-- **OQ-03** Where do we host PMTiles? Same container? Separate static bucket?
-  **Default: same container** for M1 (zero-budget). Move to R2/Backblaze if
-  bandwidth ever becomes an issue.
+- **OQ-03** ~~Where do we host PMTiles? Same container? Separate static bucket?~~
+  **RESOLVED** for M1: same-origin static delivery from `apps/web/public/tiles/dc.pmtiles`,
+  built by `scripts/build_pmtiles.sh` and baked into the Docker image (see infra
+  `Dockerfile`; PR #53 for the MapLibre wiring). Move to R2/Backblaze only if
+  bandwidth becomes an issue.
 - **OQ-04** "Rest/seating spots" data source — DC doesn't publish a comprehensive
   bench dataset. **Options:** (a) OSM `amenity=bench` via Overpass, ingest
   alongside DC data; (b) defer to M3 and rely entirely on user submissions;
@@ -944,9 +960,12 @@ reference it.
   `amenity=drinking_water`. DC has a public cooling center dataset that's
   seasonal. **Recommendation:** OSM `drinking_water` for M1; add seasonal cooling
   centers in M2 when summer matters.
-- **OQ-06** Address autocomplete — Nominatim's usage policy requires < 1 req/sec
-  per server. **Action:** debounce 500 ms client-side AND rate-limit server-side;
-  pre-load DC street centerlines as a local fallback.
+- **OQ-06** Address autocomplete — *RESOLVED* by `DEC-022`, implementation
+  tightened in `DEC-023`. The public OSMF Nominatim endpoint cannot be used for
+  autocomplete (`DEC-008`), so Scout proxies via its own `/api/geocode/*`
+  handlers. Matching now uses the city's **Master Address Repository** snapshot
+  in Postgres (CC0): no upstream geocoder at request time and strong partial
+  address behavior for DC-only scope. Rate limits remain. See `DEC-023`.
 - **OQ-07** Liability: should the disclaimer be a click-through ("I understand")
   before first use, or just always-visible? **Recommendation:** always-visible
   banner + a one-time onboarding modal. No click-through gates feel patronizing.

@@ -52,6 +52,24 @@ class RouteComputeRequest(BaseModel):
     to: Annotated[list[float], Field(min_length=2, max_length=2)]
     profile: Literal["wheelchair"] = "wheelchair"
 
+    @staticmethod
+    def _assert_dc_lon_lat(endpoint: list[float], *, alias: str) -> None:
+        lon, lat = float(endpoint[0]), float(endpoint[1])
+        if not (-77.12 <= lon <= -76.91 and 38.79 <= lat <= 39.0):
+            raise ValueError(f"Coordinate outside DC service area ({alias}).")
+
+    @field_validator("frm")
+    @classmethod
+    def _frm_in_dc(cls, value: list[float]) -> list[float]:
+        cls._assert_dc_lon_lat(value, alias="starting point")
+        return value
+
+    @field_validator("to")
+    @classmethod
+    def _to_in_dc(cls, value: list[float]) -> list[float]:
+        cls._assert_dc_lon_lat(value, alias="destination")
+        return value
+
 
 class RouteResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
@@ -65,13 +83,47 @@ class CorridorMeta(BaseModel):
 
     truncated: bool
     time_taken_ms: float
+    feature_count_total: int
+
+
+class CorridorPointGeoJSON(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["Point"] = "Point"
+    coordinates: Annotated[list[float], Field(min_length=2, max_length=2)]
+
+
+class CorridorFeatureProperties(BaseModel):
+    """Normalized `Feature.properties` plus `along_route_meters`
+    (appendix §A + M1-F07.S3)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    category: str
+    kind: Literal["obstacle", "aid"]
+    condition: str | None
+    condition_normalized: str
+    inspected_year: int | None = Field(ge=1900, le=2100)
+    source_dataset: str
+    source_id: str
+    attributes: dict[str, Any]
+    along_route_meters: float
+
+
+class CorridorGeoJSONFeature(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["Feature"] = "Feature"
+    geometry: CorridorPointGeoJSON
+    properties: CorridorFeatureProperties
 
 
 class CorridorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
-    features: list[dict[str, Any]]
+    features: list[CorridorGeoJSONFeature]
     meta: CorridorMeta
 
 
@@ -79,7 +131,7 @@ class CorridorRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     route_geometry: dict[str, Any]
-    buffer_meters: int = Field(default=30, ge=1, le=200)
+    buffer_meters: int = Field(default=30, ge=1)
     categories: Annotated[list[str], Field(min_length=1)]
 
     @field_validator("route_geometry")
@@ -101,8 +153,67 @@ class CorridorRequest(BaseModel):
         return val
 
 
+class RestroomFeatureProperties(BaseModel):
+    """Normalized `Feature.properties` for a restroom (appendix §A + §B.8).
+
+    Mirrors `CorridorFeatureProperties` minus `along_route_meters`, since the
+    standalone restroom layer is not bound to a route.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    category: Literal["restrooms"]
+    kind: Literal["aid"]
+    condition: str | None
+    condition_normalized: str
+    inspected_year: int | None = Field(ge=1900, le=2100)
+    source_dataset: str
+    source_id: str
+    attributes: dict[str, Any]
+
+
+class RestroomGeoJSONFeature(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["Feature"] = "Feature"
+    geometry: CorridorPointGeoJSON
+    properties: RestroomFeatureProperties
+
+
 class RestroomsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     type: Literal["FeatureCollection"] = "FeatureCollection"
-    features: list[dict[str, Any]]
+    features: list[RestroomGeoJSONFeature]
+
+
+class ApiAddressHit(BaseModel):
+    """One geocoder result, Scout-domain shape (DEC-022).
+
+    Mirrors `AddressHit` in `apps/web/lib/providers/geocoding/protocol.ts`
+    so the contract is symmetric on both sides of the wire.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    id: str
+    label: str
+    lon: float
+    lat: float
+
+
+class GeocodeSearchResponse(BaseModel):
+    """`GET /api/geocode/search`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    hits: list[ApiAddressHit]
+
+
+class GeocodeReverseResponse(BaseModel):
+    """`GET /api/geocode/reverse`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    hit: ApiAddressHit

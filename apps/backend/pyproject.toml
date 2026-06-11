@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "pydantic-settings>=2.14.1",
     "shapely>=2.1.2",
+    "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.48",
     # Pinned ahead of fastapi[standard]'s default to clear PYSEC-2026-161
     # (see CI audit job). Keep this constraint until the FastAPI release
@@ -28,6 +29,7 @@ dev = [
     "pytest-randomly>=4.1.0",
     "respx>=0.23.1",
     "ruff>=0.15.6",
+    "testcontainers[postgres]>=4.14.2",
 ]
 
 [tool.ruff]
@@ -43,6 +45,7 @@ select = ["E", "F", "I", "UP", "B"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 pythonpath = ["."]
+markers = ["integration: slow tests that need Docker + testcontainers."]
 
 [tool.mypy]
 python_version = "3.12"

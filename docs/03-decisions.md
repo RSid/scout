@@ -16,6 +16,7 @@ disclaimer must render without JS) and from file-based routing (fits the app's s
 surface area).
 
 **Options considered.**
+
 - **Plain React + Vite.** Pros: simple, no framework lock-in. Cons: no SSR for the
   landing page; we'd hand-roll it.
 - **Next.js 15 (App Router).** Pros: SSR for the landing page; mature; you already
@@ -28,6 +29,7 @@ surface area).
 **Decision.** Next.js 15 with the App Router, TypeScript strict, Tailwind for styling.
 
 **Rationale.**
+
 - You stated familiarity with React/Next/TypeScript; community of contributors is
   largest there.
 - App Router's RSC + streaming improves first-paint on the route-feature list view.
@@ -35,6 +37,7 @@ surface area).
   accessibility regression surface.
 
 **Consequences.**
+
 - We accept a `node_modules` footprint, but the production bundle stays small if we
   avoid client components where possible (the landing page should be fully server
   rendered).
@@ -49,6 +52,7 @@ surface area).
 acceptable rendering performance on mobile.
 
 **Options considered.**
+
 - **Google Maps JS API.** Free tier is small, paid tier expensive at scale, no
   accessibility-aware data. Rejected (also a stated preference shift).
 - **Mapbox GL JS + Mapbox tiles.** Generous free tier (50k loads/month) but billable
@@ -62,6 +66,7 @@ acceptable rendering performance on mobile.
 **Decision.** MapLibre GL JS + self-hosted Protomaps PMTiles.
 
 **Rationale.**
+
 - Zero budget mandate (per your selection). Self-hosted PMTiles is the only fully
   free-at-scale option.
 - DC bounding box at z=0–16 fits comfortably under 100 MB. Trivial to serve from
@@ -69,11 +74,19 @@ acceptable rendering performance on mobile.
 - Open-source-first matches AGPL ethos.
 
 **Consequences.**
+
 - We commit to a tile-build step (`build_pmtiles.sh`) in CI / docs.
 - Tile updates are explicit (rebuild + redeploy) rather than continuous. OK for
   DC's data velocity.
 - Required attribution: "© OpenStreetMap contributors" on the map (we'll do that
   anyway).
+
+**Consequences (M1-T51).** When the preferred `SCOUT_PROTOMAPS_BUILD_DATE` has
+rotated off `build.protomaps.com`, `build_pmtiles.sh` resolves the newest live
+daily artifact within a bounded walk-back window. Reproducibility is
+best-effort for CI cache-miss rebuilds (bytes may differ slightly when the OSM
+snapshot shifts); production redeploys remain explicit rebuild + deploy as
+before.
 
 ---
 
@@ -83,6 +96,7 @@ acceptable rendering performance on mobile.
 OSM `wheelchair=*`, `kerb=*`, `surface=*`, `incline=*`, `tactile_paving=*` tags.
 
 **Options considered.**
+
 - **Google Directions API.** No exposed wheelchair profile via the public API.
   Rejected.
 - **Mapbox Directions API.** Walking profile is not accessibility-aware. Rejected.
@@ -97,12 +111,14 @@ OSM `wheelchair=*`, `kerb=*`, `surface=*`, `incline=*`, `tactile_paving=*` tags.
 when traffic exceeds 1500 req/day (per OQ-10).
 
 **Rationale.**
+
 - ORS is the only mature option with a true wheelchair profile we don't have to
   hand-build.
 - Their free tier matches our likely M1 audience (tens of users, then hundreds).
 - Self-hosting ORS is a documented procedure with docker images.
 
 **Consequences.**
+
 - We commit to instrumenting routing call volume from day one.
 - Fallback plan adds a future M2/M3 ops task to deploy a self-hosted ORS
   container on Fly.io (memory profile: ~2 GB for a DC-region extract).
@@ -110,7 +126,7 @@ when traffic exceeds 1500 req/day (per OQ-10).
 
 ---
 
-## DEC-004 — *Superseded by DEC-019.* (Original: in-memory shapely + STRtree.)
+## DEC-004 — _Superseded by DEC-019._ (Original: in-memory shapely + STRtree.)
 
 The original decision proposed an in-memory store for M1 to minimize ops, then
 migrating to PostGIS in M3. After analysis (see DEC-019), the M3-refactor cost
@@ -127,12 +143,14 @@ retained for traceability; DEC-019 is the active decision.
 **Decision.** AGPL-3.0. Add `LICENSE` and SPDX headers in source files.
 
 **Rationale.**
+
 - A fork that runs Scout as a hosted service must also publish source. Protects
   the civic-good intent against being absorbed into a closed app.
 - All chosen dependencies are AGPL-compatible (MapLibre BSD-3, FastAPI MIT,
   OpenRouteService MIT, Protomaps BSD-3, OSM data ODbL, Refuge Restrooms CC0).
 
 **Consequences.**
+
 - Some companies (notably Google) avoid AGPL code in their commercial products —
   acceptable for a civic project.
 - Contributors must understand AGPL implications. We'll state this in
@@ -145,6 +163,7 @@ retained for traceability; DEC-019 is the active decision.
 **Context.** Zero budget. Need durable, container-native hosting.
 
 **Options considered.**
+
 - **Fly.io.** Generous free tier, Docker-native, multi-region capable.
 - **Railway / Render.** Comparable. Marginally less control.
 - **Hetzner VPS + Docker Compose + Caddy.** Cheapest at scale but more ops work.
@@ -154,11 +173,13 @@ retained for traceability; DEC-019 is the active decision.
 Next.js export, and the PMTiles file.
 
 **Rationale.**
+
 - Free-tier supports our M1 needs.
 - One artifact (Docker image) to ship.
 - We can scale horizontally later or move to Hetzner if Fly's free tier changes.
 
 **Consequences.**
+
 - Fly auto-stop saves money but adds cold-start latency; mitigated by aggressive
   caching and small image size.
 - DNS at the project's chosen domain points to Fly. Add a `Caddyfile`-equivalent
@@ -167,18 +188,18 @@ Next.js export, and the PMTiles file.
 **Upgrade paths (if Scout grows or budget appears).** Each is independently
 takeable; none of them require a re-architecture.
 
-| Symptom | First lever (no/low cost) | Next lever (small budget) |
-|---|---|---|
-| Cold-start latency annoys users | `min_machines_running = 1` on Fly (still free with caveats) | Reserve a small always-on machine |
-| Tile bandwidth costs (if we ever hit them) | Front Fly with a Cloudflare proxy (free tier, caches PMTiles ranges) | Move PMTiles to R2/Backblaze + CDN |
-| ORS rate limit hit | Self-host ORS in a sibling Fly VM | Pay for an ORS Pro key |
-| Geocoding rate limit hit | Self-host Photon (DC extract is small) | Use Mapbox/Stadia geocoding |
-| Postgres I/O ceiling | Bigger Fly PG plan | Move to Neon/Supabase if cheaper |
-| Email volume (M3+) | Cloudflare Email Workers / Mailchannels free | Postmark/Resend |
-| Analytics privacy without spend | Plausible self-hosted | Plausible Cloud |
+| Symptom                                    | First lever (no/low cost)                                                                | Next lever (small budget)                           |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Cold-start latency annoys users            | `min_machines_running = 1` on Fly (still free with caveats)                              | Reserve a small always-on machine                   |
+| Tile bandwidth costs (if we ever hit them) | Front Fly with a Cloudflare proxy (free tier, caches PMTiles ranges)                     | Move PMTiles to R2/Backblaze + CDN                  |
+| ORS rate limit hit                         | Self-host ORS in a sibling Fly VM                                                        | Pay for an ORS Pro key                              |
+| Geocoding capacity ceiling                 | Refresh the bundled MAR snapshot (`scripts/ingest_dc_addresses.py`) or add read replicas | Commercial global geocoder (privacy/cost trade-off) |
+| Postgres I/O ceiling                       | Bigger Fly PG plan                                                                       | Move to Neon/Supabase if cheaper                    |
+| Email volume (M3+)                         | Cloudflare Email Workers / Mailchannels free                                             | Postmark/Resend                                     |
+| Analytics privacy without spend            | Plausible self-hosted                                                                    | Plausible Cloud                                     |
 
 Each lever is documented as a runbook in `infra/runbooks/` (to be written during
-M1-F15). The intent: when a constraint bites, the fix is *one runbook away*, not
+M1-F15). The intent: when a constraint bites, the fix is _one runbook away_, not
 a re-platforming project.
 
 ---
@@ -192,38 +213,32 @@ contributions.
 no passwords ever.
 
 **Rationale.**
+
 - Defers privacy/security surface.
 - When added, magic links sidestep password storage, password reset flows, and
   most credential-stuffing attacks. Lowest-complexity option.
 - Optionally augment with passkeys in M4 for users who want fast re-auth.
 
 **Consequences.**
+
 - M3 introduces a transactional email dependency (Resend, Postmark, or
   Mailchannels via Cloudflare). All have free tiers; specific choice deferred to
   M3 sprint.
 
 ---
 
-## DEC-008 — Geocoding: Nominatim (OSM), DC-bounded, with strict rate limits
+## DEC-008 — _Superseded by DEC-022._ (Original: Geocoding via Nominatim public API.)
 
-**Context.** Address autocomplete is in M1.
-
-**Options considered.**
-- **Google Places Autocomplete.** Paid above small free tier. Rejected.
-- **Mapbox Geocoding.** Paid above. Rejected.
-- **Photon (self-hosted, on OSM data).** Heavy to host.
-- **Nominatim public API.** Free, but usage policy: < 1 req/sec, bulk usage
-  must self-host.
-
-**Decision.** Nominatim public API with 500 ms client debounce + server rate
-limit (max 1 req/sec). Document self-hosting if usage warrants.
-
-**Rationale.**
-- Lowest ops cost in M1. DC has comprehensive OSM coverage so quality is good.
-
-**Consequences.**
-- If we ever blow Nominatim's policy, we self-host Photon (lighter than
-  self-hosting Nominatim). Pre-document the runbook.
+**Status.** Superseded by `DEC-023` (bundled DC MAR snapshot). The original
+rationale assumed a 500 ms client debounce plus server rate limit was
+sufficient to stay inside the OSMF Nominatim Acceptable Use Policy. On
+re-reading the policy
+(<https://operations.osmfoundation.org/policies/nominatim/>) the _Auto-complete
+search_ clause categorically prohibits using the public Nominatim service for
+autocomplete, regardless of debounce or rate limit. Moving the call server-side
+does not cure that — the prohibition is on the use case, not on the request
+origin. `DEC-022` moved traffic to Photon; `DEC-023` removes upstream
+geocoding entirely for M1. See `DEC-023` for the active path.
 
 ---
 
@@ -238,11 +253,13 @@ where the design allows; 2.4.8 (location) via persistent breadcrumb on multi-ste
 flows; 3.1.5 (reading level) — keep all microcopy at lower-secondary reading level.
 
 **Rationale.**
+
 - AA is checkable, defensible, and table-stakes for an accessibility app.
 - Targeted AAA wins matter (especially reading level, given cognitive accessibility
   is a stated future persona).
 
 **Consequences.**
+
 - M1-F10 audit gates MVP launch.
 - CI gate via `@axe-core/playwright` runs on every PR.
 - See `docs/contributor/voice-and-copy.md` §3 for the concrete reading-level
@@ -256,6 +273,7 @@ flows; 3.1.5 (reading level) — keep all microcopy at lower-secondary reading l
 risk if data is wrong. Per OQ-07.
 
 **Decision.** Two-layer disclaimer:
+
 1. **Persistent visible banner** on the route view: short, dismissible-per-session,
    linking to the full disclaimer at `/about#disclaimer`.
 2. **First-visit onboarding modal** that introduces the app, asks for accessibility
@@ -263,12 +281,14 @@ risk if data is wrong. Per OQ-07.
    "Got it" button — but no consent-blocking gate on subsequent visits).
 
 **Rationale.**
+
 - A one-time hard click-through ("I agree") is patronizing for a tool people will
   use repeatedly.
 - The persistent banner satisfies the "always informed" need.
 - Modal does the heavy explanation once.
 
 **Consequences.**
+
 - Onboarding modal needs strong accessibility (focus trap, screen reader
   announcement, skip path).
 - "Got it" state stored in `localStorage` only; no server identity needed.
@@ -286,11 +306,13 @@ do two repos, but solo dev + shared CI argues for one.
 **Decision.** Monorepo. See PRD §8 for the layout.
 
 **Rationale.**
+
 - Single PR can touch both sides for consistent API changes.
 - Single CI pipeline, single Dockerfile, single deploy.
 - No "version skew" between FE/BE.
 
 **Consequences.**
+
 - We pick a build tool that handles Python + Node coexisting. `make` is enough at
   M1. Avoid Turborepo / Nx until they earn their keep.
 
@@ -302,6 +324,7 @@ do two repos, but solo dev + shared CI argues for one.
 the test suite.
 
 **Decision.**
+
 - **Backend:** `pytest` + `httpx` for API tests; `pytest-randomly` to catch
   order-dependent tests; `pytest-cov` reporting against a 70% line coverage floor
   for `apps/backend/scout/`.
@@ -311,11 +334,13 @@ the test suite.
 - **CI:** GitHub Actions runs all three on every PR.
 
 **Rationale.**
+
 - Standard, well-documented tooling. No exotic dependencies.
 - a11y is gated by both unit (jest-axe) and E2E (axe-core/playwright) — defense
   in depth.
 
 **Consequences.**
+
 - Playwright adds CI minutes. Acceptable on GHA's free tier.
 
 ---
@@ -330,15 +355,17 @@ Spanish (community-translatable via Crowdin or similar). Other languages by
 demand.
 
 **Rationale.**
+
 - Doing extraction late costs 3× more than doing it from day one.
 - next-intl works natively with the App Router and is actively maintained.
 
 **Consequences.**
+
 - One string-management convention from the start. Codify in CONTRIBUTING.md.
 
 ---
 
-## DEC-014 — *Folded into DEC-019.* (Original: PostGIS arriving in M3.)
+## DEC-014 — _Folded into DEC-019._ (Original: PostGIS arriving in M3.)
 
 Since PostgreSQL + PostGIS now lands in M1 (per DEC-019), M3 inherits the
 schema rather than introducing it. M3-specific additions (user submissions,
@@ -349,7 +376,7 @@ schema. No separate "M3 data-store decision" is needed.
 
 ## DEC-015 — Visual design system: produced by a dedicated design pass before M1 frontend coding
 
-**Context.** Accessibility app must be accessible *visually* including for users
+**Context.** Accessibility app must be accessible _visually_ including for users
 with color vision differences, AND must reflect a coherent aesthetic. The
 project owner has explicit aesthetic input and wants to drive a design pass with
 a separate agent rather than have the scaffolding agent guess.
@@ -380,6 +407,7 @@ frontend scaffolding. That pass produces:
 - Focus indicators with ≥ 3:1 contrast against adjacent fills.
 
 **Rationale.**
+
 - Bringing aesthetic input early prevents a "designed by an engineer" feel.
 - Locking the constraints means the designer's freedom is bounded by what we
   can ship accessibly.
@@ -387,6 +415,7 @@ frontend scaffolding. That pass produces:
   on behavior, not bikeshedding colors.
 
 **Consequences.**
+
 - Frontend scaffold prompt (`prompts/03-scaffold-frontend-m1.md`) will reference
   the design tokens file produced by the design pass, not embed colors inline.
 - If the design pass slips, the frontend agent can scaffold against the
@@ -403,11 +432,13 @@ frontend scaffolding. That pass produces:
 No `/api/*` caching in M1.
 
 **Rationale.**
+
 - Caching API responses without invalidation is dangerous in an accessibility
   context (we don't want users to act on stale "route" results without knowing).
 - The simpler scope lets us ship the PWA install affordance without complexity.
 
 **Consequences.**
+
 - M2-F22 fills in real offline support, scoped to recently-viewed routes.
 
 ---
@@ -417,6 +448,7 @@ No `/api/*` caching in M1.
 **Context.** Standard for OSS; integrates with PR checks.
 
 **Decision.**
+
 - `ci.yml`: runs on every PR. Lints (`ruff` for Python, `eslint` for TS), unit
   tests, Playwright E2E with axe, builds the Docker image (no push).
 - `deploy.yml`: runs on push to `main`. Re-runs tests, builds + pushes the image,
@@ -425,9 +457,11 @@ No `/api/*` caching in M1.
   solo-dev can self-merge with a documented exception.
 
 **Rationale.**
+
 - Cheapest, most familiar, contributor-friendly.
 
 **Consequences.**
+
 - Fly API token stored as a GHA secret. Rotate on key incidents.
 
 ---
@@ -441,6 +475,7 @@ adopt it as the working product name until M1 launch. Reconsider the product nam
 in a M1.5 marketing pass if you ever want to rebrand for launch outreach.
 
 **Rationale.**
+
 - `scout` evokes "scouting ahead" — apt for pre-trip planning.
 - One name now, two later (code vs. brand) is fine if and when we split.
 
@@ -496,6 +531,7 @@ on the `geography` column — automatically handles WGS84 distances in meters
 without per-query reprojection.
 
 **Options considered.**
+
 - **In-memory shapely + STRtree (original DEC-004).** Smallest M1 footprint;
   requires a ~3-day refactor at M3.
 - **SQLite + SpatiaLite + GeoAlchemy2.** Zero-ops in M1 with ORM continuity,
@@ -503,7 +539,7 @@ without per-query reprojection.
   `load_extension` quirks) and most contributors don't know it.
 - **PostgreSQL + PostGIS, Fly Managed Postgres.** Lowest ops; small monthly
   cost above the smallest free tier; subject to Fly's pricing-model changes.
-- **PostgreSQL + PostGIS, self-hosted in a Fly VM** *(chosen).* Owner-confirmed
+- **PostgreSQL + PostGIS, self-hosted in a Fly VM** _(chosen)._ Owner-confirmed
   preference; fits zero budget; uses Fly's free volume; same DB engine across
   dev, CI, and prod.
 
@@ -546,10 +582,10 @@ without per-query reprojection.
 ## DEC-020 — Third-party services accessed via vendor-agnostic adapters
 
 **Context.** Scout integrates with several external services: routing
-(OpenRouteService), geocoding (Nominatim), restroom data (Refuge Restrooms),
-map tiles (Protomaps / OSM), and later email (M3). Every one of these has
-plausible alternatives, and we may need to swap any of them under budget
-pressure or rate-limit pressure (see DEC-006 upgrade paths).
+(OpenRouteService), geocoding (bundled DC MAR snapshot in Postgres), restroom
+data (Refuge Restrooms), map tiles (Protomaps / OSM), and later email (M3).
+Every one of these has plausible alternatives, and we may need to swap any of
+them under budget pressure or rate-limit pressure (see DEC-006 upgrade paths).
 
 **Decision.** Every third-party integration is accessed through a thin,
 in-process **adapter / Port-Adapter** layer. The application code depends only
@@ -569,8 +605,8 @@ clients/
 │   └── stub.py              # in-process fake for tests
 ├── geocoding/
 │   ├── __init__.py
-│   ├── protocol.py          # GeocodingProvider Protocol
-│   ├── nominatim.py
+│   ├── protocol.py          # GeocodingProvider Protocol + AddressHit
+│   ├── local_dc.py          # LocalDcGeocodingProvider (DEC-023)
 │   └── stub.py
 ├── restrooms/
 │   ├── __init__.py
@@ -586,13 +622,14 @@ client-side service.
 
 **Provider selection.** `get_provider()` returns the concrete impl based on a
 single env var per concern (`SCOUT_ROUTING_PROVIDER`, default
-`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `nominatim`; etc.).
-Tests use `stub`. Production uses the real impl. Swap is one env var.
+`openrouteservice`; `SCOUT_GEOCODING_PROVIDER`, default `local_dc` per
+`DEC-023`;
+etc.). Tests use `stub`. Production uses the real impl. Swap is one env var.
 
 **Interface design rules.**
 
-- Protocols define the *use case*, not the vendor. `RoutingProvider.walking_route(
-  start, end, profile)` — not `ors_directions(...)`.
+- Protocols define the _use case_, not the vendor. `RoutingProvider.walking_route(
+start, end, profile)` — not `ors_directions(...)`.
 - Protocols return Scout-domain types (`Route`, `Address`, `Restroom`) — never
   the vendor's wire types.
 - Vendor-specific error codes are translated to Scout error codes at the adapter
@@ -635,6 +672,7 @@ adding or changing copy on any surface. It supersedes ad-hoc voice choices in
 shipping code; conflicts are resolved by updating the code to match the guide.
 
 **Rationale.**
+
 - A written, binding voice is the only way multiple agents and contributors
   produce consistent copy.
 - DEC-009's reading-level target is necessary but not sufficient — it
@@ -645,6 +683,7 @@ shipping code; conflicts are resolved by updating the code to match the guide.
   norms beyond what AGENTS.md covers, etc.) will land in the same folder.
 
 **Consequences.**
+
 - New PRs that introduce or change user-facing copy may be asked in review
   to cite the section of the guide the copy satisfies.
 - Existing copy that contradicts the guide (catalogued in a follow-up
@@ -655,23 +694,368 @@ shipping code; conflicts are resolved by updating the code to match the guide.
 
 ---
 
-## DEC-PEND-* — Pending decisions
+## DEC-022 — _Superseded by DEC-023._ (Geocoding: Photon through the Scout backend; supersedes DEC-008)
+
+**Context.** `DEC-008` chose the public Nominatim service for address
+autocomplete with a 500 ms client debounce and a server rate limit. While
+implementing `M1-F03` we shipped the call as a _direct_ browser-to-Nominatim
+`fetch`. Re-reading the
+[OSMF Nominatim Acceptable Use Policy](https://operations.osmfoundation.org/policies/nominatim/)
+surfaced three problems with our path:
+
+1. The policy's _Auto-complete search_ clause categorically forbids using the
+   public Nominatim service for autocomplete — "you must not implement such a
+   service on the client side using the API." The 500 ms debounce addresses
+   the separate 1-req/sec cap, not this prohibition. Moving the call
+   server-side would not fix it either; the policy bars the use case.
+2. The policy requires a descriptive `User-Agent` ("stock User-Agents as set
+   by http libraries will not do"). Browser `fetch` cannot set the
+   `User-Agent` header, so the browser-direct path could not comply on the UA
+   rule either.
+3. The 1-req/sec cap was being enforced per _user IP_, not per Scout — a
+   functional side-effect of the browser-direct path, not a defense of it.
+
+We had also drifted from `DEC-008`'s own wording ("Nominatim public API with
+500 ms client debounce **+ server rate limit**"), which implied the call went
+through our backend.
+
+**Options considered.** _(Confidence levels reflect the
+implementing-agent's read at decision time, not a guarantee.)_
+
+- **Self-hosted Photon, backend-proxied** _(chosen)_ — purpose-built OSS
+  autocomplete engine on OSM data; no autocomplete prohibition; we own UA,
+  cache, rate-limit, and attribution surface. Already pre-blessed as the
+  upgrade lever in `DEC-006`. ~85% confidence.
+- **Komoot's hosted Photon at `photon.komoot.io`** — same engine, no infra,
+  "low-volume / fair use" upstream policy. Adopted as the _dev / soft-launch_
+  endpoint while self-hosting on Fly is staged in a follow-up PR. ~55%
+  confidence on long-term suitability; sufficient for M1's friend-of-author
+  soft-launch (`DEC-PEND-E`).
+- **Mapbox Geocoding.** Best-in-class autocomplete, generous free tier.
+  Rejected: conflicts with `DEC-002`'s deliberate avoidance of Mapbox
+  vendor lock-in, and is a commercial logging surface for user-typed
+  addresses (privacy posture under `NF-PRIV-*` is meant to avoid this).
+- **MapTiler / Stadia / Geoapify.** Same shape as Mapbox; same trade-offs at
+  a smaller scale; same `DEC-002`-adjacent concerns. Rejected.
+- **Backend-proxy current Nominatim path (UA + server rate-limit), no
+  engine change.** Fixes the UA and rate-attribution problems but does
+  _not_ address the autocomplete prohibition. Half-measure; rejected.
+- **Drop autocomplete; one-shot geocode on submit.** Compliant but a UX
+  regression for the disabled-user audience the PRD targets. Rejected.
+
+**Decision.** Geocoding is served by **Photon**, accessed _only_ via the
+Scout backend through the `GeocodingProvider` adapter (`DEC-020`). The
+frontend never talks to a geocoding upstream directly. The rollout is two
+phased PRs:
+
+1. **This PR (`M1-F03` completion):** Backend adapter targets Photon;
+   `GET /api/geocode/search` and `GET /api/geocode/reverse` endpoints land
+   with per-IP rate limits and Pydantic schemas. Frontend's geocoding
+   provider switches to `backend` (calls our own API). `SCOUT_PHOTON_BASE_URL`
+   defaults to `https://photon.komoot.io` so `make docker-up-realistic-run`
+   exercises real Photon traffic without a local index build.
+2. **Follow-up PR (Fly-deploy ticket):** Self-host Photon on a sibling Fly
+   machine with a DC-scoped search index (built via the Nominatim → Photon
+   import path documented in `infra/runbooks/photon-deploy.md`, authored
+   alongside that PR). Production flips `SCOUT_PHOTON_BASE_URL` to the
+   internal Fly hostname. No application code changes.
+
+**Rationale.**
+
+- Photon is purpose-built for autocomplete; Nominatim's own docs note
+  autocomplete isn't supported by that engine. Right tool for the use case.
+- Backend-proxying centralizes the rate-limit, UA, attribution, and
+  (future) cache concerns where we can enforce them. Browsers cannot.
+- The two-phase rollout gets us out of the TOS violation today while
+  keeping the Fly-deploy work to a self-contained PR.
+- The `GeocodingProvider` adapter shape from `DEC-020` is unchanged at the
+  application boundary; this DEC is an engine/transport swap, not an API
+  contract change. Frontend callers continue to consume `AddressHit`.
+
+**Consequences.**
+
+- `apps/backend/scout/clients/geocoding/nominatim.py` is removed; replaced
+  by `photon.py`. Settings rename `SCOUT_NOMINATIM_*` → `SCOUT_PHOTON_*`.
+  `SCOUT_GEOCODING_PROVIDER` default flips `nominatim` → `photon`.
+- `apps/web/lib/providers/geocoding/nominatim.ts` is removed; replaced by
+  `backend.ts` which calls `/api/geocode/*` via `lib/api.ts`. The
+  `NEXT_PUBLIC_NOMINATIM_URL` env var goes away; the frontend no longer
+  knows or cares what engine the backend uses.
+- The new endpoints get a `geocode_get` rate-limit policy (already
+  reserved in `scout/security/rate_limit.py`'s `POLICIES` table).
+- Caching on the backend is intentionally **not** added in this PR;
+  Photon responses are fast and the 500 ms client debounce already absorbs
+  duplicate keystrokes per user. If upstream Photon becomes a bottleneck
+  (concurrent unique queries across users), add a small TTL cache in a
+  follow-up — the adapter is the right home for it.
+- Attribution: the basemap (PMTiles / OSM) already carries the OSM
+  attribution; no additional surface is required for Photon since it
+  serves OSM data and Photon's own license terms inherit OSM's ODbL.
+- The `OSMF Acceptable Use Policy` no longer binds Scout's geocoding
+  traffic in either phase. The upstream `photon.komoot.io` "fair use"
+  expectation does bind us until phase 2 lands; the soft-launch traffic
+  profile is well below any reasonable fair-use ceiling.
+- Closes `OQ-06` (Nominatim rate-limit handling).
+- Adds a new repo guardrail (`AGENTS.md` rule #12) requiring agents to
+  read and respect third-party API terms of use, and to surface
+  ambiguity with emphasis. The drift this DEC corrects is the case study.
+
+---
+
+## DEC-023 — Geocoding: bundled DC Master Address Repository snapshot (supersedes DEC-022)
+
+**Context.** `DEC-022` corrected the Nominatim autopilot-TOS violation by
+moving traffic to Photon through the Scout backend (`DEC-020` adapter).
+Empirical planner testing (`M1-F03`) showed Photon's autocomplete ranking is
+still a poor fit for partial street addresses typed by disabled planners
+(multi-token prefix searches like "`4818 ka`" for "`4818 Kansas`" surfaced
+few or misleading hits even inside a DC bounding box — the engine favors
+whole-token matches).
+
+At the same time, the District publishes its canonical **Master Address
+Repository (MAR)** under **CC0 1.0 Universal** via DC GIS FeatureServer endpoints
+(details on [Open Data DC](https://opendata.dc.gov/)); citation is encouraged
+but not legally required.
+
+**Options considered.**
+
+- **Cheap ranking tweaks atop Photon.** Low effort; does not fix the core
+  tokenization mismatch for hyphenated/quadrant-heavy DC addressing.
+  Rejected as the primary path.
+- **Commercial global geocoder (Geoapify, Mapbox, …).** Strong matching,
+  recurrent cost, ongoing TOS scrutiny, third-party exposure of typed partial
+  addresses. Rejected for M1 on privacy + zero-budget posture.
+- **Dedicated DC MAR snapshot in Postgres**, ingested periodically from OCTO /
+  ArcGIS **`DCGIS_DATA.Location_WebMercator` layer `0`**, keyed by MAR ID —
+  autocomplete becomes prefix search over authoritative city rows.
+  Zero upstream calls during requests; aligns with NF-PRIV goals; CC0 clears
+  licensing. Selected.
+
+**Decision.** Scout's backend `GeocodingProvider` default implementation reads
+only from Postgres table `dc_addresses` populated offline by
+`scripts/ingest_dc_addresses.py` (bundled snapshot at `data/dc_addresses.jsonl`
+plus repeatable `--fetch` refresh). Requests never call a remote geocoder.
+The `/api/geocode/search` / `/api/geocode/reverse` JSON contracts stay what
+DEC-022 shipped; adapters map rows to Scout-domain `AddressHit`.
+
+Reverse geocode is limited to coordinates inside `DC_BBOX_LON_LAT` (matching
+MAR coverage). Addresses outside MAR return `hits: []` with clear UI copy —
+no silent fallback geocoder.
+
+**Consequences.**
+
+- `photon.py` and related `SCOUT_PHOTON_*` settings are removed. Default
+  `SCOUT_GEOCODING_PROVIDER` becomes `local_dc`.
+- Operational refresh is manual or scripted quarterly; tracked in
+  `infra/runbooks/refresh-dc-addresses.md`.
+- Fly / bandwidth risks from hosted Photon evaporate from the posture table
+  (`DEC-006` lever row updated accordingly).
+- `DEC-022` documented the intermediate compliant engine swap; retain it as
+  history but treat `DEC-023` as authoritative for autocomplete source.
+
+---
+
+## DEC-024 — UX treatment for route-feature marker density
+
+**Context.** The project owner observed that aids and obstacles often appear
+in dense clusters on rendered routes, raising concern that Scout might be
+storing duplicate records. An investigation confirmed:
+
+- The pipeline is duplicate-safe. Every row is keyed by
+  `{source_dataset}:{source_id}` (`apps/backend/scout/ingest/dc.py`,
+  `apps/backend/scout/data/models.py`). Within each ADA dataset every
+  `GIS_ID` and every `(lon, lat)` pair is unique except for one
+  null-condition driveway pair, and `driveways` is `default_enabled = no`
+  per `docs/appendix-data-schema.md` §B.5.
+- `apps/backend/scout/data/store.py::corridor_features_geojson` returns
+  every row inside `buffer_meters`; no proximity collapse, by design.
+- The visible "clustering" combines (a) MapLibre's `clusterRadius: 50,
+clusterMaxZoom: 15` per `M1-F08`'s "markers cluster at low zoom"
+  acceptance criterion, with (b) real geographic density — a 4-way
+  signalized corner legitimately has up to 8 distinct curb-ramp
+  inspections plus several audible-signal buttons within ~25 m.
+- Scout has no glanceable categorical summary today. `<FeatureListView/>`
+  is optimized for ordered detail along the route, not for "what kinds
+  of things are on this route?" at a glance.
+
+This DEC is therefore a UX decision about how to communicate density and
+category mix to users without implying duplication, not a data-layer fix.
+
+**Audience-driven framing.** Phase 1 audience is **people with mobility
+challenges, broadly construed** — wheelchair users, walker / cane /
+crutches users, people with chronic pain or fatigue, MS, older adults,
+post-surgical recovery, prosthetic users, and others. Two implications:
+
+1. Counts of obstacles function as a fatigue / effort signal, not just
+   information. Five obstacles across a half-mile route is materially
+   different from zero obstacles. Obstacle counts should be persistent
+   and visible.
+2. The data already splits along this axis at the schema level
+   (`Feature.kind ∈ {aid, obstacle}` per `DEC-019`). Per `DEC-021` and
+   `docs/contributor/voice-and-copy.md` §6, the user-facing house words
+   are **"support"** (for `kind = aid`) and **"obstacle"** (for
+   `kind = obstacle`). Code paths keep `kind = aid`; user-facing copy
+   says "support".
+
+**Options considered.**
+
+- **Option A — Intersection-aware aggregation + route-level summary.**
+  Strip above the map plus backend-materialized intersection clusters
+  that replace pixel-stacking past zoom 15 with badge-and-expand
+  markers. Solves all four jobs-to-be-done (glanceable summary, reduced
+  clutter, trust signal, drill-down). Highest engineering scope;
+  intersection grouping must be derived spatially because source
+  `INTERSECTION_ID` is 100 % `null` on curb-ramp and audible-signal
+  rows. Confidence ~80 % it solves the user pain meaningfully; ~50 %
+  shippable cleanly in a single PR.
+- **Option B — Route-level summary + honest cluster copy** _(chosen
+  for Phase 1)._ Strip plus cluster-bubble copy fix and a one-time
+  inline explainer. Frontend-only, low risk, strong a11y. Doesn't fix
+  high-zoom pixel stacking. Confidence ~85 % it improves the
+  experience; ~60 % it fully resolves the original complaint.
+- **Option C — Targeted clutter fix at the marker layer only.** Raise
+  `clusterMaxZoom` and add a "stack" treatment past it. Smallest fix;
+  doesn't add a glanceable summary; trust signal still ambiguous
+  without copy. Confidence ~70 % it reduces clutter at high zoom;
+  ~40 % it addresses the "at a glance" requirement.
+
+**Rejected.** Server-side near-duplicate dedup (would hide legitimately
+distinct inspections, weakens the `NF-TRUST-02` freshness signal);
+single-category-at-a-time mode (too restrictive for the planning
+persona); heatmap layer (loses the `DEC-015` shape-family discipline
+and conflicts with WCAG 1.4.1).
+
+**Decision.** Two-phase rollout. Phase 1 is Option B with the explicit
+supports / obstacles split. Phase 2 layers on Option A's intersection
+clustering when its own follow-on `DEC-NNN` and migration land.
+
+**Phase 1 (frontend-only).**
+
+1. **Route-level category summary strip** above the map, persistent at
+   all zoom levels. Two ARIA-grouped sections in order: **Supports**
+   (e.g., curb ramps, audible signals, accessible bus stops, accessible
+   restrooms) and **Obstacles** (e.g., barriers, poor-condition ramps,
+   steep driveways). Each section renders only the categories present
+   in this route's features as chips. Each chip shows: the category
+   icon (per `DEC-015` shape family), the user-facing label, and the
+   count along the route. Categories not present on the route do not
+   get a chip.
+2. **Each chip is dual-purpose.** The chip surface is a `<button>` that
+   filters the list view to that category (`aria-pressed` for filter
+   state). Inside the chip, a sibling `<button>` with an eye-icon
+   toggles the marker-layer visibility for that category on the map
+   (`aria-pressed` for visibility state). The count remains visible on
+   the chip regardless of map visibility — counts are authoritative
+   for "what's on the route", independent of "what's currently drawn".
+3. **Voice and copy.** Section headings are **"Supports"** and
+   **"Obstacles"** per `docs/contributor/voice-and-copy.md` §6 house
+   words. Microcopy reading level FK ≤ 6 per `DEC-009`.
+4. **Cluster-bubble copy.** MapLibre cluster labels include the
+   dominant category and count, e.g. `5 curb ramps · zoom in`. When a
+   cluster contains multiple categories, fall back to
+   `5 features · zoom in`. Screen-reader text spells the mix:
+   `cluster of 5: 3 curb ramps, 2 obstacles; press Enter to zoom`,
+   extending `M1-F08`'s existing "cluster count is announced on focus"
+   criterion.
+5. **First-visit explainer.** A one-time, dismissible inline note (not
+   a modal — `DEC-010` already owns modal surface) above the strip on
+   the first route render in a session: _"Each marker is a separately
+   inspected feature. Multiple markers at one corner mean the corner
+   was inspected multiple times, not that data is duplicated."_
+   Persisted in `localStorage` reusing the `DEC-010` namespace.
+
+**Phase 2 (next milestone, no fixed timeline).**
+
+6. Backend materializes an `intersection_cluster_id` column on
+   `features` via spatial clustering at ingest time. The algorithm
+   choice (DBSCAN on `geom` with a tunable `eps` vs. snapping to OSM
+   intersections via Overpass) is deferred to the Phase-2 `DEC-NNN`
+   and its Alembic revision.
+7. The corridor API gains an optional `aggregate_by=intersection_cluster`
+   mode returning one record per `(intersection_cluster_id, category)`
+   with `member_count` and `member_ids[]`. Default mode is unchanged.
+8. Frontend at zoom > 15 swaps pixel-stacked markers for badge-and-expand
+   markers; tap / focus opens an intersection popover listing member
+   features in along-route order.
+
+**Rationale.**
+
+- The summary strip is the highest-leverage element in this space:
+  the only one that answers "at a glance, what's on my route?" without
+  zooming. It's also the strongest accessibility surface (text-first,
+  screen-reader navigable, keyboard-equivalent), which matters
+  disproportionately for a mobility-challenged audience that often
+  has overlapping sensory or cognitive accessibility needs.
+- The supports / obstacles split mirrors how the audience plans trips —
+  "what helps me?" vs. "what slows me down?" — better than a flat row
+  of chips. The split is also a no-cost a11y win (two labeled
+  groupings, each its own ARIA `role="group"` with `aria-labelledby`).
+- The eye-icon "show on map" toggle solves a specific obstacle-safety
+  concern: if the chip toggled both legend and map visibility, a user
+  could hide "obstacles" from the map and forget there are three
+  along their route. Separating _count_ (legend, always visible) from
+  _render_ (eye toggle) lets users declutter the map without losing
+  the obstacle-awareness signal.
+- High-zoom pixel stacking is real but secondary — it bites only when
+  a user is already inspecting a specific corner, where the list view
+  partially compensates. Deferring to Phase 2 is acceptable.
+- Intersection clustering deserves its own decision. The algorithm
+  choice and the API contract change are non-trivial; a brittle
+  frontend-only spatial cluster that drifts on pan and zoom would be
+  worse than waiting.
+
+**Consequences.**
+
+- Phase 1 is frontend-only. New
+  `apps/web/components/RouteCategorySummary.tsx` plus changes to
+  `BasemapInner.tsx` (cluster copy and per-category layer
+  visibility) and `PlanExperience.tsx` (layout, lifted state). No
+  backend or schema changes.
+- `<FeatureListView/>` becomes the detail surface; the strip is the
+  summary surface. PRD `M1-F08` is updated in the implementing PR
+  to reference the strip in its at-a-glance acceptance criterion.
+  PRD `M1-F09` stays as the parallel list view.
+- `M2-F19` (toggle layers without re-routing) is partly delivered
+  by Phase 1. The eye-toggle on each chip absorbs `M2-F19`'s
+  per-category filter behavior. PRD edit in the same PR clarifies
+  what remains of `M2-F19` (or marks it superseded if nothing).
+- One additional `localStorage` key for the first-visit explainer,
+  reusing the `DEC-010` namespace.
+- Phase 2 commits the project to a backend migration when its
+  `DEC-NNN` lands. `apps/backend/scout/data/store.py` and the
+  corridor schema change at that point.
+- No new third-party TOS exposure. Only data already cleared in
+  `DEC-005`. No new outbound calls.
+- No `OQ-NN` is closed by Phase 1. Phase 2's algorithmic choice may
+  warrant a new `OQ-NN` when its ticket is filed.
+- Tickets implied:
+  - **Phase 1, new ticket** — _Route-level category summary strip
+    (supports vs. obstacles)._ Number to be assigned by PRD owner
+    alongside `M1-F08` / `M1-F09`. Implementation prompt at
+    `docs/prompts/09-route-summary-strip.md`.
+  - **Phase 2, new ticket(s)** — _Intersection-aware feature
+    aggregation (backend + frontend)._ Filed at the start of the
+    next milestone with its own `DEC-NNN`.
+
+---
+
+## DEC-PEND-\* — Pending decisions
 
 These don't block scaffolding but should be settled before M1 ships.
 
 - **DEC-PEND-A** — Final brand / product-facing name. (See DEC-018.)
-  *Status:* unchanged; revisit before M1 ships.
-- **DEC-PEND-B** — Domain name and DNS provider. *Status:* deferred pending
+  _Status:_ unchanged; revisit before M1 ships.
+- **DEC-PEND-B** — Domain name and DNS provider. _Status:_ deferred pending
   owner research.
-- **DEC-PEND-C** — Partnership with DC disability advocacy orgs. *Status:*
+- **DEC-PEND-C** — Partnership with DC disability advocacy orgs. _Status:_
   **deferred until after M1 POC ships.** Plan: build M1, then approach local
   disability advocates and chapters to invite them to use it, give feedback,
   and consider formal partnership. Disclaimer language in M1 should therefore
   be self-authored and conservative — we are speaking only for ourselves.
 - **DEC-PEND-D** — Email provider for M3 magic links (Resend, Postmark,
-  Mailchannels). *Status:* deferred pending owner research. Adapter pattern
+  Mailchannels). _Status:_ deferred pending owner research. Adapter pattern
   in DEC-020 means the choice is reversible.
-- **DEC-PEND-E** — M1 launch venue. *Status:* **resolved.** Soft launch via
+- **DEC-PEND-E** — M1 launch venue. _Status:_ **resolved.** Soft launch via
   the owner's disability community group within their activist circle. No
   blog post, no press, no social broadcast for M1. This is a friend-of-author
   beta, not a public beta. Disclaimer remains prominent but doesn't need
@@ -679,4 +1063,4 @@ These don't block scaffolding but should be settled before M1 ships.
 
 ---
 
-*End of decisions log.*
+_End of decisions log._

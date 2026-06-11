@@ -2,22 +2,34 @@
 
 from __future__ import annotations
 
+import logging
 from collections import OrderedDict
 from time import monotonic
 from typing import Any
 
 import httpx
 
+from scout.clients.routing.constants import FALLBACK_PROFILE_WARNING
 from scout.clients.routing.protocol import RoutingProvider
 from scout.clients.routing.types import RoutingComputation
 from scout.config import Settings
-from scout.errors import RouteNotFoundError, UpstreamUnavailableError
+from scout.errors import (
+    ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
+    RouteNotFoundError,
+    RouteServiceUnavailableError,
+)
+
+LOGGER = logging.getLogger("scout")
+
+RoutingCacheKey = tuple[str | int, ...]
 
 
-def _routing_cache_key(pairs: list[float]) -> tuple[int, ...]:
-    """Round-four-decimal cache key aligned with scaffold prompt LRU behavior."""
+def routing_cache_key(profile: str, pairs: list[float]) -> RoutingCacheKey:
+    """Cache key: request profile plus four-decimal rounded lon/lat pairs."""
 
-    return tuple(int(round(coord * 10_000)) for coord in pairs)
+    token = profile.strip().lower()
+    coords = tuple(int(round(coord * 10_000)) for coord in pairs)
+    return (token,) + coords
 
 
 class TTLCache[R]:
@@ -26,9 +38,9 @@ class TTLCache[R]:
     def __init__(self, *, maxlen: int = 256, ttl_seconds: float = 86400.0) -> None:
         self.maxlen = maxlen
         self.ttl_seconds = ttl_seconds
-        self._store: OrderedDict[tuple[int, ...], tuple[float, R]] = OrderedDict()
+        self._store: OrderedDict[RoutingCacheKey, tuple[float, R]] = OrderedDict()
 
-    def get(self, key: tuple[int, ...]) -> R | None:
+    def get(self, key: RoutingCacheKey) -> R | None:
         now = monotonic()
         if key not in self._store:
             return None
@@ -39,7 +51,7 @@ class TTLCache[R]:
         self._store.move_to_end(key)
         return payload
 
-    def set(self, key: tuple[int, ...], payload: R) -> None:
+    def set(self, key: RoutingCacheKey, payload: R) -> None:
         now = monotonic()
         self._store[key] = (now, payload)
         self._store.move_to_end(key)
@@ -55,22 +67,50 @@ class OpenRouteServiceProvider(RoutingProvider):
         self._client = client
         self._cache: TTLCache[RoutingComputation] = TTLCache()
 
-    async def walking_wheelchair_route(
-        self, frm: list[float], to: list[float]
+    async def walking_route(
+        self,
+        frm: list[float],
+        to: list[float],
+        *,
+        profile: str,
     ) -> RoutingComputation:
-        key = _routing_cache_key(frm + to)
+        # `profile` is the Scout-domain mode token. M1 wires only
+        # "wheelchair" through, but we key the cache on whatever the
+        # caller asked for so future modes (M2-F18) don't collide.
+        key = routing_cache_key(profile, frm + to)
         cached = self._cache.get(key)
         if cached is not None:
+            LOGGER.info(
+                "route_cache",
+                extra={
+                    "cache_hit": True,
+                    "fallback_profile_used": cached.fallback_profile_used,
+                    "upstream_service": "openrouteservice",
+                },
+            )
             return cached
+
+        LOGGER.info(
+            "route_cache",
+            extra={
+                "cache_hit": False,
+                "fallback_profile_used": False,
+                "upstream_service": "openrouteservice",
+            },
+        )
 
         coords = [[frm[0], frm[1]], [to[0], to[1]]]
         fallback_used = False
         api_key = (self._settings.ors_api_key or "").strip()
         if not api_key:
-            raise UpstreamUnavailableError(
+            raise RouteServiceUnavailableError(
                 message="Routing service credentials are missing for this deployment."
             )
 
+        # M1 only requests the wheelchair-aware ORS profile; foot-walking is
+        # the internal fallback (S3). When more Scout-domain modes land we
+        # will dispatch from `profile` to a vendor string here, not in the
+        # caller.
         try:
             response = await self._call_directions("wheelchair", coords, api_key)
         except RouteNotFoundError:
@@ -79,6 +119,13 @@ class OpenRouteServiceProvider(RoutingProvider):
         computation = self._ors_body_to_computation(
             response, fallback_used=fallback_used
         )
+        if fallback_used:
+            computation = computation.model_copy(
+                update={
+                    "warnings": (*computation.warnings, FALLBACK_PROFILE_WARNING),
+                }
+            )
+
         self._cache.set(key, computation)
         return computation
 
@@ -101,27 +148,33 @@ class OpenRouteServiceProvider(RoutingProvider):
 
         try:
             resp = await self._client.post(
-                url, json=payload, headers=headers, timeout=15.0
+                url, json=payload, headers=headers, timeout=3.0
             )
         except httpx.HTTPError as exc:
-            raise UpstreamUnavailableError(
-                message="Route service unreachable."
+            raise RouteServiceUnavailableError(
+                message=ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
             ) from exc
 
         if resp.status_code == 429:
-            raise UpstreamUnavailableError(message="Routing rate limit exhausted.")
+            raise RouteServiceUnavailableError(message="Routing rate limit exhausted.")
         if resp.status_code in {401, 403}:
-            raise UpstreamUnavailableError(message="Routing credentials rejected.")
+            raise RouteServiceUnavailableError(message="Routing credentials rejected.")
         if resp.status_code in {404, 204} or not resp.content:
             raise RouteNotFoundError()
         if resp.status_code >= 500:
-            raise UpstreamUnavailableError()
+            raise RouteServiceUnavailableError(
+                message=ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
+            )
         try:
             parsed: Any = resp.json()
         except ValueError:
-            raise UpstreamUnavailableError() from None
+            raise RouteServiceUnavailableError(
+                message=ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
+            ) from None
         if not isinstance(parsed, dict):
-            raise UpstreamUnavailableError()
+            raise RouteServiceUnavailableError(
+                message=ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
+            )
         body: dict[str, Any] = parsed
         return body
 
@@ -132,17 +185,30 @@ class OpenRouteServiceProvider(RoutingProvider):
         if not isinstance(features_any, list) or len(features_any) == 0:
             raise RouteNotFoundError()
 
+        # ORS Directions GeoJSON puts `summary` on `features[0].properties.summary`
+        # (`https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/`).
+        # Older mocks placed it on `metadata.summary` or top-level `properties.summary`;
+        # we keep those as fallbacks so existing fixtures still parse.
         summary: dict[str, Any] | None = None
-        metadata = body.get("metadata")
-        if isinstance(metadata, dict):
-            maybe_summary = metadata.get("summary")
-            if isinstance(maybe_summary, dict):
-                summary = maybe_summary
-        top_props = body.get("properties")
-        if summary is None and isinstance(top_props, dict):
-            maybe_summary_top = top_props.get("summary")
-            if isinstance(maybe_summary_top, dict):
-                summary = maybe_summary_top
+        first_feature = features_any[0]
+        if isinstance(first_feature, dict):
+            feature_props = first_feature.get("properties")
+            if isinstance(feature_props, dict):
+                maybe_feature_summary = feature_props.get("summary")
+                if isinstance(maybe_feature_summary, dict):
+                    summary = maybe_feature_summary
+        if summary is None:
+            metadata = body.get("metadata")
+            if isinstance(metadata, dict):
+                maybe_summary = metadata.get("summary")
+                if isinstance(maybe_summary, dict):
+                    summary = maybe_summary
+        if summary is None:
+            top_props = body.get("properties")
+            if isinstance(top_props, dict):
+                maybe_summary_top = top_props.get("summary")
+                if isinstance(maybe_summary_top, dict):
+                    summary = maybe_summary_top
 
         distance_meters = float(summary.get("distance", 0.0)) if summary else 0.0
         duration_seconds = float(summary.get("duration", 0.0)) if summary else 0.0

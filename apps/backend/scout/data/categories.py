@@ -90,3 +90,16 @@ def category_rows_to_dicts() -> list[dict[str, str | bool]]:
 @lru_cache(maxsize=1)
 def frozen_category_manifest() -> tuple[dict[str, str | bool], ...]:
     return tuple(category_rows_to_dicts())
+
+
+@lru_cache(maxsize=1)
+def frozen_category_ids() -> frozenset[str]:
+    return frozenset(row[0] for row in _CATEGORY_ROWS)
+
+
+def unknown_corridor_categories(categories: tuple[str, ...]) -> tuple[str, ...]:
+    """Return IDs not present in the canonical `/api/categories` manifest."""
+
+    known = frozen_category_ids()
+    unknown = tuple(sorted(c for c in categories if c not in known))
+    return unknown

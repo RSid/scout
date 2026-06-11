@@ -1,0 +1,75 @@
+name: Accessibility barrier
+description: Something in Scout blocks you from using it with a keyboard, screen reader, or other assistive technology.
+title: "[a11y] <one-line summary>"
+labels: ["accessibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a barrier. A few quick rules before you start:
+
+        - **Use an approximate location** ("near Logan Circle"), not raw GPS
+          coordinates.
+        - **Scrub screenshots** of any address, name, phone number, or other
+          identifying info.
+        - **Security vulnerabilities do not go here.** Open a private security
+          advisory on this repo's **Security** tab. The full disclosure process
+          will live in `SECURITY.md` once `M1-T09` lands.
+
+  - type: textarea
+    id: blocked
+    attributes:
+      label: What blocked you
+      description: |
+        Describe the page or interaction and what you couldn't do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: input
+    id: where
+    attributes:
+      label: Page or flow where it happened
+      placeholder: "/plan, route results"
+    validations:
+      required: true
+
+  - type: input
+    id: assistive_tech
+    attributes:
+      label: Assistive technology and version
+      placeholder: "VoiceOver on iOS 17 / NVDA 2024.1 / keyboard only"
+    validations:
+      required: true
+
+  - type: input
+    id: browser_os
+    attributes:
+      label: Browser and OS
+      placeholder: "Firefox 124 on macOS 14.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: axe_output
+    attributes:
+      label: Accessibility (axe) output
+      description: |
+        Optional. If you have it, paste the relevant `axe-core` violations or
+        attach the JSON report.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy_ack
+    attributes:
+      label: Privacy acknowledgement
+      options:
+        - label: I have not included raw GPS coordinates, email addresses, or other PII unless I intentionally wanted them in the public record.
+          required: true

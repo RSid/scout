@@ -31,19 +31,41 @@ export default function PrivacyPage() {
             third-party analytics, advertising scripts, or social-media widgets.
           </li>
           <li>
-            <strong>The address you type</strong> is sent to OpenStreetMap&apos;s
-            Nominatim service when you search for a place. It&apos;s used to find
-            coordinates and isn&apos;t stored by Scout.
+            <strong>The address you type</strong> goes to Scout&apos;s servers where it
+            is matched against the District&apos;s public Master Address Repository
+            snapshot (MAR). Nothing is forwarded to an external geocoding API for
+            autocomplete — see{" "}
+            <Link
+              href="/about"
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+            >
+              About Scout
+            </Link>{" "}
+            for the full list of online routing services Scout still relies on (for
+            example OpenRouteService for walking directions). Scout doesn&apos;t store
+            what you typed.
           </li>
           <li>
-            <strong>Route requests</strong> (start and destination coordinates) are sent
-            to OpenRouteService to compute the route. They aren&apos;t stored by Scout.
+            <strong>Coordinates from your plan</strong> (start and destination) flow
+            through Scout to calculate walking directions. They aren&apos;t stored by
+            Scout.
           </li>
           <li>
             <strong>Your IP address</strong> appears in Scout&apos;s server logs (used
             to catch abuse), kept for no more than seven days, then deleted.
           </li>
         </ul>
+        <p className="text-[color:var(--color-text-muted)]">
+          For the names of the geographic lookup and routing services Scout uses — and
+          links if you want to read more — see{" "}
+          <Link
+            href="/about"
+            className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+          >
+            About Scout
+          </Link>
+          .
+        </p>
       </section>
 
       <section
@@ -111,6 +133,43 @@ export default function PrivacyPage() {
           Scout doesn&apos;t set cookies for tracking. The browser storage described
           above is the only state Scout keeps client-side.
         </p>
+      </section>
+
+      <section
+        aria-labelledby="privacy-questions-heading"
+        className="space-y-[var(--space-3)]"
+      >
+        <h2
+          id="privacy-questions-heading"
+          className="text-2xl font-semibold text-[color:var(--color-text)]"
+        >
+          Privacy questions
+        </h2>
+        <p className="text-[color:var(--color-text-muted)]">
+          Scout has no accounts and no contact form. For a privacy question, or to flag
+          something on this page, open a GitHub issue. To report a security or privacy
+          vulnerability, use GitHub&apos;s private security advisories instead of a
+          public issue.
+        </p>
+        <ul className="list-disc space-y-[var(--space-2)] pl-[var(--space-6)] text-[color:var(--color-text)]">
+          <li>
+            <Link
+              href={`${GITHUB_REPO}/issues`}
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+            >
+              Open a GitHub issue
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={`${GITHUB_REPO}/security`}
+              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+              rel="noopener noreferrer"
+            >
+              Security disclosures (GitHub Security tab)
+            </Link>
+          </li>
+        </ul>
       </section>
 
       <section

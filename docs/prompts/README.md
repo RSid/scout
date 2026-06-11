@@ -24,6 +24,7 @@ needs the prompt + this repo to do its job.
 | 06 | `06-dockerize-and-deploy.md` | Dockerfile, docker-compose, fly.toml, CI workflow | `infra/`, `.github/workflows/` |
 | 07 | `07-design-system.md` | Produce the design tokens, marker shapes, and key-screen mockups | `apps/web/design/` |
 | 08 | `08-category-copy-audit.md` | Audit and rewrite API-driven category labels (`ApiCategory.label`, `ApiCategory.description`) for voice consistency per DEC-021 | One PR; sources vary (backend / fixtures / PRD) |
+| 09 | `09-route-summary-strip.md` | Implement DEC-024 Phase 1: the supports/obstacles route-summary strip, cluster-bubble copy fix, and first-visit inline explainer | `apps/web/` |
 
 ## Conventions every downstream agent must follow
 

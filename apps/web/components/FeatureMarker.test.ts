@@ -1,19 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { FeatureMarkerAriaLabel, obstacleMarkerSlug } from "./FeatureMarker";
+import { FeatureMarkerAriaLabel } from "./FeatureMarker";
 
-describe("obstacleMarkerSlug", () => {
-  it.each([
-    ["curb ramps", "triangle"],
-    ["foo barrier bar", "diamond"],
-    ["rest_spots", "pill"],
-  ])("maps %s to shape token", (categoryId, slug) => {
-    expect(obstacleMarkerSlug(categoryId)).toBe(slug);
-  });
-});
+import { en } from "@/lib/i18n/messages";
 
 describe("FeatureMarkerAriaLabel", () => {
-  it("joins semantic role and category wording", () => {
-    expect(FeatureMarkerAriaLabel("aid", "Elevators")).toBe("aid: Elevators");
+  it("uses category label, condition, and canonical inspection year fragment", () => {
+    expect(FeatureMarkerAriaLabel("Curb ramps", "Non-compliant", 2016)).toBe(
+      `Curb ramps, Non-compliant, ${en.lastInspectedShort} 2016`,
+    );
+  });
+
+  it("uses inspection date unknown fragment when the year is absent", () => {
+    expect(FeatureMarkerAriaLabel("Curb ramps", "Good", null)).toContain(
+      en.inspectionDateUnknownAriaFragment,
+    );
+  });
+
+  it("falls back to aria condition unknown when condition is empty", () => {
+    expect(FeatureMarkerAriaLabel("Barriers", "", 2018)).toContain(
+      en.conditionUnknownForAria,
+    );
   });
 });

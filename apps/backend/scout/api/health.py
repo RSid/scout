@@ -15,6 +15,9 @@ from scout.data.session import get_session
 
 router = APIRouter(tags=["health"])
 
+# Rate limit exempt (M1-T17): health is a cheap probe for orchestrators; must stay
+# high-throughput.
+
 
 async def _probe_features_table(session: AsyncSession) -> tuple[bool, int | None]:
     try:

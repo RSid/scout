@@ -39,6 +39,30 @@ const PANEL_SAMPLE: ApiCategory[] = [
   },
 ];
 
+function renderPanel() {
+  return render(
+    <AnnounceProvider>
+      <ProfileProvider>
+        <ProfilePanel />
+      </ProfileProvider>
+    </AnnounceProvider>,
+  );
+}
+
+async function openPanel(user: ReturnType<typeof userEvent.setup>) {
+  await waitFor(() =>
+    expect(screen.queryByText(/loading categories/i)).not.toBeInTheDocument(),
+  );
+  const trigger = screen.getByRole("button", { name: /^my accessibility needs$/i });
+  await user.click(trigger);
+  await waitFor(() =>
+    expect(
+      screen.getByRole("dialog", { name: /^accessibility profile$/i }),
+    ).toBeVisible(),
+  );
+  return trigger;
+}
+
 describe("ProfilePanel", () => {
   beforeEach(() => {
     void stubCategoriesPayload(PANEL_SAMPLE);
@@ -50,34 +74,46 @@ describe("ProfilePanel", () => {
     window.localStorage.clear();
   });
 
-  it("opens the Radix accessibility profile modal", async () => {
+  it("opens the Radix accessibility profile modal from the needs trigger", async () => {
     const user = userEvent.setup();
+    const { baseElement } = renderPanel();
 
-    const { baseElement } = render(
-      <AnnounceProvider>
-        <ProfileProvider>
-          <ProfilePanel />
-        </ProfileProvider>
-      </AnnounceProvider>,
-    );
-
-    await waitFor(() =>
-      expect(screen.queryByText(/loading categories/i)).not.toBeInTheDocument(),
-    );
-    const triggers = screen.getAllByRole("button", {
-      name: /^accessibility profile$/i,
-    });
-
-    await user.click(triggers[0]);
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole("dialog", { name: /^accessibility profile$/i }),
-      ).toBeVisible(),
-    );
+    await openPanel(user);
 
     const results = await axe(baseElement);
-
     expect(results.violations).toStrictEqual([]);
+  });
+
+  it("announces the category and its new state when a checkbox toggles", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await openPanel(user);
+
+    await user.click(screen.getByRole("checkbox", { name: /rest spots/i }));
+
+    expect(await screen.findByText(/rest spots turned off\./i)).toBeInTheDocument();
+  });
+
+  it("announces a reset when 'Reset to defaults' is activated", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await openPanel(user);
+
+    await user.click(screen.getByRole("button", { name: /reset to defaults/i }));
+
+    expect(
+      await screen.findByText(/preferences reset to defaults\./i),
+    ).toBeInTheDocument();
+  });
+
+  it("closes on Escape and returns focus to the trigger", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const trigger = await openPanel(user);
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
   });
 });

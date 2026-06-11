@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scout — planner status states (design mockup)</title>
+    <style>
+      @import url("../tokens/index.css");
+
+      /* === Mockup chrome (not shipped) === */
+      body {
+        margin: 0;
+        padding: var(--space-6);
+        background: #ddd1aa;
+        font-family: var(--font-family-sans);
+        color: #221c14;
+      }
+      .intro {
+        max-width: 880px;
+        margin: 0 auto var(--space-6);
+        font-size: var(--font-size-sm);
+        line-height: var(--line-height-normal);
+      }
+      .intro code {
+        background: #fffcf0;
+        padding: 0 4px;
+        border-radius: 4px;
+      }
+      .mockup-stack {
+        max-width: 1340px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-8);
+      }
+      .mockup-caption {
+        display: block;
+        margin-bottom: var(--space-2);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        color: #5c5246;
+        letter-spacing: var(--letter-spacing-wide);
+        text-transform: uppercase;
+      }
+      .mockup-frame {
+        background: var(--color-surface);
+        color: var(--color-text);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--elevation-overlay);
+      }
+      .two-up {
+        display: grid;
+        grid-template-columns: 375px 1fr;
+        gap: var(--space-6);
+        align-items: start;
+      }
+
+      /* === Shared planner styles (reference for the engineering agent) === */
+      .scout-app {
+        font-family: var(--font-family-sans);
+        font-size: var(--font-size-base);
+        line-height: var(--line-height-normal);
+        color: var(--color-text);
+        background: var(--color-surface);
+      }
+      .scout-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface-elevated);
+      }
+      .scout-wordmark {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--font-size-xl);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text);
+        letter-spacing: var(--letter-spacing-tight);
+        text-decoration: none;
+      }
+      .scout-wordmark svg {
+        color: var(--color-accent);
+      }
+      .scout-nav a {
+        color: var(--color-link);
+        text-decoration: none;
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-md);
+        font-weight: var(--font-weight-bold);
+      }
+
+      /* Persistent disclaimer banner (DEC-010) — shown so we can see it coexists. */
+      .disclaimer-banner {
+        background: var(--color-warning-surface);
+        border-bottom: 2px solid var(--color-warning-border);
+        color: var(--color-warning-text);
+        padding: var(--space-2) var(--space-4);
+        font-size: var(--font-size-xs);
+        display: flex;
+        gap: var(--space-2);
+        align-items: center;
+        /* Small breathing room so the warm banner doesn't butt against the
+           warm sticky warning strip when it pins to the top. */
+        margin-bottom: var(--space-2);
+      }
+      .disclaimer-banner strong {
+        font-weight: var(--font-weight-bold);
+      }
+      .disclaimer-banner .dismiss {
+        margin-left: auto;
+        background: transparent;
+        border: 1px solid var(--color-warning-border);
+        color: var(--color-warning-text);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        cursor: pointer;
+        min-height: var(--target-min);
+        min-width: var(--target-min);
+      }
+
+      .scout-main {
+        padding: var(--space-4);
+      }
+
+      h1.plan-title {
+        font-size: var(--font-size-2xl);
+        font-weight: var(--font-weight-bold);
+        margin: 0 0 var(--space-1);
+      }
+      .plan-sub {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        margin: 0 0 var(--space-4);
+      }
+
+      /* Route summary card — numbers only now (warning moved out of it). */
+      .summary-card {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-4);
+        margin-bottom: var(--space-4);
+        display: flex;
+        gap: var(--space-6);
+        flex-wrap: wrap;
+      }
+      .summary-card .metric .k {
+        display: block;
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: var(--letter-spacing-wide);
+      }
+      .summary-card .metric .v {
+        font-size: var(--font-size-xl);
+        font-weight: var(--font-weight-bold);
+      }
+      .summary-card .metric .v.muted {
+        font-size: var(--font-size-base);
+        color: var(--color-text-muted);
+        font-weight: var(--font-weight-bold);
+      }
+
+      /* =========================================================
+         THE STATUS STRIP — one severity-aware component, all states.
+         Color is never the only signal: every variant pairs a
+         distinct icon SHAPE + a text label with the tint.
+         ========================================================= */
+      .status-strip {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border: 1px solid var(--color-border);
+        border-left-width: 4px;
+        border-radius: var(--radius-md);
+        background: var(--color-surface-elevated);
+        color: var(--color-text);
+      }
+      .status-strip .glyph {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        margin-top: 1px;
+      }
+      .status-strip .body {
+        min-width: 0;
+      }
+      .status-strip .title {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-bold);
+        margin: 0;
+      }
+      .status-strip .detail {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        margin: 2px 0 0;
+      }
+
+      /* Severity variants */
+      .status-strip.info {
+        border-color: var(--color-border-strong);
+        border-left-color: var(--color-link);
+      }
+      .status-strip.info .glyph {
+        color: var(--color-link);
+      }
+      .status-strip.pending {
+        border-color: var(--color-border-strong);
+        border-left-color: var(--color-text-muted);
+      }
+      .status-strip.pending .glyph {
+        color: var(--color-text-muted);
+      }
+      .status-strip.warning {
+        background: var(--color-warning-surface);
+        border-color: var(--color-warning-border);
+        border-left-color: var(--color-warning-border);
+        color: var(--color-warning-text);
+      }
+      .status-strip.warning .detail {
+        color: var(--color-warning-text);
+      }
+      .status-strip.warning .glyph {
+        color: var(--color-warning-border);
+      }
+      .status-strip.error {
+        background: var(--color-danger-surface);
+        border-color: var(--color-danger-border);
+        border-left-color: var(--color-danger-border);
+        color: var(--color-danger-text);
+      }
+      .status-strip.error .detail {
+        color: var(--color-danger-text);
+      }
+      .status-strip.error .glyph {
+        color: var(--color-danger-border);
+      }
+      .status-strip.success {
+        border-color: var(--color-aid);
+        border-left-color: var(--color-aid);
+      }
+      .status-strip.success .glyph {
+        color: var(--color-aid);
+      }
+
+      /* Spinner ring for the pending state — disabled under reduced motion. */
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2.5px solid var(--color-border-strong);
+        border-top-color: var(--color-text-muted);
+        animation: spin 0.9s linear infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spinner {
+          animation: none;
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .strip-gallery {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-5);
+      }
+      .strip-gallery .label {
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: var(--letter-spacing-wide);
+        margin-bottom: 2px;
+      }
+
+      /* Address inputs */
+      .route-inputs {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        margin-bottom: var(--space-4);
+      }
+      .route-inputs label {
+        display: block;
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-bold);
+        margin-bottom: var(--space-1);
+      }
+      .route-inputs input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        font-family: inherit;
+        font-size: var(--font-size-base);
+        padding: var(--space-2) var(--space-3);
+        background: var(--color-surface);
+        color: var(--color-text);
+        border: 1px solid var(--color-border-strong);
+        border-radius: var(--radius-md);
+        min-height: var(--target-min);
+      }
+
+      /* Planner region + sticky behavior */
+      .planner-region {
+        position: relative;
+      }
+      .sticky-strip {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        margin-bottom: var(--space-4);
+        box-shadow: var(--elevation-overlay);
+      }
+      .scrollport {
+        height: 560px;
+        overflow: auto;
+      }
+      .scroll-hint {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        font-style: italic;
+        margin: 0 0 var(--space-3);
+      }
+
+      .results {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+      }
+      .results.desktop {
+        grid-template-columns: 1fr 420px;
+      }
+      .scout-map {
+        position: relative;
+        background: linear-gradient(135deg, #ece4c4 0%, #e0d4a8 100%);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        height: 300px;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        padding: var(--space-4);
+      }
+      .feature-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+      .feature-list h2 {
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-bold);
+        margin: 0 0 var(--space-2);
+      }
+      .feature-item {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-3);
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-bold);
+      }
+      .feature-item .meta {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        font-weight: var(--font-weight-regular);
+        margin-top: 2px;
+      }
+      .empty-card {
+        border: 1px dashed var(--color-border-strong);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        background: var(--color-surface-elevated);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="intro">
+      <p>
+        <strong>Planner status states — design mockup.</strong> One
+        severity-aware <code>StatusStrip</code> is the single home for every planner
+        state. It lives directly above the address inputs and is
+        <strong>sticky to the top of the viewport while the planner is in view</strong>,
+        so the message can't scroll out of reach (the bug in the current build, where the
+        warning sits in the summary card up top).
+      </p>
+      <p>
+        Color is never the only signal: each variant pairs a distinct icon shape with a
+        text label and the tint. Tokens drive every color
+        (<code>--color-warning-*</code> for warnings, <code>--color-danger-*</code> for
+        errors, neutral surfaces for info/pending), so this honors light/dark and
+        propagates palette edits automatically. The message persists until the route
+        settles — no manual Retry, per the agreed behavior.
+      </p>
+    </div>
+
+    <div class="mockup-stack">
+      <!-- ============ 1. STATUS STRIP — ALL STATES ============ -->
+      <div>
+        <span class="mockup-caption">The StatusStrip in every state (the shared component)</span>
+        <div class="mockup-frame">
+          <div class="scout-app strip-gallery">
+            <!-- 0-state: no addresses yet -->
+            <div>
+              <p class="label">0-state · no addresses yet</p>
+              <div class="status-strip info">
+                <span class="glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" />
+                    <circle cx="12" cy="7.5" r="1.4" fill="currentColor" />
+                    <rect x="11" y="10.5" width="2" height="7" rx="1" fill="currentColor" />
+                  </svg>
+                </span>
+                <div class="body">
+                  <p class="title">Pick a start and a destination</p>
+                  <p class="detail">Until you set both points, Scout shows a sample route across DC.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- pending: calculating a route -->
+            <div>
+              <p class="label">Pending · finding a route</p>
+              <div class="status-strip pending">
+                <span class="glyph" aria-hidden="true"><span class="spinner"></span></span>
+                <div class="body">
+                  <p class="title">Finding a walking route…</p>
+                  <p class="detail">We'll show the route, distance, and walking time as soon as it's ready. No line is drawn until then.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- warning: routing service unreachable (the headline fix) -->
+            <div>
+              <p class="label">Warning · routing service unreachable</p>
+              <div class="status-strip warning">
+                <span class="glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <path d="M12 3 L22 20 L2 20 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    <rect x="11" y="9" width="2" height="6" rx="1" fill="currentColor" />
+                    <circle cx="12" cy="17.5" r="1.3" fill="currentColor" />
+                  </svg>
+                </span>
+                <div class="body">
+                  <p class="title">Walking directions unavailable</p>
+                  <p class="detail">
+                    We couldn't reach the routing service, so we can't show walking
+                    directions right now. The map and the accessibility features below
+                    still work — try again in a moment.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- error: corridor feature fetch failed (today this is invisible) -->
+            <div>
+              <p class="label">Error · couldn't load nearby features <em>(today this state is invisible)</em></p>
+              <div class="status-strip error">
+                <span class="glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <polygon points="8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M9 9 L15 15 M15 9 L9 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <div class="body">
+                  <p class="title">Couldn't load nearby features</p>
+                  <p class="detail">
+                    We couldn't refresh the items along your route. Try again once your
+                    route settles, or widen your categories.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- info: corridor empty (distinct from the error above) -->
+            <div>
+              <p class="label">0-results · nothing matched preferences</p>
+              <div class="status-strip info">
+                <span class="glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" />
+                    <circle cx="12" cy="7.5" r="1.4" fill="currentColor" />
+                    <rect x="11" y="10.5" width="2" height="7" rx="1" fill="currentColor" />
+                  </svg>
+                </span>
+                <div class="body">
+                  <p class="title">Nothing along this route matches your preferences</p>
+                  <p class="detail">Turn more categories on, or choose another stop.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- success: route loaded (quiet, auto-clears) -->
+            <div>
+              <p class="label">Success · route loaded (quiet, auto-clears after a few seconds)</p>
+              <div class="status-strip success">
+                <span class="glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" />
+                    <path d="M7.5 12.5 L11 16 L17 8.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
+                <div class="body">
+                  <p class="title">Route loaded · 1.2 km · 18 min walking</p>
+                  <p class="detail">Wheelchair-aware route. (Strip fades; the summary numbers carry it.)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 2. ROUTING-DOWN SCENARIO IN CONTEXT ============ -->
+      <div>
+        <span class="mockup-caption">Routing-down scenario in context · mobile 375 + desktop 1280 (scroll the desktop frame to see the strip stick)</span>
+        <div class="two-up">
+          <!-- MOBILE -->
+          <div class="mockup-frame" style="width: 375px">
+            <div class="scout-app">
+              <header class="scout-header">
+                <a class="scout-wordmark" href="/">
+                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                    <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.2" />
+                    <circle cx="12" cy="12" r="2.3" fill="currentColor" />
+                    <path d="M 19 7 L 23 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                  </svg>
+                  Scout
+                </a>
+                <nav class="scout-nav" aria-label="Primary"><a href="/about">About</a></nav>
+              </header>
+              <section class="disclaimer-banner" role="region" aria-label="Disclaimer">
+                <strong>Planning aid, not a guarantee.</strong>
+                <span>DC data is mostly 2016.</span>
+                <button
+                  type="button"
+                  class="dismiss"
+                  aria-label="Dismiss disclaimer for this session"
+                  onclick="this.closest('.disclaimer-banner').remove()"
+                >
+                  Dismiss
+                </button>
+              </section>
+
+              <main class="scout-main">
+                <h1 class="plan-title">Plan a walking route</h1>
+                <p class="plan-sub">Pick a start and a destination.</p>
+
+                <div class="summary-card">
+                  <div class="metric">
+                    <span class="k">Distance</span>
+                    <span class="v">1.2 km</span>
+                  </div>
+                  <div class="metric">
+                    <span class="k">Walking time</span>
+                    <span class="v muted">Unavailable</span>
+                  </div>
+                  <div class="metric">
+                    <span class="k">Routing profile</span>
+                    <span class="v muted">—</span>
+                  </div>
+                </div>
+
+                <div class="planner-region">
+                  <div class="status-strip warning sticky-strip" role="status">
+                    <span class="glyph" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="22" height="22">
+                        <path d="M12 3 L22 20 L2 20 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                        <rect x="11" y="9" width="2" height="6" rx="1" fill="currentColor" />
+                        <circle cx="12" cy="17.5" r="1.3" fill="currentColor" />
+                      </svg>
+                    </span>
+                    <div class="body">
+                      <p class="title">Walking directions unavailable</p>
+                      <p class="detail">The map and features below still work — try again in a moment.</p>
+                    </div>
+                  </div>
+
+                  <div class="route-inputs">
+                    <div>
+                      <label for="start-m">Starting point</label>
+                      <input id="start-m" type="text" value="4818 Kansas Ave NW" />
+                    </div>
+                    <div>
+                      <label for="dest-m">Destination</label>
+                      <input id="dest-m" type="text" value="3828 Georgia Ave NW" />
+                    </div>
+                  </div>
+
+                  <div class="results">
+                    <section aria-label="Along your route">
+                      <h2 style="font-size: var(--font-size-base)">Along your route (56)</h2>
+                      <ul class="feature-list">
+                        <li class="feature-item">
+                          Curb ramp — non-compliant
+                          <div class="meta">~0 m from start · DC OpenData</div>
+                        </li>
+                        <li class="feature-item">
+                          Sidewalk barrier — pole obstruction
+                          <div class="meta">~340 m from start</div>
+                        </li>
+                      </ul>
+                    </section>
+                    <div class="scout-map" role="img" aria-label="Map showing nearby features; no route line because directions are unavailable">
+                      Map shows nearby features.<br />No route line drawn while directions are unavailable.
+                    </div>
+                  </div>
+                </div>
+              </main>
+            </div>
+          </div>
+
+          <!-- DESKTOP -->
+          <div class="mockup-frame">
+            <div class="scout-app">
+              <header class="scout-header" style="padding: var(--space-3) var(--space-8)">
+                <a class="scout-wordmark" href="/">
+                  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                    <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.2" />
+                    <circle cx="12" cy="12" r="2.3" fill="currentColor" />
+                    <path d="M 19 7 L 23 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                  </svg>
+                  Scout
+                </a>
+                <nav class="scout-nav" aria-label="Primary">
+                  <a href="/about">About</a>
+                  <a href="/privacy">Privacy</a>
+                </nav>
+              </header>
+              <section class="disclaimer-banner" role="region" aria-label="Disclaimer" style="padding: var(--space-2) var(--space-8)">
+                <strong>Planning aid, not a guarantee.</strong>
+                <span>Scout shows DC's public accessibility data — mostly inspected in 2016.</span>
+                <button
+                  type="button"
+                  class="dismiss"
+                  aria-label="Dismiss disclaimer for this session"
+                  onclick="this.closest('.disclaimer-banner').remove()"
+                >
+                  Dismiss
+                </button>
+              </section>
+
+              <div class="scrollport">
+                <main class="scout-main" style="padding: var(--space-6) var(--space-8)">
+                  <p class="scroll-hint">↕ Scroll this frame — the warning strip pins to the top while the planner stays in view.</p>
+                  <h1 class="plan-title">Plan a walking route</h1>
+                  <p class="plan-sub">Pick a start and a destination. Until you set both points, Scout shows a sample route across DC.</p>
+
+                  <div class="summary-card">
+                    <div class="metric">
+                      <span class="k">Distance</span>
+                      <span class="v">1.2 km</span>
+                    </div>
+                    <div class="metric">
+                      <span class="k">Walking time</span>
+                      <span class="v muted">Unavailable for this preview</span>
+                    </div>
+                    <div class="metric">
+                      <span class="k">Routing profile</span>
+                      <span class="v muted">—</span>
+                    </div>
+                  </div>
+
+                  <div class="planner-region">
+                    <div class="status-strip warning sticky-strip" role="status">
+                      <span class="glyph" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="22" height="22">
+                          <path d="M12 3 L22 20 L2 20 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                          <rect x="11" y="9" width="2" height="6" rx="1" fill="currentColor" />
+                          <circle cx="12" cy="17.5" r="1.3" fill="currentColor" />
+                        </svg>
+                      </span>
+                      <div class="body">
+                        <p class="title">Walking directions unavailable</p>
+                        <p class="detail">
+                          We couldn't reach the routing service, so we can't show walking
+                          directions right now. The map and the accessibility features
+                          below still work — try again in a moment.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="route-inputs" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4)">
+                      <div>
+                        <label for="start-d">Starting point</label>
+                        <input id="start-d" type="text" value="4818 Kansas Ave NW" />
+                      </div>
+                      <div>
+                        <label for="dest-d">Destination</label>
+                        <input id="dest-d" type="text" value="3828 Georgia Ave NW" />
+                      </div>
+                    </div>
+
+                    <div class="results desktop">
+                      <div class="scout-map" role="img" aria-label="Map showing nearby features; no route line because directions are unavailable" style="height: 420px">
+                        Map shows nearby features.<br />No route line is drawn while directions are unavailable.
+                      </div>
+                      <aside aria-label="Along your route">
+                        <h2>Along your route (56)</h2>
+                        <ul class="feature-list">
+                          <li class="feature-item">
+                            Curb ramp — non-compliant
+                            <div class="meta">~0 m from start · DC OpenData</div>
+                          </li>
+                          <li class="feature-item">
+                            Sidewalk barrier — pole obstruction
+                            <div class="meta">~340 m from start</div>
+                          </li>
+                          <li class="feature-item">
+                            Accessible restroom — Whole Foods
+                            <div class="meta">~510 m from start · Refuge Restrooms</div>
+                          </li>
+                        </ul>
+                      </aside>
+                    </div>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

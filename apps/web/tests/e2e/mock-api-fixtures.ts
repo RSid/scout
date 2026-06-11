@@ -27,13 +27,38 @@ const MOCK_CORRIDOR = {
         condition: "Good",
         condition_normalized: "good",
         inspected_year: 2021,
+        along_route_meters: 412.9,
         source_dataset: "e2e",
         source_id: "1",
         attributes: {},
       },
     },
   ],
-  meta: { truncated: false, time_taken_ms: 1 },
+  meta: { truncated: false, time_taken_ms: 1, feature_count_total: 1 },
+} as const;
+
+/** Small DC LineString + summary props (`POST /api/route` wire shape). */
+export const MOCK_ROUTE_BODY = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-77.0416, 38.8948],
+          [-77.035, 38.903],
+          [-77.0312, 38.9074],
+        ],
+      },
+      properties: {
+        distance_meters: 942,
+        duration_seconds: 660,
+        fallback_profile_used: false,
+        warnings: ["narrow crossing"],
+      },
+    },
+  ],
 } as const;
 
 export async function scoutMockApis(page: Page): Promise<void> {
@@ -42,6 +67,19 @@ export async function scoutMockApis(page: Page): Promise<void> {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(MOCK_CATEGORIES),
+    });
+  });
+
+  await page.route("**/api/route", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_ROUTE_BODY),
     });
   });
 

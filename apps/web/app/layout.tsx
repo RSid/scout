@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import Providers from "@/app/providers";
+import Footer from "@/components/Footer";
 
 import "./globals.css";
 
@@ -24,6 +25,7 @@ export default function RootLayout({
           <main id="main" tabIndex={-1} className="focus:outline-none">
             {children}
           </main>
+          <Footer />
         </Providers>
       </body>
     </html>

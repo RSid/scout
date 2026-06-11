@@ -16,8 +16,7 @@ body:
           Preview app can crop and redact.
         - **Security vulnerabilities do not go here.** Open a private
           security advisory on this repo's **Security** tab. The full
-          disclosure process will live in `SECURITY.md` once `M1-T09`
-          lands.
+          disclosure process is documented in `SECURITY.md`.
 
   - type: textarea
     id: steps

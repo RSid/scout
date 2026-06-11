@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const MAP_MODE = process.env.NEXT_PUBLIC_SCOUT_MAP_MODE ?? "stub";
-const GEO_STUB = process.env.NEXT_PUBLIC_SCOUT_STUB_GEOCODE ?? "1";
+const GEOCODING = process.env.NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER ?? "stub";
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -18,14 +18,19 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "desktop",
+      grepInvert: /@mobile/,
+      use: { ...devices["Desktop Chrome"] },
+    },
     {
       name: "mobile375",
+      grep: /@mobile/,
       use: { viewport: { width: 375, height: 800 } },
     },
   ],
   webServer: {
-    command: `NEXT_PUBLIC_SCOUT_MAP_MODE=${MAP_MODE} NEXT_PUBLIC_SCOUT_STUB_GEOCODE=${GEO_STUB} npm run dev -- --hostname 127.0.0.1 --port 3000`,
+    command: `NEXT_PUBLIC_SCOUT_MAP_MODE=${MAP_MODE} NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER=${GEOCODING} npm run dev -- --hostname 127.0.0.1 --port 3000`,
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
