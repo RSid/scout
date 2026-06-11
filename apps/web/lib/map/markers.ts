@@ -20,6 +20,7 @@ export const ROUTE_MARKER_CATEGORY_IDS = [
   "restrooms",
   "rest_spots",
   "water_cooling",
+  "sidewalk_condition",
 ] as const;
 
 export type RouteMarkerCategoryId = (typeof ROUTE_MARKER_CATEGORY_IDS)[number];
@@ -28,6 +29,7 @@ const OBSTACLE_CATEGORIES = new Set<RouteMarkerCategoryId>([
   "curb_ramps",
   "barriers",
   "audible_signals",
+  "sidewalk_condition",
 ]);
 
 /** Icon paint variant: obstacles use severity tokens; aids use `aid`. */

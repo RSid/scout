@@ -11,7 +11,7 @@ and by the Refuge Restrooms integration (M1-F13).
 ```jsonc
 {
   "id": "string — stable across re-ingests",
-  "category": "curb_ramps | barriers | audible_signals | bus_stops | restrooms | rest_spots | water_cooling | driveways | median_cut_throughs",
+  "category": "curb_ramps | barriers | audible_signals | bus_stops | restrooms | rest_spots | water_cooling | driveways | median_cut_throughs | sidewalk_condition",
   "kind": "obstacle | aid",
   "condition": "string — raw source value, preserved verbatim",
   "condition_normalized": "blocking | difficult | mild | good | missing | present | absent | n_a",
@@ -36,6 +36,7 @@ and by the Refuge Restrooms integration (M1-F13).
 | `water_cooling` | Water fountains (OSM) | aid | yes (per OQ-05 default) |
 | `driveways` | Driveway crossings | obstacle (when non-compliant) | no (data is low signal) |
 | `median_cut_throughs` | Median cut-throughs | aid | no (low coverage) |
+| `sidewalk_condition` | Sidewalk surface condition | obstacle (when degraded) | yes |
 
 > Categories with `default-enabled = no` are still queryable; they're just off in the
 > default Profile so the M1 user isn't overwhelmed.
@@ -178,6 +179,40 @@ Condition mapping same as B.1. `kind` = `aid` when present/good.
 
 ---
 
+### B.10 `Sidewalk_Condition_Assessment.geojson` → `sidewalk_condition`
+
+- **Raw feature count:** 24,577 line segments
+- **Ingested feature count:** 3,855 points — only `FAIR` / `POOR` / `FAILED`
+  segments are retained; `EXCELLENT`, `GOOD`, and `N/A` are filtered out
+  (84 % reduction) to keep the features table focused on road-worthy obstacles.
+- **Source ID field:** `ID` (e.g., `011B34F0-AE92-435E-984E-83A222CE2679`)
+- **`source_dataset`:** `dc_sidewalk_condition`
+- **Geometry:** LineString (centroid-averaged to Point during normalization)
+- **Default-enabled in M1:** **Yes.** This is the highest-priority new category.
+
+Sidewalk segments provide *surface quality* information between discrete ADA objects
+(e.g., curb ramps, barriers). A wheelchair user cares more about cracked pavement
+and settling than whether a ramp exists.
+
+**Ingested SCI_CATEGORY distribution (all degraded rows only):**
+
+| SCI_CATEGORY | Raw count | `condition_normalized` | `kind` | Ingested |
+|---|---|-|-|-|
+| `"FAIR"` | 1,382 | `mild` | `obstacle` | ✅ |
+| `"POOR"` | 788 | `difficult` | `obstacle` | ✅ |
+| `"FAILED"` | 1,685 | `blocking` | `obstacle` | ✅ |
+| `"N/A"` | 3,164 | — | — (filtered) | ❌ |
+
+**Attributes preserved:** `SCI` (raw index), `SIDEWALK_LENGTH_FT`, `OWNERSHIP`,
+`MAINTENANCEPRIORITY`.
+
+**Ingested counts:** 1,382 `mild` (FAIR), 788 `difficult` (POOR), 1,685
+`blocking` (FAILED). Total: 3,855 rows, all `kind=obstacle`. **Kind is
+always `obstacle`** because only degraded sidewalk segments are ingested;
+excellent/good pavement is not actionable as a route obstacle.
+
+---
+
 ### B.8 Refuge Restrooms API → `restrooms`
 
 - **Endpoint:** `GET https://www.refugerestrooms.org/api/v1/restrooms/by_location`
@@ -208,7 +243,7 @@ Condition mapping same as B.1. `kind` = `aid` when present/good.
 
 ---
 
-### B.9 OSM amenities (M1 — per OQ-04, OQ-05)
+### B.11 OSM amenities (M1 — per OQ-04, OQ-05)
 
 For `rest_spots` and `water_cooling`, fetch from OSM via Overpass API at ingest
 time and bake into the source data:
