@@ -82,7 +82,7 @@ Once `.env` has the values above, boot the live stack:
 make docker-up-realistic-run
 ```
 
-See `infra/README.md` for the Compose layout and `CONTRIBUTING.md` for the
+See `infra/README.md` for the Compose layout (including **[Testing on a phone](infra/README.md#testing-on-a-phone)**) and `CONTRIBUTING.md` for the
 end-to-end dev loop. `make help` lists every shortcut (lint, tests,
 Compose, `make ingest` dry tally, `make ingest-write`, …). Copy `.env.example` to `.env` and adjust
 `SCOUT_*` variables when you need host-side overrides.
