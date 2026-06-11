@@ -7,9 +7,20 @@
 # Unsets NEXT_PUBLIC_SCOUT_API_BASE_URL so the browser hits same-origin `/api/*`.
 # Sets SCOUT_BACKEND_INTERNAL_URL so `apps/web/next.config.ts` rewrites `/api/*`
 # to the FastAPI service on the Compose bridge (`backend:8080`).
+#
+# Geocoding: the base `docker-compose.yml` stubs both backend and frontend
+# geocoding for offline boot. Mobile planner testing needs real MAR-backed
+# autocomplete (`DEC-023`), so this overlay flips providers while leaving
+# routing/restrooms/map on the base stubs. Load `dc_addresses` first:
+#   make ingest-dc-addresses
 
 services:
+  backend:
+    environment:
+      SCOUT_GEOCODING_PROVIDER: local_dc
+
   web:
     environment:
       NEXT_PUBLIC_SCOUT_API_BASE_URL: ""
       SCOUT_BACKEND_INTERNAL_URL: http://backend:8080
+      NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER: backend

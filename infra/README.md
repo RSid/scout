@@ -55,7 +55,10 @@ Phones resolve `localhost` as the handset itself. The stock web container sets `
 Opt-in wiring (GitHub [issue #46](https://github.com/RSid/scout/issues/46)) adds [`docker-compose.mobile.yml`](docker-compose.mobile.yml):
 
 - clears `NEXT_PUBLIC_SCOUT_API_BASE_URL` so the browser hits same-origin `/api/*`;
-- sets `SCOUT_BACKEND_INTERNAL_URL=http://backend:8080`, which activates [`apps/web/next.config.ts`](../apps/web/next.config.ts) rewrites `/api/:path*` → `$SCOUT_BACKEND_INTERNAL_URL/api/:path*`.
+- sets `SCOUT_BACKEND_INTERNAL_URL=http://backend:8080`, which activates [`apps/web/next.config.ts`](../apps/web/next.config.ts) rewrites `/api/:path*` → `$SCOUT_BACKEND_INTERNAL_URL/api/:path*`;
+- flips geocoding to the bundled MAR snapshot (`SCOUT_GEOCODING_PROVIDER=local_dc`, `NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER=backend`) so address autocomplete on the phone exercises real DC rows, not the offline stub that always surfaces "1400 U Street Northwest".
+
+**Prerequisite:** load `dc_addresses` once against the Compose Postgres volume (`make ingest-dc-addresses`). Without that table, autocomplete returns no suggestions.
 
 Two Make targets mirror the Compose commands:
 
