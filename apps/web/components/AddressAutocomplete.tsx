@@ -173,12 +173,12 @@ export default function AddressAutocomplete({
       <Label className="block font-semibold">{label}</Label>
       <div className="flex flex-wrap gap-[var(--space-3)]">
         <Input
-          className="min-h-tap flex-[1_1_260px] rounded-tokenMd border border-border bg-[color:var(--color-surface)] px-[var(--space-4)] py-[var(--space-3)] outline-none focus-visible:btn-accent-double-ring-dark"
+          className="min-h-tap min-w-0 flex-1 rounded-tokenMd border border-border bg-[color:var(--color-surface)] px-[var(--space-4)] py-[var(--space-3)] outline-none focus-visible:btn-accent-double-ring-dark"
           placeholder="Type an address (at least 3 letters)"
         />
         <Button
           aria-label="Show suggestions"
-          className="min-h-tap rounded-tokenMd border border-border px-[var(--space-5)]"
+          className="min-h-tap min-w-tap shrink-0 rounded-tokenMd border border-border px-[var(--space-5)]"
         >
           ⌄
         </Button>
@@ -192,7 +192,7 @@ export default function AddressAutocomplete({
             <ListBoxItem
               id={item.id}
               textValue={item.suggestionText}
-              className="cursor-pointer px-[var(--space-3)] py-[var(--space-3)] hover:bg-[color:var(--color-surface)]"
+              className="flex min-h-tap cursor-pointer items-center px-[var(--space-3)] py-[var(--space-3)] hover:bg-[color:var(--color-surface)]"
             >
               {item.suggestionText}
             </ListBoxItem>

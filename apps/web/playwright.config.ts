@@ -26,7 +26,13 @@ export default defineConfig({
     {
       name: "mobile375",
       grep: /@mobile/,
+      grepInvert: /@mobile320/,
       use: { viewport: { width: 375, height: 800 } },
+    },
+    {
+      name: "mobile320",
+      grep: /@mobile320/,
+      use: { viewport: { width: 320, height: 700 } },
     },
   ],
   webServer: {

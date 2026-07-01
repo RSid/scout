@@ -2,6 +2,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { scoutMockApis } from "./mock-api-fixtures";
+import {
+  assertNoHorizontalOverflow,
+  findUndersizedTouchTargets,
+} from "./touch-targets";
 
 const INTERACTIVE = process.env.NEXT_PUBLIC_SCOUT_MAP_MODE === "interactive";
 
@@ -365,6 +369,76 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
     await showMap.click();
 
     await expect(page.getByRole("button", { name: /^hide map$/i })).toBeVisible();
+  });
+});
+
+test.describe("Mobile responsive layout (M1-F14)", () => {
+  test.setTimeout(120_000);
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("scout.onboarded.v1", "true");
+    });
+
+    await scoutMockApis(page);
+  });
+
+  test("320px viewport has no horizontal scroll with route and profile open @mobile320", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto("/plan");
+
+    await keyboardFillPlannerAddressesFromStubHits(page);
+    await page.getByTestId("scout-route-summary").waitFor({ state: "visible" });
+
+    await assertNoHorizontalOverflow(page, 320);
+
+    await page.getByRole("button", { name: /my accessibility needs/i }).click();
+    await page.getByRole("dialog", { name: /accessibility profile/i }).waitFor();
+
+    await assertNoHorizontalOverflow(page, 320);
+  });
+
+  test("planner interactive targets are at least 44px at mobile width @mobile", async ({
+    page,
+  }) => {
+    await page.goto("/plan");
+    await keyboardFillPlannerAddressesFromStubHits(page);
+    await page.getByTestId("scout-route-summary").waitFor({ state: "visible" });
+
+    const undersized = await findUndersizedTouchTargets(page);
+    expect(undersized, JSON.stringify(undersized, null, 2)).toStrictEqual([]);
+  });
+
+  test("layout state survives viewport resize across the 768px breakpoint", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/plan");
+
+    await keyboardFillPlannerAddressesFromStubHits(page);
+    await page.getByTestId("scout-route-summary").waitFor({ state: "visible" });
+
+    const firstSummary = page.locator("#scout-route-list details summary").first();
+    await firstSummary.click();
+
+    await page.getByRole("button", { name: /^show map$/i }).click();
+    await expect(page.getByRole("button", { name: /^hide map$/i })).toBeVisible();
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.getByTestId("scout-route-summary")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^hide map$/i })).toBeHidden();
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(page.getByTestId("scout-route-summary")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^show map$/i })).toBeVisible();
+    await expect(firstSummary).toBeVisible();
+    await expect(page.locator("#scout-route-list details").first()).toHaveAttribute(
+      "open",
+      "",
+    );
   });
 });
 

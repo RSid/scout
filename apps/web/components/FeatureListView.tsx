@@ -229,7 +229,7 @@ function FeatureRow({
   return (
     <li>
       <details className="rounded-tokenLg border border-border bg-surface-elevated text-[color:var(--color-text)]">
-        <summary className="flex cursor-pointer list-none flex-row items-start gap-[var(--space-3)] px-[var(--space-4)] py-[var(--space-4)] [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-tap cursor-pointer list-none flex-row items-center gap-[var(--space-3)] px-[var(--space-4)] py-[var(--space-3)] [&::-webkit-details-marker]:hidden">
           <FeatureGlyph
             markerUrls={markerUrls}
             categoryId={categoryId}
@@ -275,7 +275,7 @@ function FeatureRow({
                 onShowOnMap(selectableId);
               }
             }}
-            className="rounded-tokenMd border border-border bg-accent px-[var(--space-4)] py-[var(--space-3)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex min-h-tap items-center justify-center rounded-tokenMd border border-border bg-accent px-[var(--space-4)] py-[var(--space-3)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark disabled:pointer-events-none disabled:opacity-50"
           >
             {en.openOnMap}
           </button>

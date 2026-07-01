@@ -427,7 +427,7 @@ export default function PlanExperience() {
           <SkipLink preset="flow" href="#scout-route-list" label="Skip to list" />
           <button
             type="button"
-            className="mb-[var(--space-4)] w-full rounded-tokenMd border border-border bg-surface-elevated px-[var(--space-4)] py-[var(--space-3)] text-sm font-semibold text-[color:var(--color-text)] shadow-modal md:hidden focus-visible:btn-accent-double-ring-dark"
+            className="mb-[var(--space-4)] inline-flex min-h-tap w-full items-center justify-center rounded-tokenMd border border-border bg-surface-elevated px-[var(--space-4)] py-[var(--space-3)] text-sm font-semibold text-[color:var(--color-text)] shadow-modal md:hidden focus-visible:btn-accent-double-ring-dark"
             aria-expanded={mobileMapOpen}
             aria-controls="scout-route-map-panel"
             onClick={() => {

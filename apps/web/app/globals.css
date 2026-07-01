@@ -28,6 +28,13 @@
   text-decoration: underline;
 }
 
+/* MapLibre navigation controls ship ~29×29 px buttons; expand to WCAG 2.5.5
+ * minimum (M1-F14) without changing zoom behavior. */
+.maplibregl-ctrl-group button {
+  width: var(--target-min);
+  height: var(--target-min);
+}
+
 /* MapLibre navigation controls ship their own outline; tie it to our focus
  * token so light/dark both meet DEC-009 / WCAG contrast expectations. Higher
  * specificity than MapLibre defaults so bundling order does not regress a11y. */
