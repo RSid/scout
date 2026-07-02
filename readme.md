@@ -2,6 +2,12 @@
 
 [Scout](https://scout-dc.com/) is an open source community webapp local to Washington DC intended to help disabled folks navigate the city with confidence. It's still in early active development. There's a lot to figure out! I'm a single maintainer. Contribution and feedback welcome!
 
+
+
+https://github.com/user-attachments/assets/88fe2f53-bb10-45ef-baed-ae91f35701c9
+
+
+
 I am using a lot of agentic development, partly due to my hand mobility problems that make voice-to-text much easier than typing. I've tried to make this repo friendly to practical and efficient agent development, and I share in the contribution guidelines a preferred LLM that is trained on energy grids that are largely powered by sustainable energy and value privacy. I've also used pi.dev + ollama + local small model evaluation somewhat heavily here to good effect.
 
 # Contributing
