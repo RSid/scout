@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import AboutPage from "./page";
 import { DATA_SOURCES, isInspectionOutdated } from "@/lib/data-sources";
-import { DISCLAIMER_L1_COPY } from "@/lib/disclaimer-copy";
 
 describe("inspection staleness heuristic", () => {
   it.each<[number | null, number, boolean]>([
@@ -28,24 +27,6 @@ describe("<AboutPage/>", () => {
   it("keeps exactly one heading at level one", () => {
     render(<AboutPage />);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-  });
-
-  it("uses aria-labelledby tying the disclaimer landmark to its visible heading", () => {
-    render(<AboutPage />);
-    const landmark = screen.getByRole("region", { name: /^about scout's data$/i });
-    expect(landmark.getAttribute("aria-labelledby")).toBe("disclaimer-heading");
-    expect(landmark).toHaveAttribute("id", "disclaimer");
-
-    expect(
-      within(landmark).getByRole("heading", { level: 2, name: "About Scout's data" })
-        .id,
-    ).toBe("disclaimer-heading");
-  });
-
-  it("includes the L1 disclaimer copy verbatim inside the disclaimer region", () => {
-    render(<AboutPage />);
-    const landmark = screen.getByRole("region", { name: /^about scout's data$/i });
-    expect(landmark).toHaveTextContent(DISCLAIMER_L1_COPY);
   });
 
   it("lists outbound links matching every curated dataset entry", () => {

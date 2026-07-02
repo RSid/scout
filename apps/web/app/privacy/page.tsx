@@ -34,16 +34,7 @@ export default function PrivacyPage() {
             <strong>The address you type</strong> goes to Scout&apos;s servers where it
             is matched against the District&apos;s public Master Address Repository
             snapshot (MAR). Nothing is forwarded to an external geocoding API for
-            autocomplete — see{" "}
-            <Link
-              href="/about"
-              className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
-            >
-              About Scout
-            </Link>{" "}
-            for the full list of online routing services Scout still relies on (for
-            example OpenRouteService for walking directions). Scout doesn&apos;t store
-            what you typed.
+            autocomplete and Scout doesn&apos;t store what you typed.
           </li>
           <li>
             <strong>Coordinates from your plan</strong> (start and destination) flow
@@ -55,17 +46,6 @@ export default function PrivacyPage() {
             to catch abuse), kept for no more than seven days, then deleted.
           </li>
         </ul>
-        <p className="text-[color:var(--color-text-muted)]">
-          For the names of the geographic lookup and routing services Scout uses — and
-          links if you want to read more — see{" "}
-          <Link
-            href="/about"
-            className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
-          >
-            About Scout
-          </Link>
-          .
-        </p>
       </section>
 
       <section
@@ -114,8 +94,8 @@ export default function PrivacyPage() {
         </h2>
         <p className="text-[color:var(--color-text-muted)]">
           Scout never asks for your location until you select &ldquo;Use my
-          location&rdquo; in the planner. Your browser controls the prompt; Scout only
-          receives the coordinates if you grant permission.
+          location&rdquo; in the planner. Your browser controls the prompt and Scout
+          only receives the coordinates if you grant permission.
         </p>
       </section>
 

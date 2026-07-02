@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { DISCLAIMER_L2_COPY, DISCLAIMER_L2_LINK_TEXT } from "@/lib/disclaimer-copy";
@@ -10,6 +11,7 @@ import {
 } from "@/lib/disclaimer-banner-storage";
 
 export default function DisclaimerBanner() {
+  const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function DisclaimerBanner() {
     }
   }, []);
 
-  if (hidden) {
+  if (pathname === "/about" || hidden) {
     return null;
   }
 
@@ -31,7 +33,7 @@ export default function DisclaimerBanner() {
         <p className="flex-1 text-[color:var(--color-warning-text)]">
           {DISCLAIMER_L2_COPY}{" "}
           <Link
-            href="/about#disclaimer"
+            href="/about"
             className="inline-flex min-h-tap items-center font-semibold text-[color:var(--color-link)] underline underline-offset-4 hover:text-accent"
           >
             {DISCLAIMER_L2_LINK_TEXT}

@@ -432,8 +432,8 @@ surfaces. They are not interchangeable.
 
 | Intensity              | Where it lives                                  | What it does                                                                                                       | Length             |
 | ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------ |
-| **L1 — Full disclosure** | `/about#disclaimer` only                        | The complete statement of what Scout is, what its data is, and what its limits are. Read once.                     | 2–5 sentences      |
-| **L2 — Standing reminder** | Top of route/plan views (the banner)            | A short, factual reminder that this is planning data, with a link to L1. **Dismissible per session** (DEC-010).    | 1 sentence         |
+| **L1 — Full disclosure** | ~~`/about#disclaimer`~~ — retired, M1           | Was meant to be the complete statement of what Scout is, what its data is, and what its limits are, read once. The dedicated landmark was dropped during M1 copy work and never re-added; `/about`'s general content stands in for it today. See `DEC-010`'s consequences note. | 2–5 sentences (as specified) |
+| **L2 — Standing reminder** | Top of route/plan views (the banner)            | A short, factual reminder that this is planning data, with a link to the general `/about` page (formerly linked to L1). **Dismissible per session** (DEC-010).    | 1 sentence         |
 | **L3 — In-context note**   | Next to a route, a category, or a feature group | A specific note about this thing — its freshness, its source, its known gap.                                       | 1 short sentence or chip |
 | **L4 — Feature-level chip**| Per feature on the map and in the parallel list | Inspection year. That's it.                                                                                        | 3–5 words          |
 
@@ -706,8 +706,10 @@ four words. (Full rules in §7.7.)
 
 Tone follows the trust ladder (§8.1):
 
-- **L1 (About):** plain, complete, not legalistic. Two to five
-  sentences. The fullest expression of "honest about limits."
+- **L1 (About):** retired as of M1 (§8.1) — no dedicated landmark exists.
+  Where fuller "honest about limits" copy is still needed, fold it into
+  `/about`'s general prose using the same rules this tier specified: plain,
+  complete, not legalistic, two to five sentences.
 - **L2 (banner):** one factual sentence + link. Quiet, dismissible per
   session.
 - **L3 (in-context note):** brief and specific to the thing being

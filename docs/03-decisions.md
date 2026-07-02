@@ -303,6 +303,14 @@ risk if data is wrong. Per OQ-07.
 - See `docs/contributor/voice-and-copy.md` §8 for trust-copy tone rules and
   the L1–L4 trust ladder that refines this two-layer pattern at the
   copy level.
+- **Amendment (M1 copy pass):** the dedicated L1 full-disclosure landmark at
+  `/about#disclaimer` described above was removed from `/about` during a
+  general copy-editing pass and not reinstated. The persistent banner (L2)
+  now links to `/about` generally rather than to a labelled disclosure
+  section. This decision's two-layer *pattern* (persistent banner +
+  onboarding modal) still holds; only the L1 landmark that the trust ladder
+  originally hung off of is gone. See PRD `NF-TRUST-01` and
+  `docs/contributor/voice-and-copy.md` §8.1.
 
 ---
 

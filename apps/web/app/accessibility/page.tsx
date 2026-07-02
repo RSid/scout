@@ -34,10 +34,9 @@ export default function AccessibilityPage() {
         <p className="text-[color:var(--color-text-muted)]">
           Scout targets WCAG 2.2 Level AA across the whole product. WCAG — the Web
           Content Accessibility Guidelines — is the international standard for
-          accessible websites. Where it doesn&apos;t get in the reader&apos;s way, Scout
-          also follows three stricter (AAA) points: higher color contrast, a clear sense
-          of where you are in a multi-step flow, and a lower-secondary reading level for
-          its writing.
+          accessible websites. Where possible, Scout also follows three stricter (AAA)
+          points: higher color contrast, a clear sense of where you are in a multi-step
+          flow, and a lower-secondary reading level for its writing.
         </p>
       </section>
 
@@ -58,7 +57,8 @@ export default function AccessibilityPage() {
         </p>
         <p className="text-[color:var(--color-text-muted)]">
           The first full manual review hasn&apos;t been finished yet. Until it has,
-          treat this page as a statement of what Scout aims for, not a finished audit.
+          treat this page as a statement of what Scout aims for, but not necessarily a
+          reflection of where we are.
         </p>
       </section>
 
@@ -101,7 +101,7 @@ export default function AccessibilityPage() {
         <p className="text-[color:var(--color-text-muted)]">
           If something in Scout blocks you, please tell us. A report goes to the same
           public issue tracker the rest of Scout uses. Don&apos;t use the private
-          security channel for access barriers — that&apos;s only for security
+          security channel for access barriers though; that&apos;s only for security
           vulnerabilities.
         </p>
         <p className="text-[color:var(--color-text-muted)]">

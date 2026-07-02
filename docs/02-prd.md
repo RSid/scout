@@ -141,12 +141,13 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   - `/about` renders the fuller about surface with: detailed pitch (mirrors `/`), data
     sources (with originating links plus each dataset's bundled `lastInspectedYear`/`YEAR_INSPECTED`
     rollup or labeled unknowns where no year exists yet), AGPL license link, GitHub link,
-    GitHub-managed contact/support links, and a prominent disclaimer landmark.
-  - The disclaimer landmark lives at `/about#disclaimer`, is voiced as `<section>`
-    labelled via `aria-labelledby` to a visible `h2` that names what the section covers
-    (e.g. "About Scout's data" — a bare "Important" heading is banned by
-    `docs/contributor/voice-and-copy.md` §12.5), and contains the verbatim
-    L1 copy from `NF-TRUST-01` (not relegated exclusively to footer chrome).
+    and GitHub-managed contact/support links.
+  - As of M1, `/about` has no dedicated disclaimer landmark distinct from its other
+    sections — the standing L2 reminder banner (`NF-TRUST-01`) is the app's sole
+    always-visible disclaimer surface, and its "About this data" link points at `/about`
+    generally rather than a labelled sub-section. (A prior draft of this criterion
+    specified a `/about#disclaimer` landmark carrying verbatim L1 copy; that surface was
+    dropped during M1 copy work — see `NF-TRUST-01` and `DEC-010`'s consequences note.)
   - Landing + about routes rely on Next.js Server Components (`DEC-001`) so substantive copy renders
     from `app/page.tsx` and `app/about/page.tsx` without depending on hydrated client bundles.
 - **Accessibility notes:** WCAG 2.2 — 1.3.1 (info & relationships), 2.4.6 (headings/labels),
@@ -748,14 +749,18 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 
 - **NF-TRUST-01** Trust copy follows the L1–L4 trust ladder in
   `docs/contributor/voice-and-copy.md` §8 (binding per DEC-021).
-  - **L1 (full disclosure)** lives at `/about#disclaimer`, linked prominently
-    from `/`: "Scout shows public accessibility data alongside walking routes.
-    Some of that data is years old, and the streets may have changed. Use Scout
-    to plan, and check what matters most before you go."
-  - **L2 (standing reminder)** appears as a dismissible-per-session banner on
-    the route view (per DEC-010): "Scout's accessibility data is from public
-    sources and may be out of date." with a self-describing link to L1
-    ("About this data").
+  - **L1 (full disclosure)** was originally specified as a dedicated
+    `/about#disclaimer` landmark carrying a verbatim standalone statement. That
+    landmark was removed from `/about` during M1 copy work and is **not
+    currently implemented** — see `docs/contributor/voice-and-copy.md` §8.1 and
+    `DEC-010`'s consequences note. The about page's general content (data
+    sources, limits, license) stands in for it, but no single labelled section
+    carries the L1 statement verbatim.
+  - **L2 (standing reminder)** appears as a dismissible-per-session banner
+    (per DEC-010): "Scout is in active development, and may still have some
+    rough edges! Additionally, data is from public sources and may not be
+    fully up to date." with a self-describing link ("About this data") to the
+    general `/about` page.
 - **NF-TRUST-02** Every Feature shows its `inspected_year`. Features older than
   3 years show a `Data may be outdated` warning.
 - **NF-TRUST-03** Source attribution links from every Feature back to its

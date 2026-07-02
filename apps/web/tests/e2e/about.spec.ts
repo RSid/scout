@@ -7,17 +7,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test.describe("about page anchored disclaimer", () => {
-  test("focuses the disclaimer heading when hash targets disclaimer", async ({
-    page,
-  }) => {
-    await page.goto("/about#disclaimer");
-
-    await expect
-      .poll(async () => await page.evaluate(() => document.activeElement?.id))
-      .toBe("disclaimer-heading");
-  });
-
+test.describe("about page structure", () => {
   test("keeps WCAG-aligned language and heading scaffolding", async ({ page }) => {
     await page.goto("/about");
 
@@ -25,9 +15,5 @@ test.describe("about page anchored disclaimer", () => {
 
     await expect.poll(async () => page.locator("h1").count()).toBe(1);
     await expect.poll(async () => page.locator("h3").count()).toBe(0);
-
-    await expect(
-      page.getByRole("heading", { name: "About Scout's data", exact: true }),
-    ).toBeVisible();
   });
 });

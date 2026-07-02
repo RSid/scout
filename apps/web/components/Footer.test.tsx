@@ -17,6 +17,7 @@ describe("<Footer/>", () => {
 
   it.each<[string, string]>([
     ["About Scout", "/about"],
+    ["Route planner", "/plan"],
     ["Privacy policy", "/privacy"],
     ["Accessibility statement", "/accessibility"],
     ["Source on GitHub", "https://github.com/RSid/scout"],
