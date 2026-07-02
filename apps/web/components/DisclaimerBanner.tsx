@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { DISCLAIMER_L2_COPY, DISCLAIMER_L2_LINK_TEXT } from "@/lib/disclaimer-copy";
@@ -10,6 +11,7 @@ import {
 } from "@/lib/disclaimer-banner-storage";
 
 export default function DisclaimerBanner() {
+  const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function DisclaimerBanner() {
     }
   }, []);
 
-  if (hidden) {
+  if (pathname === "/about" || hidden) {
     return null;
   }
 

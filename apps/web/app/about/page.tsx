@@ -6,7 +6,6 @@ import {
   type DataSource,
   isInspectionOutdated,
 } from "@/lib/data-sources";
-import { DISCLAIMER_L1_COPY } from "@/lib/disclaimer-copy";
 
 const GITHUB_REPO = "https://github.com/RSid/scout";
 
@@ -55,15 +54,10 @@ export default function AboutPage() {
           </h1>
           <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-relaxed)] text-[color:var(--color-text-muted)]">
             Scout previews walking routes in Washington, DC and surfaces public
-            accessibility data alongside them — a planning aid, not turn-by-turn
-            navigation.
+            accessibility data alongside them. It&apos;s intended for use as a planning
+            aid, but it will not have the kind of live and up to date data that you
+            might expect from google or apple maps.
           </p>
-          <Link
-            href="/plan"
-            className="inline-flex min-h-tap items-center rounded-tokenMd bg-accent px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark"
-          >
-            Open planner
-          </Link>
         </header>
 
         <section className="space-y-[var(--space-5)]" aria-labelledby="sources-heading">
@@ -76,11 +70,10 @@ export default function AboutPage() {
           <p className="text-[color:var(--color-text-muted)]">
             Scout pulls from public datasets: Americans with Disabilities Act (ADA)
             inspections published by DC OpenData, plus community sources like Refuge
-            Restrooms and OpenStreetMap. Where DC publishes an inspection year,
-            you&apos;ll see it; community sources don&apos;t, so we mark those as
-            unknown. Scout doesn&apos;t claim these datasets are complete — a support or
-            obstacle missing here may still exist in real life.
+            Restrooms and OpenStreetMap. Where an inspection year is available we have
+            annotated it, but community sources often don&apos;t have that available.
           </p>
+          <br />
           <ul className="divide-y divide-border rounded-tokenLg border border-border">
             {DATA_SOURCES.map((row) => (
               <li key={row.id} className="px-[var(--space-5)] py-[var(--space-5)]">
@@ -120,9 +113,7 @@ export default function AboutPage() {
               Master Address Repository
             </Link>{" "}
             (MAR) curated by OCTO&apos;s GIS program. Addresses are refreshed
-            periodically and loaded into Scout&apos;s servers; no third-party geocoder
-            is involved at autocomplete time (<code>/api/geocode/search</code>). Routing
-            still uses{" "}
+            periodically and loaded into Scout&apos;s servers.
             <Link
               href="https://openrouteservice.org/"
               className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
@@ -143,22 +134,7 @@ export default function AboutPage() {
             .
           </p>
         </section>
-
-        <section
-          id="disclaimer"
-          aria-labelledby="disclaimer-heading"
-          className="space-y-[var(--space-4)] rounded-tokenLg border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] p-[var(--space-6)] text-[color:var(--color-warning-text)]"
-        >
-          <h2
-            id="disclaimer-heading"
-            tabIndex={-1}
-            className="scroll-mt-[var(--space-6)] text-2xl font-semibold text-[color:var(--color-warning-text)] outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            About Scout&apos;s data
-          </h2>
-          <p>{DISCLAIMER_L1_COPY}</p>
-        </section>
-
+        <br />
         <section className="space-y-[var(--space-4)]" aria-labelledby="license-heading">
           <h2
             id="license-heading"
@@ -188,11 +164,12 @@ export default function AboutPage() {
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                Browse Scout on GitHub
+                See Scout&apos;s source code on GitHub
               </Link>
             </li>
           </ul>
         </section>
+        <br />
 
         <section className="space-y-[var(--space-4)]" aria-labelledby="contact-heading">
           <h2
@@ -203,7 +180,7 @@ export default function AboutPage() {
           </h2>
           <p className="text-[color:var(--color-text-muted)]">
             For product bugs, open a GitHub Issue. For security issues, please use
-            GitHub&apos;s private security advisories instead of public Issues.
+            GitHub&apos;s private security advisories.
           </p>
           <ul className="list-disc space-y-[var(--space-2)] pl-[var(--space-6)] text-[color:var(--color-text)]">
             <li>
