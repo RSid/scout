@@ -3,12 +3,34 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <article className="mx-auto grid max-w-[var(--measure-body)] gap-[var(--space-6)] px-[var(--space-6)] py-[var(--space-16)]">
-      <h1 className="font-sans text-4xl font-semibold tracking-tight text-[color:var(--color-text)]">
+      <h1 className="flex items-center gap-[var(--space-3)] font-sans text-4xl font-semibold tracking-tight text-[color:var(--color-text)]">
+        <svg
+          viewBox="0 0 24 24"
+          width="32"
+          height="32"
+          aria-hidden="true"
+          className="shrink-0 text-[color:var(--color-accent)]"
+        >
+          <circle
+            cx="10"
+            cy="13"
+            r="7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+          />
+          <circle cx="10" cy="13" r="2.3" fill="currentColor" />
+          <path
+            d="M 17 8 L 21 4"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+        </svg>
         Scout
       </h1>
       <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-loose)] text-[color:var(--color-text-muted)]">
-        Walking routes in Washington, DC, paired with public accessibility data — a
-        planning aid, not turn-by-turn navigation.
+        Walking routes in Washington, DC, paired with public accessibility data.
       </p>
       <div className="flex flex-wrap gap-[var(--space-4)]">
         <Link
