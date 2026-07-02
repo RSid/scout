@@ -1,6 +1,6 @@
 # Scout
 
-Scout is an open source community webapp local to Washington DC intended to help disabled folks navigate GPS map routing. It's still in early active development, and not hosted. There's a lot to figure out! I'm a single maintainer. I am using a lot of agentic development, partly due to my hand mobility problems that make voice-to-text much easier than typing. I've tried to make this repo friendly to practical and efficient agent development, and share in the contribution guidelines preferred LLMs that are trained on energy grids that are largely powered by sustainable energy and value privacy. Contribution and feedback will be welcome once I have reached milestone 1 and deployed!
+[Scout](https://scout-dc.com/) is an open source community webapp local to Washington DC intended to help disabled folks navigate GPS map routing. It's still in early active development, and not hosted. There's a lot to figure out! I'm a single maintainer. I am using a lot of agentic development, partly due to my hand mobility problems that make voice-to-text much easier than typing. I've tried to make this repo friendly to practical and efficient agent development, and share in the contribution guidelines preferred LLMs that are trained on energy grids that are largely powered by sustainable energy and value privacy. Contribution and feedback welcome!
 
 ## Prerequisites
 
