@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import * as Dialog from "@radix-ui/react-dialog";
 
+import InfoTooltip from "@/components/InfoTooltip";
 import ProfileCategoryFields from "@/components/ProfileCategoryFields";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
@@ -43,7 +44,7 @@ export default function OnboardingModal() {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-[rgba(34,28,20,0.55)] dark:bg-[rgba(10,12,22,0.7)]" />
         <Dialog.Content
-          className="fixed left-[50%] top-[50%] z-[var(--z-modal)] w-[calc(100%-2rem)] max-w-xl translate-x-[-50%] translate-y-[-50%] rounded-tokenLg bg-[color:var(--color-surface-elevated)] p-[var(--space-6)] shadow-modal outline-none"
+          className="fixed left-[50%] top-[50%] z-[var(--z-modal)] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl translate-x-[-50%] translate-y-[-50%] overflow-y-auto overscroll-contain rounded-tokenLg bg-[color:var(--color-surface-elevated)] p-[var(--space-6)] shadow-modal outline-none"
           aria-labelledby="scout-onboarding-heading"
           aria-describedby="scout-onboarding-description"
         >
@@ -55,26 +56,20 @@ export default function OnboardingModal() {
               Set up your accessibility profile
             </Dialog.Title>
             <p className="text-[color:var(--color-text-muted)]">
-              Tell Scout which accessibility features matter to your route.
+              Tell Scout which supports and obstacles are important to show along your
+              route.
             </p>
           </header>
-          <div
-            id="scout-onboarding-description"
-            className="mt-[var(--space-5)] space-y-[var(--space-5)]"
-          >
+          <div id="scout-onboarding-description" className="mt-[var(--space-5)]">
             <p className="text-[color:var(--color-text)]">
               Scout shows public accessibility data alongside walking routes in
-              Washington, DC. It&apos;s a planning aid, not a real-time safety guide.
+              Washington, DC. It&apos;s a planning aid, not a real-time safety guide.{" "}
+              <InfoTooltip label="About Scout's data sources">
+                Scout&apos;s data comes from public datasets. Information may be out of
+                date, and it will not reflect real time street closures or recent
+                changes.
+              </InfoTooltip>
             </p>
-            <p className="text-[color:var(--color-text)]">
-              Scout uses shape and color together for every feature on the map, so color
-              isn&apos;t the only signal.
-            </p>
-            <aside className="rounded-tokenMd bg-[color:var(--color-warning-surface)] p-[var(--space-5)] text-sm text-[color:var(--color-warning-text)]">
-              Scout&apos;s data comes from public datasets and can be out of date the
-              day it&apos;s released. Elevators, closures, and street changes may not
-              show up until the source is updated.
-            </aside>
           </div>
           <section className="mt-[var(--space-6)] space-y-[var(--space-3)]">
             <h2 className="text-lg font-semibold text-[color:var(--color-text)]">
