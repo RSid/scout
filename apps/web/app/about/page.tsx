@@ -50,9 +50,15 @@ export default function AboutPage() {
       <article className="mx-auto max-w-[var(--measure-body)] space-y-[var(--space-10)] px-[var(--space-6)] py-[var(--space-14)]">
         <header className="space-y-[var(--space-4)]">
           <h1 className="font-sans text-4xl font-semibold tracking-tight text-[color:var(--color-text)]">
-            About Scout
+            About{" "}
+            <Link
+              href="/plan"
+              className="text-[color:var(--color-link)] underline underline-offset-4"
+            >
+              Scout
+            </Link>
           </h1>
-          <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-relaxed)] text-[color:var(--color-text-muted)]">
+          <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-loose)] text-[color:var(--color-text-muted)]">
             Scout previews walking routes in Washington, DC and surfaces public
             accessibility data alongside them. It&apos;s intended for use as a planning
             aid, but it will not have the kind of live and up to date data that you
@@ -76,7 +82,7 @@ export default function AboutPage() {
           <br />
           <ul className="divide-y divide-border rounded-tokenLg border border-border">
             {DATA_SOURCES.map((row) => (
-              <li key={row.id} className="px-[var(--space-5)] py-[var(--space-5)]">
+              <li key={row.id} className="px-[var(--space-2)] py-[var(--space-2)]">
                 <Link
                   href={row.url}
                   className="text-lg font-semibold text-[color:var(--color-link)] underline underline-offset-4 hover:text-accent"

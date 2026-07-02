@@ -15,6 +15,9 @@ export default function Footer() {
         <Link href="/about" className={FOOTER_LINK_CLASS}>
           About Scout
         </Link>
+        <Link href="/plan" className={FOOTER_LINK_CLASS}>
+          Route planner
+        </Link>
         <Link href="/privacy" className={FOOTER_LINK_CLASS}>
           Privacy policy
         </Link>

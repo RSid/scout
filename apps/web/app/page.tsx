@@ -6,7 +6,7 @@ export default function HomePage() {
       <h1 className="font-sans text-4xl font-semibold tracking-tight text-[color:var(--color-text)]">
         Scout
       </h1>
-      <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-relaxed)] text-[color:var(--color-text-muted)]">
+      <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-loose)] text-[color:var(--color-text-muted)]">
         Walking routes in Washington, DC, paired with public accessibility data — a
         planning aid, not turn-by-turn navigation.
       </p>
