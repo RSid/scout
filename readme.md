@@ -4,6 +4,12 @@
 
 I am using a lot of agentic development, partly due to my hand mobility problems that make voice-to-text much easier than typing. I've tried to make this repo friendly to practical and efficient agent development, and I share in the contribution guidelines a preferred LLM that is trained on energy grids that are largely powered by sustainable energy and value privacy. I've also used pi.dev + ollama + local small model evaluation somewhat heavily here to good effect.
 
+# Contributing
+
+Dev setup guide is below! 
+
+Want to contribute to offset Scout's hosting costs? [Get me here](https://buymeacoffee.com.rsid). Anything over the cost of Scout's hosting & domain registration will be donated to one DC's ward mutual aid organizations.
+
 ## Prerequisites
 
 - **Python ≥ 3.12** — [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
@@ -191,7 +197,3 @@ Use the GitHub Issues tab. You'll see two structured templates:
 security advisory on this repo's **Security** tab instead. See
 `CONTRIBUTING.md` and `SECURITY.md` for the full disclosure process.
 Washington, DC accessibility navigation — monorepo layout per PRD §8 (`docs/02-prd.md`): `apps/`, `data/`, `scripts/`, `infra/`, `docs/`.
-
-Want to contribute to offset Scout's hosting costs? (Get me here)[https://buymeacoffee.com.rsid]
-
-Anything over the cost of Scout's hosting & domain registration will be donated to one DC's ward mutual aid organizations.
