@@ -6,7 +6,7 @@ I am using a lot of agentic development, partly due to my hand mobility problems
 
 # Contributing
 
-Dev setup guide is below! 
+Dev setup guide is below!
 
 Want to contribute to offset Scout's hosting costs? [Get me here](https://buymeacoffee.com.rsid). Anything over the cost of Scout's hosting & domain registration will be donated to one DC's ward mutual aid organizations.
 
@@ -136,6 +136,25 @@ docker compose --project-directory . -f infra/docker-compose.prod.yml logs --tai
 
 If the deploy fails, check app logs first; the container exits when uvicorn,
 Next, or the in-image Caddy fails to start.
+
+### Pick up `.env` changes
+
+Editing `.env` does not affect a running container — Compose reads env vars at
+**create** time. After changing secrets or other app settings (e.g.
+`SCOUT_ORS_API_KEY`), recreate the app service from the repo root:
+
+```bash
+docker compose --project-directory . -f infra/docker-compose.prod.yml up -d --force-recreate app
+```
+
+A plain `docker compose restart app` reuses the old environment and will not
+pick up the new values. Use `--build` as well if you also pulled code changes
+(the full subsequent-deploy command above already covers that).
+
+If you changed `SCOUT_DB_PASSWORD`, you must also recreate `db` and `app`
+together so Postgres and the app stay in sync — only do this with a plan, since
+the existing `pgdata` volume keeps the old password until you migrate it
+manually.
 
 Once the stack is up, populate the `features` table from DC OpenData
 (`scripts/ingest_dc.py`, M1-F11):
