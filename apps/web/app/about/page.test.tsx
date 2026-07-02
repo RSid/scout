@@ -40,9 +40,9 @@ describe("<AboutPage/>", () => {
     render(<AboutPage />);
     const chips = screen.getAllByTestId("freshness-chip");
     expect(chips.length > 0).toBeTruthy();
-    expect(
-      chips.every((chip) => chip.textContent?.startsWith("Data may be outdated")),
-    ).toBe(true);
+    expect(chips.every((chip) => chip.textContent?.startsWith("Last inspected"))).toBe(
+      true,
+    );
   });
 
   it("labels unknown inspection timelines on API-only overlays", () => {
