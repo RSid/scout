@@ -449,6 +449,54 @@ describe("AddressAutocomplete", () => {
     expect(screen.getAllByRole("option")[0]?.textContent).toMatch(/~\d+ meter/i);
   });
 
+  it("writes the plain address label into the input on selection, not the distance-suffixed suggestion text", async () => {
+    const search = vi.fn(async (query: string) => {
+      const trimmed = query.trim().toLowerCase();
+      return STUB_SEARCH_HITS.filter((hit) =>
+        hit.label.toLowerCase().includes(trimmed),
+      );
+    });
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-destination"
+          label="Destination"
+          onPick={vi.fn()}
+          userLocation={[-77.05, 38.915]}
+          provider={makeProviders({ search })}
+        />
+      </AnnounceProvider>,
+    );
+
+    await user.type(screen.getByRole("combobox"), "Dupont");
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/\d+ suggestion/i),
+    );
+
+    await user.click(screen.getByRole("button", { name: /show suggestions/i }));
+
+    const option = await screen.findByRole("option", { name: /Dupont Circle/i });
+    expect(option.textContent).toMatch(/~\d+ meter/i);
+
+    await user.click(option);
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox")).toHaveValue(
+        "Dupont Circle, Washington, District of Columbia 20009, United States",
+      ),
+    );
+
+    // The debounced re-search that follows selection uses the clean label, so it
+    // should find a match and never show the "DC addresses only" hint.
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByText(/Washington, DC addresses only/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("highlights suggestions with arrows and selects with Enter", async () => {
     const user = userEvent.setup({ delay: null });
 

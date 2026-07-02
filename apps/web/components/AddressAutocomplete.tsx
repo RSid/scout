@@ -159,6 +159,7 @@ export default function AddressAutocomplete({
     <ComboBox
       id={id}
       allowsCustomValue
+      menuTrigger="manual"
       aria-label={label}
       items={suggestionItems}
       inputValue={inputValue}
@@ -175,7 +176,7 @@ export default function AddressAutocomplete({
 
         onPick(match);
         announce(`Selected ${match.suggestionText}`);
-        window.setTimeout(() => setInputValue(match.suggestionText));
+        window.setTimeout(() => setInputValue(match.label));
       }}
     >
       <Label className="block font-semibold">{label}</Label>
