@@ -85,7 +85,7 @@ export default function RouteSummary({ summary, mode }: RouteSummaryProps) {
         {en.routeSummaryHeading}
       </h2>
 
-      <dl className="mt-[var(--space-5)] space-y-[var(--space-4)]">
+      <dl className="mt-[var(--space-5)] grid grid-cols-1 gap-[var(--space-4)] sm:grid-cols-2">
         <div>
           <dt className="text-sm font-semibold text-[color:var(--color-text-muted)]">
             {en.routeDistanceLabel}
