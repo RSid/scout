@@ -21,10 +21,10 @@ describe("DisclaimerBanner", () => {
     expect(screen.getByRole("complementary")).toHaveTextContent(DISCLAIMER_L2_COPY);
   });
 
-  it("links to the About data section with self-describing text", () => {
+  it("links to the About page with self-describing text", () => {
     render(<DisclaimerBanner />);
     const link = screen.getByRole("link", { name: DISCLAIMER_L2_LINK_TEXT });
-    expect(link.getAttribute("href")).toBe("/about#disclaimer");
+    expect(link.getAttribute("href")).toBe("/about");
   });
 
   it("hides itself after the dismiss button is activated", () => {

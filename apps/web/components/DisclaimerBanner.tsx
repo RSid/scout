@@ -33,7 +33,7 @@ export default function DisclaimerBanner() {
         <p className="flex-1 text-[color:var(--color-warning-text)]">
           {DISCLAIMER_L2_COPY}{" "}
           <Link
-            href="/about#disclaimer"
+            href="/about"
             className="font-semibold text-[color:var(--color-link)] underline underline-offset-4 hover:text-accent"
           >
             {DISCLAIMER_L2_LINK_TEXT}
