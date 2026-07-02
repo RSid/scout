@@ -105,8 +105,7 @@ export const en = {
   /**
    * Map overlay — shape + color, not color alone (DEC-015 + §6 avoids “markers” jargon).
    */
-  mapMarkersLegend:
-    "Shape shows aids vs obstacles. Color adds severity reading left to right on this map.",
+  mapMarkersLegend: "Shape shows aids vs obstacles. Color adds severity reading.",
 
   /** Cluster announcement fallback when the category mix can't be read;
    * replace `{n}` with digits. DEC-024 §2 prefers the spelled-out mix below. */
