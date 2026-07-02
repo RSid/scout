@@ -19,6 +19,11 @@ import {
 
 const DEBOUNCE_MS = 500;
 
+type LocationStatus =
+  | { kind: "idle" }
+  | { kind: "locating" }
+  | { kind: "error"; message: string };
+
 type SuggestionItem = AddressHit & { suggestionText: string };
 
 function buildSuggestionText(
@@ -76,6 +81,9 @@ export default function AddressAutocomplete({
   const [inputValue, setInputValue] = useState("");
   const [hits, setHits] = useState<readonly AddressHit[]>([]);
   const [busy, setBusy] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>({
+    kind: "idle",
+  });
 
   const suggestionItems = useMemo(
     () => toSuggestionItems(hits, userLocation),
@@ -209,12 +217,25 @@ export default function AddressAutocomplete({
           <button
             type="button"
             aria-label={`Use my location for ${label}`}
-            className="inline-flex min-h-tap rounded-tokenMd border border-border px-[var(--space-6)] py-[var(--space-4)] focus-visible:btn-accent-double-ring-dark"
+            disabled={locationStatus.kind === "locating"}
+            className="inline-flex min-h-tap rounded-tokenMd border border-border px-[var(--space-6)] py-[var(--space-4)] focus-visible:btn-accent-double-ring-dark disabled:opacity-60"
             onClick={() => {
               if (typeof navigator.geolocation === "undefined") {
-                announce("Your browser doesn't support location.");
+                const message = "Your browser doesn't support location.";
+                setLocationStatus({ kind: "error", message });
+                announce(message);
                 return;
               }
+
+              if (typeof window !== "undefined" && window.isSecureContext === false) {
+                const message =
+                  "Location requires a secure connection — try opening this page over HTTPS (or localhost).";
+                setLocationStatus({ kind: "error", message });
+                announce(message);
+                return;
+              }
+
+              setLocationStatus({ kind: "locating" });
 
               navigator.geolocation.getCurrentPosition(
                 ({ coords }) => {
@@ -226,27 +247,50 @@ export default function AddressAutocomplete({
                       );
                       onPick(hit);
                       onUserLocationAcquired?.([coords.longitude, coords.latitude]);
+                      setLocationStatus({ kind: "idle" });
                       announce(hit.label);
                       setInputValue(hit.label);
                       setHits([]);
                     } catch (error: unknown) {
-                      announce(
+                      const message =
                         error instanceof ScoutApiError
                           ? error.message
-                          : "Couldn't translate that location — try typing an address instead.",
-                      );
+                          : "Couldn't translate that location — try typing an address instead.";
+                      setLocationStatus({ kind: "error", message });
+                      announce(message);
                     }
                   })();
                 },
-                () => {
-                  announce("Location permission was declined.");
+                (error) => {
+                  const message =
+                    error.code === error.PERMISSION_DENIED
+                      ? "Location access is blocked for this site. Allow it in your browser's site settings, then try again."
+                      : error.code === error.POSITION_UNAVAILABLE
+                        ? "Your device couldn't determine its location. Try again or type an address."
+                        : "Location took too long to respond. Try again.";
+                  setLocationStatus({ kind: "error", message });
+                  announce(message);
                 },
               );
             }}
           >
             Use my location
           </button>
-          {busy ? (
+          {locationStatus.kind === "locating" ? (
+            <p
+              className="text-sm text-[color:var(--color-text-muted)]"
+              aria-hidden="true"
+            >
+              Locating your position…
+            </p>
+          ) : locationStatus.kind === "error" ? (
+            <p
+              className="text-sm text-[color:var(--color-danger-text)]"
+              aria-hidden="true"
+            >
+              {locationStatus.message}
+            </p>
+          ) : busy ? (
             <p
               className="text-sm text-[color:var(--color-text-muted)]"
               aria-hidden="true"

@@ -244,7 +244,7 @@ describe("AddressAutocomplete", () => {
     );
   });
 
-  it("announces when permission is declined", async () => {
+  it("shows a visible, actionable message when permission is declined", async () => {
     const getCurrentPosition = vi.fn(
       (_ok?: PositionCallback, err?: PositionErrorCallback) => {
         err?.({
@@ -279,10 +279,128 @@ describe("AddressAutocomplete", () => {
     await user.click(screen.getByRole("button", { name: /use my location/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(
-        /Location permission was declined/i,
-      ),
+      expect(
+        screen.getByText(/Allow it in your browser's site settings/i, {
+          selector: "p",
+        }),
+      ).toBeInTheDocument(),
     );
+  });
+
+  it("shows a visible message when the device can't determine its position", async () => {
+    const getCurrentPosition = vi.fn(
+      (_ok?: PositionCallback, err?: PositionErrorCallback) => {
+        err?.({
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+          code: 2,
+          message: "unavailable",
+        });
+      },
+    );
+
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      geolocation: { getCurrentPosition },
+    } as Navigator);
+
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          showUseMyLocation
+          onPick={vi.fn()}
+          provider={makeProviders()}
+        />
+      </AnnounceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /use my location/i }));
+
+    expect(
+      await screen.findByText(/couldn't determine its location/i, { selector: "p" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a visible message when the location request times out", async () => {
+    const getCurrentPosition = vi.fn(
+      (_ok?: PositionCallback, err?: PositionErrorCallback) => {
+        err?.({
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+          code: 3,
+          message: "timeout",
+        });
+      },
+    );
+
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      geolocation: { getCurrentPosition },
+    } as Navigator);
+
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          showUseMyLocation
+          onPick={vi.fn()}
+          provider={makeProviders()}
+        />
+      </AnnounceProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /use my location/i }));
+
+    expect(
+      await screen.findByText(/took too long to respond/i, { selector: "p" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a visible message instead of calling geolocation over an insecure context", async () => {
+    const getCurrentPosition = vi.fn();
+
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      geolocation: { getCurrentPosition },
+    } as Navigator);
+    Object.defineProperty(window, "isSecureContext", {
+      value: false,
+      configurable: true,
+    });
+
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          showUseMyLocation
+          onPick={vi.fn()}
+          provider={makeProviders()}
+        />
+      </AnnounceProvider>,
+    );
+
+    try {
+      await user.click(screen.getByRole("button", { name: /use my location/i }));
+
+      expect(
+        await screen.findByText(/requires a secure connection/i, { selector: "p" }),
+      ).toBeInTheDocument();
+      expect(getCurrentPosition).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(window, "isSecureContext");
+    }
   });
 
   it("announces how many suggestion rows returned", async () => {
