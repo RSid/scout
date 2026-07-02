@@ -28,7 +28,7 @@ function DataSourceNote({
       className="inline-flex items-center rounded-tokenSm border border-[color:var(--color-warning-border)] bg-[color:var(--color-warning-surface)] px-2 py-0.5 text-xs font-medium text-[color:var(--color-warning-text)]"
       data-testid="freshness-chip"
     >
-      {`Data may be outdated (last inspected ${row.lastInspectedYear})`}
+      {`Last inspected ${row.lastInspectedYear}`}
     </span>
   );
 

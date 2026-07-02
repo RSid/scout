@@ -5,7 +5,9 @@ import type { CorridorResponse } from "@/lib/api";
 import type { InspectionFreshnessTreatment } from "@/lib/data-sources";
 import { inspectionFreshnessTreatment } from "@/lib/data-sources";
 import {
+  corridorFeatureId,
   deriveMarkerSeverity,
+  hasMapMarkerSupport,
   scoutMarkerIconId,
   scoutMarkerTintedSvgDataUriBatch,
   type ScoutMarkerSeverity,
@@ -40,17 +42,7 @@ type Props = Readonly<{
 }>;
 
 function rowSelectableId(feature: CorridorFeatureProps): string | null {
-  if (feature.id !== undefined && feature.id !== null) {
-    return String(feature.id);
-  }
-  const raw = feature.properties as Record<string, unknown> | undefined;
-  if (typeof raw?.id === "string" && raw.id.length > 0) {
-    return raw.id;
-  }
-  if (typeof raw?.id === "number" || typeof raw?.id === "boolean") {
-    return String(raw.id);
-  }
-  return null;
+  return corridorFeatureId(feature);
 }
 
 function featureStableId(
@@ -322,7 +314,10 @@ export default function FeatureListView({
       (f): f is CorridorFeatureProps =>
         f.geometry !== null &&
         typeof f.geometry === "object" &&
-        f.geometry.type === "Point",
+        f.geometry.type === "Point" &&
+        hasMapMarkerSupport(
+          typeof f.properties?.category === "string" ? f.properties.category : "",
+        ),
     );
     return [...points].sort((a, b) => {
       const ap = (a.properties as Record<string, unknown> | undefined)

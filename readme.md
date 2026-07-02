@@ -114,13 +114,22 @@ Caddy for HTTPS) is documented step-by-step in
 
 ### Subsequent deploys
 
-After the first deploy, shipping a new version is a pull-and-rebuild on the
-server. SSH in, then from the repo root (e.g. `/opt/scout`):
+Set `SCOUT_DEPLOY_HOST` in `.env` (e.g. `root@your-server`), then from your
+laptop:
 
 ```bash
-cd /opt/scout
-git pull
-docker compose --project-directory . -f infra/docker-compose.prod.yml up -d --build
+make release              # patch bump (v0.1.0 → v0.1.1)
+BUMP=minor make release   # minor bump
+BUMP=major make release   # major bump
+```
+
+This SSHes into the server, pulls, rebuilds, waits for a health check, then
+tags the deployed commit with a semver git tag and pushes it.
+
+To roll back to a previous release:
+
+```bash
+make rollback VERSION=v0.1.0
 ```
 
 What happens automatically:
@@ -128,6 +137,7 @@ What happens automatically:
 - The app container rebuilds when source changed and restarts.
 - **`alembic upgrade head`** runs on boot — schema migrations apply with the
   deploy; no manual migration step.
+- The health check (`/api/health`) is verified before tagging.
 
 What you usually **do not** repeat:
 
@@ -135,12 +145,12 @@ What you usually **do not** repeat:
   recreating the database volume or when intentionally refreshing data. See
   [`infra/runbooks/refresh-dc-addresses.md`](infra/runbooks/refresh-dc-addresses.md).
 
-Verify after each deploy:
+Manual verification after deploy (optional — `make release` already checks
+health):
 
 ```bash
 curl -fsS https://yourdomain.com/api/health
-docker compose --project-directory . -f infra/docker-compose.prod.yml ps
-docker compose --project-directory . -f infra/docker-compose.prod.yml logs --tail=50 app
+ssh $SCOUT_DEPLOY_HOST 'docker compose --project-directory /opt/scout -f /opt/scout/infra/docker-compose.prod.yml logs --tail=50 app'
 ```
 
 If the deploy fails, check app logs first; the container exits when uvicorn,

@@ -62,7 +62,7 @@ describe("FeaturePopup", () => {
     render(<FeaturePopup category={null} feature={props} referenceYear={2026} />);
 
     expect(screen.getByTestId("freshness-chip")).toHaveTextContent(
-      /Data may be outdated \(last inspected 2016\)/,
+      /Last inspected 2016/,
     );
   });
 
