@@ -20,10 +20,11 @@ Want to contribute to offset Scout's hosting costs? [Get me here](https://buymea
 
 ### API Keys
 
-Only **OpenRouteService** needs a real signup per se. Address searching uses
-Washington, DC's public-domain Master Address Repository snapshot bundled with
-Scout (`make ingest-dc-addresses`). Refuge Restrooms is keyless, and the
-Protomaps basemap extract is built by a script. You can skip this entire section
+Only **OpenRouteService** needs a real signup per se. Address and place-name
+searching uses Washington, DC's public-domain Master Address Repository
+snapshot bundled with Scout (`make ingest-dc-addresses`, `make ingest-dc-pois`).
+Refuge Restrooms is keyless, and the Protomaps basemap extract is built by a
+script. You can skip this entire section
 if you only ever run `make docker-up` (the default boots a stack with routing,
 geocoding, and restrooms stubbed — no outbound calls except whatever you enable).
 The credential below is required for `make docker-up-realistic-run`, production
@@ -56,11 +57,19 @@ cp .env.example .env
    so `/api/geocode/*` serves real MAR rows (`DEC-023`). Compose does **not**
    auto-load MAR data yet; run this once whenever you recreate the DB volume.
 
-3. **Refuge Restrooms** — no key, no signup. The default
+3. **DC points-of-interest snapshot load** (`make ingest-dc-pois`) — no
+   signup. After Postgres has the `dc_points_of_interest` table (Alembic
+   `0003+`) **and** the address snapshot above is already loaded (this
+   ingest joins named places to their street address by `MAR_ID`), load the
+   committed `data/dc_points_of_interest.jsonl` so `/api/geocode/*` also
+   resolves landmark names like "National Building Museum" (`DEC-026`). Run
+   this once whenever you recreate the DB volume, right after step 2.
+
+4. **Refuge Restrooms** — no key, no signup. The default
    `SCOUT_REFUGE_BASE_URL` in `.env.example` is the public API
    (<https://www.refugerestrooms.org/api/v1>). Nothing further to do.
 
-4. **Protomaps basemap tiles** — no key. Run `scripts/build_pmtiles.sh`
+5. **Protomaps basemap tiles** — no key. Run `scripts/build_pmtiles.sh`
    once after cloning to populate `apps/web/public/tiles/dc.pmtiles` for
    the interactive MapLibre basemap (requires the `pmtiles` CLI from the
    prerequisites above).

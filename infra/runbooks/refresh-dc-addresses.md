@@ -53,3 +53,55 @@ SELECT label_full FROM dc_addresses WHERE label_full ILIKE '4818%KANSAS%' LIMIT 
 ```
 
 UI smoke (`make docker-up-realistic-run`): type **`4818 ka`** → **`4818 KANSAS AVENUE NW`**.
+
+## Named places (`dc_points_of_interest`, DEC-026)
+
+The same OCTO FeatureServer publishes a sibling alias layer ("Points of
+Interest - MAR Aliases", layer **3**) — named landmarks (schools, federal
+buildings, museums, monuments, libraries) keyed to a `MAR_ID` in
+`dc_addresses`. **Refresh `dc_addresses` first** — this ingest joins against
+it to resolve each place's coordinates and street address, so a stale
+`dc_addresses` table produces stale/orphaned POI rows.
+
+Prerequisite: Alembic revision `0003` has created `dc_points_of_interest`.
+
+```bash
+make ingest-dc-pois
+```
+
+Runs through the profile-gated `ingest-poi` Compose service (same bridge
+network as `ingest`). Loads the committed snapshot at
+[`data/dc_points_of_interest.jsonl`](../../data/dc_points_of_interest.jsonl)
+with idempotent upserts.
+
+Script reference: [`scripts/ingest_dc_points_of_interest.py`](../../scripts/ingest_dc_points_of_interest.py).
+
+Regenerate the JSONL from OCTO ArcGIS (layer **3**):
+
+```bash
+make ingest-dc-pois ARGS='--fetch --write-jsonl /app/data/dc_points_of_interest.jsonl --dry-run'
+```
+
+Or from the host venv to write back into the repo:
+
+```bash
+uv run --directory apps/backend python scripts/ingest_dc_points_of_interest.py \
+  --fetch --write-jsonl data/dc_points_of_interest.jsonl --dry-run
+```
+
+Review `git diff data/dc_points_of_interest.jsonl`, run `make ingest-dc-pois`
+against a disposable database (with `dc_addresses` already loaded),
+smoke-test the search box, commit with PR rationale.
+
+Source license: MAR open data via Open Data DC (CC0) — same source family
+already accepted for `dc_addresses` under DEC-023.
+
+### Verify
+
+```sql
+SELECT COUNT(*) FROM dc_points_of_interest;
+SELECT label_full FROM dc_points_of_interest WHERE label_normalized ILIKE '%national building%';
+```
+
+UI smoke (`make docker-up-realistic-run`): type **`national build`** →
+**`NATIONAL BUILDING MUSEUM, ...`**.

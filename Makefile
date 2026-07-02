@@ -15,7 +15,7 @@ BUMP ?= patch
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps dev-mobile-lan dev-mobile-tunnel release rollback
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses ingest-dc-pois docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps  dev-mobile-lan dev-mobile-tunnel release rollback
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -106,6 +106,12 @@ ingest-dc-addresses: ## load bundled DC MAR addresses into Postgres (migration 0
 	@# host-side .env / SCOUT_DB_HOST_PORT remap never enter the picture.
 	@# Pass extra args after `--`, e.g. `make ingest-dc-addresses ARGS='--dry-run'`.
 	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest $(ARGS)
+
+ingest-dc-pois: ## load bundled DC MAR points-of-interest into Postgres (migration 0003 + data/dc_points_of_interest.jsonl); run ingest-dc-addresses first
+	@test -f "$(ROOT)/scripts/ingest_dc_points_of_interest.py" || { echo 'missing scripts/ingest_dc_points_of_interest.py'; exit 1; }
+	@# Same Compose-network rationale as ingest-dc-addresses; this ingest
+	@# depends on dc_addresses already being populated (it joins by MAR_ID).
+	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest-poi $(ARGS)
 
 ingest: ## dry-run DC GeoJSON ingest tally (parses files; no Postgres write)
 	@if [ -f "$(ROOT)/scripts/ingest_dc.py" ]; then \
