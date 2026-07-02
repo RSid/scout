@@ -182,7 +182,7 @@ export default function AddressAutocomplete({
       <div className="flex flex-wrap gap-[var(--space-3)]">
         <Input
           className="min-h-tap min-w-0 flex-1 rounded-tokenMd border border-border bg-[color:var(--color-surface)] px-[var(--space-4)] py-[var(--space-3)] outline-none focus-visible:btn-accent-double-ring-dark"
-          placeholder="Type an address (at least 3 letters)"
+          placeholder="Type an address or place name (at least 3 letters)"
         />
         <Button
           aria-label="Show suggestions"
@@ -209,7 +209,7 @@ export default function AddressAutocomplete({
       </Popover>
       {trimmedForHint.length >= 3 && !busy && suggestionItems.length === 0 ? (
         <p className="text-sm text-[color:var(--color-text-muted)]" aria-live="polite">
-          We currently support Washington, DC addresses only.
+          We currently support Washington, DC addresses and named places only.
         </p>
       ) : null}
       {showUseMyLocation ? (

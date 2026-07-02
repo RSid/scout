@@ -160,6 +160,39 @@ services:
     entrypoint: ["python", "/app/scripts/ingest_dc_addresses.py"]
     restart: "no"
 
+  # Sibling service for the DC MAR "Points of Interest" alias layer
+  # (DEC-026). Kept separate from `ingest` (rather than an argument switch)
+  # per the note above about giving new ingestion scripts their own service
+  # — this one also has a hard runtime dependency on `dc_addresses` already
+  # being populated (it joins by MAR_ID), which `make ingest-dc-pois`'s
+  # target comment documents.
+  #
+  #   make ingest-dc-pois
+  #   # raw equivalent:
+  #   docker compose --project-directory . -f infra/docker-compose.yml \
+  #                  --profile ingest run --rm ingest-poi
+  ingest-poi:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-ingest-poi
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/ingest_dc_points_of_interest.py"]
+    restart: "no"
+
 volumes:
   pgdata:
   web-node_modules:

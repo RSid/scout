@@ -24,6 +24,20 @@ def test_search_returns_hits_for_known_stub_term() -> None:
     assert any(h["label"].lower().startswith("dupont") for h in body["hits"])
 
 
+def test_search_returns_hits_for_known_place_name() -> None:
+    with TestClient(app) as client:
+        resp = client.get(
+            "/api/geocode/search", params={"q": "National Building", "limit": 5}
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert isinstance(body["hits"], list)
+    assert any(
+        h["label"].lower().startswith("national building museum") for h in body["hits"]
+    )
+
+
 def test_search_rejects_short_query() -> None:
     with TestClient(app) as client:
         resp = client.get("/api/geocode/search", params={"q": "ab"})

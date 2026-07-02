@@ -17,6 +17,14 @@ _STUB_HITS: tuple[AddressHit, ...] = (
         lon=-77.0369,
         lat=38.9097,
     ),
+    AddressHit(
+        # Named-place fixture (DEC-026) — exercises the same `AddressHit`
+        # shape a real `dc_points_of_interest` hit would produce.
+        id="stub-poi-national-building-museum",
+        label="National Building Museum, 401 F St NW, Washington, DC 20001",
+        lon=-77.0157,
+        lat=38.8983,
+    ),
 )
 
 
@@ -25,8 +33,10 @@ class StubGeocodingProvider(GeocodingProvider):
         trimmed = query.strip().lower()
         if not trimmed:
             return []
+        if "national building" in trimmed or "building museum" in trimmed:
+            return [_STUB_HITS[2]] if limit >= 1 else []
         if "dupont" in trimmed or "14th" in trimmed or "14 " in trimmed:
-            return list(_STUB_HITS[:limit])
+            return list(_STUB_HITS[:2][:limit])
         return [_STUB_HITS[0]] if limit >= 1 else []
 
     async def reverse(self, lon: float, lat: float) -> AddressHit:

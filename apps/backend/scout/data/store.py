@@ -10,16 +10,32 @@ from geoalchemy2 import Geometry
 from geoalchemy2 import functions as gf
 from geoalchemy2.functions import ST_DWithin, ST_LineLocatePoint, ST_SetSRID
 from geoalchemy2.shape import to_shape
-from sqlalchemy import Select, and_, asc, desc, func, literal, not_, or_, select, text
+from sqlalchemy import (
+    BindParameter,
+    Row,
+    Select,
+    and_,
+    asc,
+    bindparam,
+    desc,
+    func,
+    literal,
+    literal_column,
+    not_,
+    or_,
+    select,
+    union_all,
+)
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement
 
 from scout.data.mar_address_mapping import (
     normalize_dc_address_query_text,
     prefix_tsquery_from_tokens,
 )
-from scout.data.models import DcAddress, Feature
+from scout.data.models import DcAddress, DcPointOfInterest, Feature
 
 # Per-row "is this useful as a map marker?" rule. We still ingest these rows
 # (analytics and M2 P3 low-vision routing weights both read them), but the
@@ -175,34 +191,90 @@ async def corridor_features_geojson(
 _MAX_GEOCODE_SEARCH = 25
 
 
-async def search_dc_addresses(
-    session: AsyncSession, query: str, *, limit: int = 5
-) -> Sequence[DcAddress]:
-    """Prefix-style forward search over bundled MAR rows (Postgres FTS)."""
+def _fts_match_and_rank(
+    label_normalized_column: ColumnElement[str] | InstrumentedAttribute[str],
+    fts_query_param: ColumnElement[str],
+) -> tuple[ColumnElement[bool], ColumnElement[float]]:
+    """Shared `to_tsvector`/`ts_rank_cd` expressions for one geocoder source
+    table. `fts_query_param` is a single reused `bindparam` so both the match
+    filter and the rank expression — across both unioned subqueries — draw
+    from the same bound value.
 
+    The `'simple'` config name is rendered as inline SQL text (not a bound
+    parameter): asyncpg pre-types bound params, and a `varchar`-typed
+    parameter has no implicit cast to Postgres's `regconfig` — only an
+    untyped string literal does.
+    """
+    simple_config: ColumnElement[str] = literal_column("'simple'")
+    tsvector = func.to_tsvector(simple_config, label_normalized_column)
+    tsquery = func.to_tsquery(simple_config, fts_query_param)
+    match_clause = tsvector.bool_op("@@")(tsquery)
+    rank_clause = func.ts_rank_cd(tsvector, tsquery)
+    return match_clause, rank_clause
+
+
+def search_dc_addresses_select(query: str, *, limit: int = 5) -> Select[Any] | None:
+    """Ranked `UNION ALL` across bundled MAR addresses + named places (DEC-026).
+
+    Blends `dc_addresses` and `dc_points_of_interest` into one ranked
+    result set so a query like "national building" can surface a named
+    place above unrelated addresses, while a plain address query (no POI
+    token matches) degenerates to exactly the pre-DEC-026 `dc_addresses`-only
+    ranking. Extracted from `search_dc_addresses` so the SQL shape is
+    unit-testable without a live PostGIS database — see
+    `tests/test_store_geocode_query.py`.
+
+    Returns `None` when the query normalizes to no searchable tokens.
+    """
     capped = max(1, min(limit, _MAX_GEOCODE_SEARCH))
     tokens = normalize_dc_address_query_text(query).split()
     if not tokens:
-        return ()
+        return None
     fts_query = prefix_tsquery_from_tokens(tokens)
     if not fts_query:
-        return ()
+        return None
 
-    match_clause = text(
-        "to_tsvector('simple', dc_addresses.label_normalized) @@ "
-        "to_tsquery('simple', :fts_query)"
+    fts_param: BindParameter[str] = bindparam("fts_query", value=fts_query)
+
+    addr_match, addr_rank = _fts_match_and_rank(DcAddress.label_normalized, fts_param)
+    addr_sub = select(
+        DcAddress.id.label("id"),
+        DcAddress.label_full.label("label_full"),
+        DcAddress.lon.label("lon"),
+        DcAddress.lat.label("lat"),
+        addr_rank.label("rank"),
+        func.char_length(DcAddress.label_normalized).label("label_len"),
+    ).where(addr_match)
+
+    poi_match, poi_rank = _fts_match_and_rank(
+        DcPointOfInterest.label_normalized, fts_param
     )
-    rank_clause = text(
-        "ts_rank_cd(to_tsvector('simple', dc_addresses.label_normalized), "
-        "to_tsquery('simple', :fts_query))"
-    )
-    stmt = (
-        select(DcAddress)
-        .where(match_clause)
-        .order_by(desc(rank_clause), asc(func.char_length(DcAddress.label_normalized)))
-        .limit(capped)
-    ).params(fts_query=fts_query)
-    result = await session.scalars(stmt)
+    poi_sub = select(
+        DcPointOfInterest.id.label("id"),
+        DcPointOfInterest.label_full.label("label_full"),
+        DcPointOfInterest.lon.label("lon"),
+        DcPointOfInterest.lat.label("lat"),
+        poi_rank.label("rank"),
+        func.char_length(DcPointOfInterest.label_normalized).label("label_len"),
+    ).where(poi_match)
+
+    hits = union_all(addr_sub, poi_sub).subquery("hits")
+    return select(hits).order_by(desc(hits.c.rank), asc(hits.c.label_len)).limit(capped)
+
+
+async def search_dc_addresses(
+    session: AsyncSession, query: str, *, limit: int = 5
+) -> Sequence[Row[Any]]:
+    """Prefix-style forward search over bundled MAR addresses + named places.
+
+    Each row exposes `.id` / `.label_full` / `.lon` / `.lat` regardless of
+    which source table it came from — see `search_dc_addresses_select`.
+    """
+
+    stmt = search_dc_addresses_select(query, limit=limit)
+    if stmt is None:
+        return ()
+    result = await session.execute(stmt)
     return tuple(result.all())
 
 

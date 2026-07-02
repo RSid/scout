@@ -62,3 +62,26 @@ class DcAddress(Base):  # noqa: D401 — ORM table for bundled DC MAR autocomple
         Geography(geometry_type="POINT", srid=4326),
         nullable=False,
     )
+
+
+class DcPointOfInterest(Base):  # noqa: D401 — ORM table for bundled MAR alias names
+    """Named-place alias row from the DC MAR "Points of Interest" layer.
+
+    Denormalizes `label_full`/`lon`/`lat` from the matching `dc_addresses`
+    row at ingest time (DEC-026) so search stays a plain per-row FTS/rank
+    query with no runtime join.
+    """
+
+    __tablename__ = "dc_points_of_interest"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    mar_id: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    label_full: Mapped[str] = mapped_column(Text, nullable=False)
+    label_normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    lon: Mapped[float] = mapped_column(Float, nullable=False)
+    lat: Mapped[float] = mapped_column(Float, nullable=False)
+    geom: Mapped[WKBElement] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326),
+        nullable=False,
+    )

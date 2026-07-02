@@ -165,7 +165,7 @@ describe("AddressAutocomplete", () => {
     await user.type(screen.getByRole("combobox"), "zzz");
 
     expect(
-      await screen.findByText(/Washington, DC addresses only/i),
+      await screen.findByText(/Washington, DC addresses and named places only/i),
     ).toBeInTheDocument();
   });
 

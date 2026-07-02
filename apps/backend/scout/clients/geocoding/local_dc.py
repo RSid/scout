@@ -1,7 +1,8 @@
-"""Local bundled DC MAR autocomplete (M1-F03, DEC-023).
+"""Local bundled DC MAR autocomplete (M1-F03, DEC-023; DEC-026 named places).
 
-Reads only from the Postgres `dc_addresses` table populated by
-``scripts/ingest_dc_addresses.py``. No upstream HTTP at request time.
+Reads only from the Postgres `dc_addresses` / `dc_points_of_interest` tables
+populated by ``scripts/ingest_dc_addresses.py`` /
+``scripts/ingest_dc_points_of_interest.py``. No upstream HTTP at request time.
 """
 
 from __future__ import annotations

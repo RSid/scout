@@ -1145,6 +1145,97 @@ one-runbook, one-env change.
 
 ---
 
+## DEC-026 — Named-place search: bundled DC MAR Points-of-Interest alias layer
+
+**Context.** `DEC-023` solved street-address autocomplete via the bundled MAR
+address-points layer (OCTO ArcGIS `Location_WebMercator` layer **0**). Users
+also want to search a start/end point by landmark or building name — e.g.
+"The National Building Museum" — which a plain address row can't satisfy;
+today that query returns nothing and the planner has to already know
+`401 F St NW`.
+
+The same FeatureServer already trusted under `DEC-023` publishes a sibling
+layer, **`Location_WebMercator` layer 3, "Points of Interest - MAR
+Aliases"** — named-place aliases (schools, federal buildings, hospitals,
+museums, monuments, libraries) keyed to a `MAR_ID` in the same address-point
+space as `dc_addresses`. Confirmed live: sample rows include `WORLD WAR II
+MEMORIAL`, `UNITED STATES SUPREME COURT`, and `THURGOOD MARSHALL FEDERAL
+JUDICIARY BUILDING`, all `STATUS=ACTIVE`. The layer carries no coordinates of
+its own — each row must be joined to the existing `dc_addresses` table by
+`MAR_ID` to resolve a lon/lat and a street address.
+
+**Options considered.**
+
+- **Broader self-hosted OSM POI extract** (e.g. an Overpass export of DC
+  amenities). Wider coverage — any OSM-tagged business, restaurant, or
+  amenity — but a new ingestion/parsing pipeline of its own, with messier,
+  uncurated name quality and its own licensing/ToS review. A reasonable
+  fast-follow if user feedback asks for broader coverage; more scope than
+  the "search a well-known landmark" ask requires today.
+- **Commercial Places API** (Google Places, Mapbox, Foursquare, …).
+  Best-in-class coverage and freshness, but reintroduces exactly the
+  per-request third-party call + ToS review + typed-query privacy exposure
+  that `DEC-022` → `DEC-023` already eliminated, plus recurring cost against
+  the zero-budget M1 posture. Rejected for the same reasons `DEC-023`
+  rejected a commercial geocoder.
+- **Bundled MAR "Points of Interest" alias layer, joined to `dc_addresses`
+  by `MAR_ID`** _(chosen)._ Same CC0-licensed data family already accepted
+  under `DEC-023` — zero new ToS surface, zero new cost, no new live
+  third-party calls, small dataset (low thousands of rows vs. `dc_addresses`'
+  ~143k), and reuses the existing bundled-snapshot ingestion/query/adapter
+  pattern almost verbatim.
+
+**Decision.** Add a `dc_points_of_interest` table (Alembic `0003`), ingested
+offline via `scripts/ingest_dc_points_of_interest.py` (fetches layer 3,
+keeps only `STATUS=ACTIVE` rows, joins each `MAR_ID` against `dc_addresses`
+for coordinates and street address, skips orphaned `MAR_ID`s). The
+`GeocodingProvider.search()` path (`search_dc_addresses` in
+`scout/data/store.py`, called from `LocalDcGeocodingProvider`) becomes a
+single ranked `UNION ALL` across `dc_addresses` and `dc_points_of_interest`,
+so `/api/geocode/search` transparently returns a blended, ranked list — a
+plain address query that matches no POI rows degenerates to exactly today's
+`dc_addresses`-only ranking. No `GeocodingProvider` protocol change, no new
+`SCOUT_*` env var, no `AddressHit` shape change. Reverse geocoding
+(`reverse_dc_nearest_row`) is unchanged and stays address-only.
+
+**Rationale.**
+
+- Maximizes reuse of the `DEC-020` adapter boundary and the `DEC-023`
+  bundled-snapshot ingestion pattern — this is the same trusted data source
+  and license, a second layer, not a new integration.
+- Adds real coverage for the stated use case (well-known DC landmarks,
+  government buildings, monuments) with no new privacy or ToS exposure and
+  no new operational dependency, in keeping with `AGENTS.md` rule #12 and
+  the zero-budget mandate.
+- A single ranked `UNION ALL` keeps the blended result set correct (top-N
+  truncation happens once, over both sources together) without touching the
+  `AddressHit` contract either side of the wire depends on.
+
+**Consequences.**
+
+- New table, ingestion script, and Makefile/Compose target
+  (`make ingest-dc-pois`, profile-gated `ingest-poi` service) to maintain,
+  refreshed on the same cadence as `dc_addresses` — see
+  `infra/runbooks/refresh-dc-addresses.md`, which documents the ordering
+  dependency (addresses must be refreshed first; the join needs current
+  rows).
+- Reverse geocoding stays address-only by design — conflating "nearest
+  street address" with "nearest named landmark" is a different, unrequested
+  feature with its own distance-threshold and copy questions (when is a
+  point "close enough" to a museum to name it instead of the street
+  address?). Left as an explicit non-goal; revisit if user feedback asks
+  for it.
+- Coverage is limited to what OCTO's alias layer curates — government
+  buildings, schools, monuments, hospitals, libraries — not a general
+  business/POI directory (restaurants, retail, etc. are unlikely to be
+  present). The OSM-extract option above remains a valid fast-follow if
+  that gap matters to users.
+- Frontend copy (`AddressAutocomplete.tsx` placeholder and no-results hint)
+  updated to say "address or place name" — no component logic change, since
+  a POI hit is just a longer `AddressHit.label`.
+
+---
+
 ## DEC-PEND-\* — Pending decisions
 
 These don't block scaffolding but should be settled before M1 ships.
