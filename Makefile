@@ -6,10 +6,16 @@ COMPOSE := $(ROOT)/infra/docker-compose.yml
 # `.env` (sibling of this Makefile) instead of looking inside `infra/`. That
 # means SCOUT_DB_HOST_PORT et al. live in the same .env as backend settings.
 COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
+PROD_COMPOSE := --project-directory /opt/scout -f /opt/scout/infra/docker-compose.prod.yml
+
+# Release / deploy config.  Override in .env or inline:
+#   SCOUT_DEPLOY_HOST=root@1.2.3.4 BUMP=minor make release
+SCOUT_DEPLOY_HOST ?= $(error set SCOUT_DEPLOY_HOST in .env or pass it inline — e.g. SCOUT_DEPLOY_HOST=root@your-server make release)
+BUMP ?= patch
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps  dev-mobile-lan dev-mobile-tunnel
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps dev-mobile-lan dev-mobile-tunnel release rollback
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -158,3 +164,64 @@ dev-mobile-lan: ## Compose + overlay for LAN HTTP phone testing (`docker-compose
 
 dev-mobile-tunnel: ## detached Compose + cloudflared quick tunnel for HTTPS phone testing (geolocation/PWA parity)
 	@"$(ROOT)/scripts/dev-mobile-tunnel.sh"
+
+# ── Release & rollback ───────────────────────────────────────────────
+# Usage:
+#   make release                        # patch bump  (v0.1.0 → v0.1.1)
+#   BUMP=minor make release             # minor bump  (v0.1.1 → v0.2.0)
+#   BUMP=major make release             # major bump  (v0.2.0 → v1.0.0)
+#   make rollback VERSION=v0.1.0        # redeploy a previous tag
+
+define next_version
+$(shell \
+	latest=$$(git tag -l 'v*' --sort=-v:refname | head -1); \
+	if [ -z "$$latest" ]; then echo "v0.1.0"; exit 0; fi; \
+	major=$$(echo "$$latest" | sed 's/^v//' | cut -d. -f1); \
+	minor=$$(echo "$$latest" | sed 's/^v//' | cut -d. -f2); \
+	patch=$$(echo "$$latest" | sed 's/^v//' | cut -d. -f3); \
+	case "$(BUMP)" in \
+		major) echo "v$$((major+1)).0.0" ;; \
+		minor) echo "v$$major.$$((minor+1)).0" ;; \
+		*)     echo "v$$major.$$minor.$$((patch+1))" ;; \
+	esac \
+)
+endef
+
+release: ## deploy main to prod, then tag the release (BUMP=patch|minor|major)
+	@# Preflight: clean working tree, on main, up to date with remote.
+	@test -z "$$(git status --porcelain)" || { echo 'error: working tree is dirty — commit or stash first'; exit 1; }
+	@test "$$(git branch --show-current)" = "main" || { echo 'error: releases must be cut from main'; exit 1; }
+	@git fetch origin main --quiet
+	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo 'error: local main is not up to date with origin — pull or push first'; exit 1; }
+	$(eval VERSION := $(next_version))
+	@echo "==> deploying $$(git rev-parse --short HEAD) to $(SCOUT_DEPLOY_HOST) …"
+	ssh $(SCOUT_DEPLOY_HOST) 'cd /opt/scout && git pull && docker compose $(PROD_COMPOSE) up -d --build'
+	@echo "==> waiting for health check …"
+	@ssh $(SCOUT_DEPLOY_HOST) '\
+		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+			if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then \
+				echo "health check passed"; exit 0; \
+			fi; \
+			sleep 5; \
+		done; \
+		echo "error: health check failed after 60s"; exit 1'
+	@echo "==> tagging $(VERSION)"
+	git tag -a "$(VERSION)" -m "Release $(VERSION)"
+	git push origin "$(VERSION)"
+	@echo "==> released $(VERSION)"
+
+rollback: ## redeploy a previous release tag (VERSION=vX.Y.Z)
+	@test -n "$(VERSION)" || { echo 'usage: make rollback VERSION=v0.1.0'; exit 1; }
+	@git rev-parse "$(VERSION)" >/dev/null 2>&1 || { echo 'error: tag $(VERSION) not found'; exit 1; }
+	@echo "==> rolling back to $(VERSION) on $(SCOUT_DEPLOY_HOST) …"
+	ssh $(SCOUT_DEPLOY_HOST) 'cd /opt/scout && git fetch --tags && git checkout $(VERSION) && docker compose $(PROD_COMPOSE) up -d --build'
+	@echo "==> waiting for health check …"
+	@ssh $(SCOUT_DEPLOY_HOST) '\
+		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+			if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then \
+				echo "health check passed"; exit 0; \
+			fi; \
+			sleep 5; \
+		done; \
+		echo "error: health check failed after 60s"; exit 1'
+	@echo "==> rolled back to $(VERSION)"
