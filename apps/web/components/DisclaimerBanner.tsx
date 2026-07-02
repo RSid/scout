@@ -34,7 +34,7 @@ export default function DisclaimerBanner() {
           {DISCLAIMER_L2_COPY}{" "}
           <Link
             href="/about"
-            className="font-semibold text-[color:var(--color-link)] underline underline-offset-4 hover:text-accent"
+            className="inline-flex min-h-tap items-center font-semibold text-[color:var(--color-link)] underline underline-offset-4 hover:text-accent"
           >
             {DISCLAIMER_L2_LINK_TEXT}
           </Link>
