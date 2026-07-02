@@ -20,7 +20,7 @@ pnpm run e2e:interactive  # MapLibre + dc.pmtiles (matches CI interactive job)
 
 Vitest scopes coverage instrumentation to **`components/`** + **`lib/`** and skips **`BasemapInner.tsx`** (WebGL-heavy MapLibre surface). **Branch %** from Radix/React Aria is not threshold-gated—see **`vitest.config.ts`**.
 
-Playwright mocks **`GET /api/categories`** + **`POST /api/route-features`**, stubs onboarding via **`localStorage`**, and runs axe on `/`, `/about`, `/privacy`, `/accessibility`, `/plan`. **`@mobile`** tests run at 375px only; **`@interactive`** tests need `NEXT_PUBLIC_SCOUT_MAP_MODE=interactive` and `scripts/build_pmtiles.sh` (see CI `web-e2e-*` jobs in `.github/workflows/ci.yml`).
+Playwright mocks **`GET /api/categories`** + **`POST /api/route-features`**, stubs onboarding via **`localStorage`**, and runs axe on `/`, `/about`, `/privacy`, `/accessibility`, `/plan`. **`@mobile`** tests run at 375px; **`@mobile320`** at 320px; **`@interactive`** tests need `NEXT_PUBLIC_SCOUT_MAP_MODE=interactive` and `scripts/build_pmtiles.sh` (see CI `web-e2e-*` jobs in `.github/workflows/ci.yml`).
 
 ## Contracts
 

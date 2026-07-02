@@ -5,7 +5,7 @@
 so that picking a concrete provider later is an informed, one-runbook change.
 It does **not** select a provider; `DEC-025` deliberately defers that.
 
-**Last reviewed:** 2026-05-29.
+**Last reviewed:** 2026-06-16.
 
 ---
 
@@ -33,12 +33,18 @@ The app is **DC-only** and the M1 launch is a friend-of-author soft launch
 [Green Web Foundation (GWF) directory](https://app.greenweb.org/directory/)**,
 which verifies renewable/fossil-free energy evidence annually.
 
-- The GWF **VPS** US list (`?services=2`) is useful. It includes
-  **Google Cloud** (GWF-verified, offers VPS / block storage / PaaS) plus indie
-  green hosts that can run a container: **Brownrice** (New Mexico on-site solar),
-  **Viridio** (solar VPS + PaaS), **Sustainable Hosting** (carbon-_negative_;
-  offers free hosting to good causes that can't pay), **Opus Interactive**, and
-  **HostJane** (AWS-backed).
+- The GWF **VPS** US/UK list (`?services=2`) is useful. It includes
+  **Google Cloud** (GWF-verified, offers VPS / block storage / PaaS), the UK
+  host **Krystal** (whose owned cloud platform **Katapult** has a US-East data
+  center in Edison, NJ), and indie US green VPS hosts that can run a container:
+  **Brownrice** (New Mexico on-site solar), **Opus Interactive**, and
+  **HostJane** (AWS-backed). Two earlier candidates were dropped on the
+  2026-06-16 review: **Sustainable Hosting** (their free-for-good-causes
+  offer was the only thing differentiating them at our budget, and chasing it
+  is a gamble we're not taking) and **Viridio** (their "PaaS" turned out to be
+  Kubernetes-on-VMs, not a Docker-push platform; their VPS runs ~6–9× Hetzner
+  pricing with a $25 setup fee, and their TLS chain is misconfigured —
+  collectively a soft signal of ops immaturity).
 - **Render, Railway, Fly.io, and Koyeb are _not_ in the GWF directory** as of
   this review. They may run on renewable-matched clouds (AWS/GCP) but cannot be
   cited as GWF-verified green.
@@ -96,29 +102,47 @@ sign-up; provider terms change.
 
 ### VPS path (single box: Docker Compose + the in-image Caddy + self-hosted PostGIS)
 
-#### C. Indie green VPS — Sustainable Hosting / Brownrice / Viridio — ~60%
-
-- **Pros:** Best green story (on-site solar / carbon-negative) and best ethos
-  fit for an AGPL civic-accessibility project; US-based; cheapest-to-free
-  (**Sustainable Hosting may donate hosting** to qualifying causes — worth a
-  direct email); maximum portability (just Docker on Linux).
-- **Cons:** Small providers → less-proven uptime/support; light-to-moderate ops
-  (patching, TLS, Postgres backups); pricing/specs less transparent
-  (sales conversation); no slick CI deploy hook.
-
-#### D. Hetzner Cloud (EU regions) — ~55%
+#### C. Hetzner Cloud (EU regions) — ~80%
 
 - **Pros:** GWF-verified green (owned hydropower, EMAS-certified); rock-bottom
-  price (~€4–5/mo for 2 vCPU/4 GB); excellent tooling; full Docker; max
-  portability.
+  price (~€4.51/mo for a CX22: 2 vCPU / 4 GB / 40 GB SSD); excellent tooling
+  and self-serve signup; full Docker; max portability. Snapshots ~€1.50/mo;
+  Postgres backups can go to a Storage Box for ~€3.20/mo.
 - **Cons:** Green verification covers **EU only** — US sites are colocation and
   not green-verified, so staying green means hosting in Germany/Finland →
   ~90–110 ms transatlantic latency for a DC-only app (tolerable for cached
-  tiles + a non-chatty API, but a real downgrade); light ops.
+  tiles + a non-chatty API, but a real downgrade); light VPS ops (OS patches,
+  TLS, Postgres backups — ~1 hr/month after setup).
+
+#### D. Krystal Cloud / Katapult (UK, with US-East region) — ~70%
+
+- **Pros:** GWF-verified green; **owned cloud platform with a US-East data
+  center in Edison, NJ** (~250 mi from DC) — the only confirmable-green
+  US-East option besides Google. Self-serve signup with a £100 free trial
+  credit; transparent £-pricing; full root Linux VMs (Docker fine); inclusive
+  DDoS protection and generous bandwidth (4 TB outbound on ROCK-3). Smallest
+  viable tier **ROCK-3** is 1 vCPU / 3 GB / 25 GB NVMe at **£15/mo (~$19)**.
+- **Cons:** ~4× Hetzner's price for comparable specs; no managed Postgres
+  (self-host on the VPS); same light VPS ops as Hetzner; UK-based company so
+  invoicing in GBP. Smallest tier (ROCK-1, 1 GB RAM) is too small once Postgres
+  + PostGIS share the box, so ROCK-3 is the realistic floor.
+
+#### E. Brownrice RootVPS (New Mexico, US) — ~55%
+
+- **Pros:** GWF-verified, **on-site solar** in New Mexico — best ethos fit for
+  an AGPL civic-accessibility project; US-sited (no transatlantic latency);
+  self-serve signup; transparent pricing. **RootVPS** (full root, choice of
+  AlmaLinux / CentOS / Ubuntu / Debian) starts at **$5.95/mo on a 1-year
+  prepay** (1 vCPU / 3 GB / 10 GB SSD), upgradeable.
+- **Cons:** Small indie provider → less-proven uptime/support; **10 GB disk on
+  the base RootVPS is tight** for Scout's image (baked PMTiles + Node + Python
+  venv + Postgres data on the same box) — disk upgrade likely needed before
+  launch; 1-year prepay required to get the headline price; same light VPS ops
+  as Hetzner / Krystal.
 
 ### Status quo, for reference
 
-#### E. Fly.io — ~50%
+#### F. Fly.io — ~50%
 
 - Technically fine (container-native; `iad` is near DC; very cheap with
   auto-stop), but **not GWF-verified** and the owner has chosen to move off it.
@@ -126,14 +150,26 @@ sign-up; provider terms change.
 
 ## 5. Recommendation (when a host is chosen)
 
-- **If the green tiebreaker should bite and a small spend is OK:** **Google
-  Cloud (A)** — the only choice satisfying verified-green + reputable + near-DC +
-  container-native.
-- **If minimizing cost/ops dominates and green is truly optional:** **Render
+The 2026-06-16 review narrowed the green-verified field to three viable
+candidates and surfaced a new one (Krystal Katapult) the original shortlist
+missed. With the owner's stated bias against Google in mind:
+
+- **If price + maturity dominate and ~100 ms EU latency is acceptable:**
+  **Hetzner Cloud (C)** — ~€4.51/mo for the whole stack on one CX22, real GWF
+  verification, the most polished tooling of any indie option, and the existing
+  `docker-compose.prod.yml` runs as-is.
+- **If keeping the app on US-East matters and a ~4× cost bump is OK:**
+  **Krystal Katapult (D)** — ROCK-3 in Edison, NJ at £15/mo (~$19) is the only
+  confirmable-green US-East option besides Google, and the trade vs. Hetzner is
+  purely "pay 4× to delete ~100 ms of latency."
+- **If green ethos + a US indie host outweigh polish:** **Brownrice (E)** —
+  $5.95/mo RootVPS in New Mexico, on-site solar. Plan to upgrade disk before
+  launch.
+- **If the green tiebreaker is dropped and ease-of-deploy wins:** **Render
   (B)** — fastest path to a running deploy; just don't claim GWF-verified-green.
-- **If green ethos + civic alignment matter most and light VPS ops are fine:**
-  **indie green VPS (C)** — start by emailing **Sustainable Hosting** about their
-  free-for-good-causes offer (Scout is squarely their target).
+- **Google Cloud (A)** remains the only verified-green hyperscaler near DC and
+  is technically the strongest fit; it is set aside on owner preference, not
+  technical grounds.
 
 ## 6. Third-party TOS review (AGENTS.md rule #12) — TO COMPLETE AT SELECTION
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 const GITHUB_REPO = "https://github.com/RSid/scout";
 
 const FOOTER_LINK_CLASS =
-  "font-semibold text-[color:var(--color-link)] underline underline-offset-4";
+  "inline-flex min-h-tap items-center font-semibold text-[color:var(--color-link)] underline underline-offset-4";
 
 export default function Footer() {
   return (
