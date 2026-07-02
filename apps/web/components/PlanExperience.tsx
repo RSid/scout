@@ -410,7 +410,7 @@ export default function PlanExperience() {
       </fieldset>
 
       <div className="flex flex-col gap-[var(--space-10)] md:flex-row md:items-start">
-        <div className="order-1 min-w-0 flex-1 md:mr-[var(--space-6)]">
+        <div className="order-2 min-w-0 flex-1 md:order-1 md:mr-[var(--space-6)]">
           <FeatureListView
             features={corridorFeatures}
             listingStatus={corridorListingStatus}
@@ -422,7 +422,7 @@ export default function PlanExperience() {
           id="scout-route-map-region"
           data-testid="scout-basemap-region"
           ref={mapShellRef}
-          className="order-2 w-full md:max-w-xl md:flex-shrink-0"
+          className="order-1 w-full md:order-2 md:max-w-xl md:flex-shrink-0"
         >
           <SkipLink preset="flow" href="#scout-route-list" label="Skip to list" />
           <button
@@ -431,13 +431,11 @@ export default function PlanExperience() {
             aria-expanded={mobileMapOpen}
             aria-controls="scout-route-map-panel"
             onClick={() => {
-              setMobileMapOpen((prev) => {
-                const next = !prev;
-                if (next) {
-                  announce(en.mapShownAnnouncement);
-                }
-                return next;
-              });
+              const next = !mobileMapOpen;
+              setMobileMapOpen(next);
+              if (next) {
+                announce(en.mapShownAnnouncement);
+              }
             }}
           >
             {mobileMapOpen ? en.hideMapToggle : en.showMapToggle}

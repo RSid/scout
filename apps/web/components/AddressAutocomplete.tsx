@@ -78,6 +78,7 @@ export default function AddressAutocomplete({
   );
   const debounceTimer = useRef<number | undefined>(undefined);
   const abortController = useRef<AbortController | undefined>(undefined);
+  const suppressNextSearch = useRef(false);
   const [inputValue, setInputValue] = useState("");
   const [hits, setHits] = useState<readonly AddressHit[]>([]);
   const [busy, setBusy] = useState(false);
@@ -139,6 +140,10 @@ export default function AddressAutocomplete({
   );
 
   useEffect(() => {
+    if (suppressNextSearch.current) {
+      suppressNextSearch.current = false;
+      return undefined;
+    }
     window.clearTimeout(debounceTimer.current);
     const trimmed = inputValue.trim();
     if (trimmed.length >= 3) {
@@ -175,7 +180,11 @@ export default function AddressAutocomplete({
 
         onPick(match);
         announce(`Selected ${match.suggestionText}`);
-        window.setTimeout(() => setInputValue(match.suggestionText));
+        setHits([]);
+        window.setTimeout(() => {
+          suppressNextSearch.current = true;
+          setInputValue(match.label);
+        });
       }}
     >
       <Label className="block font-semibold">{label}</Label>
@@ -249,6 +258,7 @@ export default function AddressAutocomplete({
                       onUserLocationAcquired?.([coords.longitude, coords.latitude]);
                       setLocationStatus({ kind: "idle" });
                       announce(hit.label);
+                      suppressNextSearch.current = true;
                       setInputValue(hit.label);
                       setHits([]);
                     } catch (error: unknown) {

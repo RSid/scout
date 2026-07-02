@@ -9,14 +9,15 @@ Color is never the sole signal — every marker is uniquely identifiable in
 black-and-white print by shape alone. Inner glyph adds redundancy at large
 zoom.
 
-| Category          | Kind     | Shape          | Inner glyph    |
-| ----------------- | -------- | -------------- | -------------- |
-| `curb_ramps`      | obstacle | triangle       | step-down ramp |
-| `barriers`        | obstacle | diamond        | horizontal bar |
-| `audible_signals` | obstacle | hexagon        | speaker + wave |
-| `restrooms`       | aid      | circle         | figure         |
-| `rest_spots`      | aid      | rounded square | bench          |
-| `water_cooling`   | aid      | pill           | water drop     |
+| Category             | Kind     | Shape          | Inner glyph     |
+| -------------------- | -------- | -------------- | --------------- |
+| `curb_ramps`         | obstacle | triangle       | step-down ramp  |
+| `barriers`           | obstacle | diamond        | horizontal bar  |
+| `audible_signals`    | obstacle | hexagon        | speaker + wave  |
+| `sidewalk_condition` | obstacle | pentagon       | surface + crack |
+| `restrooms`          | aid      | circle         | figure          |
+| `rest_spots`         | aid      | rounded square | bench           |
+| `water_cooling`      | aid      | pill           | water drop      |
 
 Obstacles use **angular** shapes (triangle / diamond / hexagon).
 Aids use **rounded** shapes (circle / squircle / pill). The shape family
