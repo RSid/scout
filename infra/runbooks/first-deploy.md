@@ -2,8 +2,9 @@
 
 Brings Scout up on a fresh environment. This runbook is **provider-agnostic**
 per `DEC-025`: Scout deploys to any host that can run an OCI/Docker image and
-reach a PostgreSQL 16 + PostGIS database. Provider-specific notes are an
-appendix in [`docs/prompts/06-dockerize-and-deploy.md`](../../docs/prompts/06-dockerize-and-deploy.md);
+reach a PostgreSQL 16 + PostGIS database. For a concrete Hetzner + Hostinger
+walkthrough, see [`../first-deploy.md`](../first-deploy.md). Provider-specific
+notes are an appendix in [`docs/prompts/06-dockerize-and-deploy.md`](../../docs/prompts/06-dockerize-and-deploy.md);
 the green-host options are evaluated in
 [`docs/proposals/green-hosting-shortlist.md`](../../docs/proposals/green-hosting-shortlist.md).
 
@@ -62,12 +63,12 @@ cp .env.example .env
 #    set SCOUT_ORS_API_KEY=<your ORS key>
 
 # 2. Build + start the app and database
-docker compose -f infra/docker-compose.prod.yml up -d --build
+docker compose --project-directory . -f infra/docker-compose.prod.yml up -d --build
 #    (the app runs `alembic upgrade head` automatically on boot)
 
 # 3. First deploy only — load data (idempotent UPSERTs)
-docker compose -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-features
-docker compose -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
+docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-features
+docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
 
 # 4. Verify
 curl -fsS http://localhost:${SCOUT_HTTP_PORT:-8080}/api/health

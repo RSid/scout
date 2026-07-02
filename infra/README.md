@@ -17,6 +17,7 @@ see [issue #6](https://github.com/grow-therapy/scout/issues/6) (M1-T05b).
 | `docker-compose.mobile.yml` | Compose **overlay**: same-origin `/api/*` via Next rewrites (`SCOUT_BACKEND_INTERNAL_URL`); pair both `-f`s — see §Testing on a phone. |
 | `start.sh` | Production entrypoint — runs Alembic, uvicorn, and the Next standalone server side-by-side. |
 | `runbooks/first-deploy.md` | Provider-agnostic bootstrap + the full env contract. |
+| `first-deploy.md` | Step-by-step first deploy on Hetzner with Hostinger DNS + host Caddy. |
 | `.dockerignore` | Keeps caches, lockable outputs, and editor cruft out of every build context. |
 
 ## DC vector tiles (`dc.pmtiles`)

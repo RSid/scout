@@ -87,6 +87,46 @@ end-to-end dev loop. `make help` lists every shortcut (lint, tests,
 Compose, `make ingest` dry tally, `make ingest-write`, …). Copy `.env.example` to `.env` and adjust
 `SCOUT_*` variables when you need host-side overrides.
 
+## Deploy
+
+First-time production setup (Hetzner VPS, Hostinger DNS, Docker Compose, host
+Caddy for HTTPS) is documented step-by-step in
+**[`infra/first-deploy.md`](infra/first-deploy.md)**.
+
+### Subsequent deploys
+
+After the first deploy, shipping a new version is a pull-and-rebuild on the
+server. SSH in, then from the repo root (e.g. `/opt/scout`):
+
+```bash
+cd /opt/scout
+git pull
+docker compose --project-directory . -f infra/docker-compose.prod.yml up -d --build
+```
+
+What happens automatically:
+
+- The app container rebuilds when source changed and restarts.
+- **`alembic upgrade head`** runs on boot — schema migrations apply with the
+  deploy; no manual migration step.
+
+What you usually **do not** repeat:
+
+- Data ingest (`ingest-features`, `ingest-addresses`) — only needed after
+  recreating the database volume or when intentionally refreshing data. See
+  [`infra/runbooks/refresh-dc-addresses.md`](infra/runbooks/refresh-dc-addresses.md).
+
+Verify after each deploy:
+
+```bash
+curl -fsS https://yourdomain.com/api/health
+docker compose --project-directory . -f infra/docker-compose.prod.yml ps
+docker compose --project-directory . -f infra/docker-compose.prod.yml logs --tail=50 app
+```
+
+If the deploy fails, check app logs first; the container exits when uvicorn,
+Next, or the in-image Caddy fails to start.
+
 Once the stack is up, populate the `features` table from DC OpenData
 (`scripts/ingest_dc.py`, M1-F11):
 
