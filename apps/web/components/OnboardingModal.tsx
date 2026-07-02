@@ -44,7 +44,7 @@ export default function OnboardingModal() {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-[rgba(34,28,20,0.55)] dark:bg-[rgba(10,12,22,0.7)]" />
         <Dialog.Content
-          className="fixed left-[50%] top-[50%] z-[var(--z-modal)] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl translate-x-[-50%] translate-y-[-50%] overflow-y-auto overscroll-contain rounded-tokenLg bg-[color:var(--color-surface-elevated)] p-[var(--space-6)] shadow-modal outline-none"
+          className="fixed left-[50%] top-[50%] z-[var(--z-modal)] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl translate-x-[-50%] translate-y-[-50%] overflow-y-auto overscroll-contain rounded-tokenLg bg-[color:var(--color-surface-elevated)] p-[var(--space-4)] shadow-modal outline-none sm:p-[var(--space-6)]"
           aria-labelledby="scout-onboarding-heading"
           aria-describedby="scout-onboarding-description"
         >
@@ -60,7 +60,10 @@ export default function OnboardingModal() {
               route.
             </p>
           </header>
-          <div id="scout-onboarding-description" className="mt-[var(--space-5)]">
+          <div
+            id="scout-onboarding-description"
+            className="mt-[var(--space-4)] sm:mt-[var(--space-5)]"
+          >
             <p className="text-[color:var(--color-text)]">
               Scout shows public accessibility data alongside walking routes in
               Washington, DC. It&apos;s a planning aid, not a real-time safety guide.{" "}
@@ -71,11 +74,11 @@ export default function OnboardingModal() {
               </InfoTooltip>
             </p>
           </div>
-          <section className="mt-[var(--space-6)] space-y-[var(--space-3)]">
+          <section className="mt-[var(--space-4)] space-y-[var(--space-3)] sm:mt-[var(--space-6)]">
             <h2 className="text-lg font-semibold text-[color:var(--color-text)]">
               Choose what to highlight
             </h2>
-            <div className="max-h-[40vh] overflow-y-auto rounded-tokenMd border border-border p-[var(--space-4)]">
+            <div className="max-h-[40vh] overflow-y-auto rounded-tokenMd border border-border p-[var(--space-3)] sm:p-[var(--space-4)]">
               <ProfileCategoryFields
                 categories={categories}
                 selections={selections}
@@ -94,11 +97,11 @@ export default function OnboardingModal() {
               Reset to defaults
             </button>
           </section>
-          <div className="mt-[var(--space-8)] flex flex-wrap gap-[var(--space-4)] justify-end">
+          <div className="mt-[var(--space-6)] flex flex-wrap gap-[var(--space-4)] justify-end sm:mt-[var(--space-8)]">
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="inline-flex min-h-tap items-center rounded-tokenMd px-[var(--space-6)] py-[var(--space-4)] font-semibold text-[color:var(--color-text-muted)] focus-visible:btn-accent-double-ring-dark"
+                className="inline-flex min-h-tap items-center rounded-tokenMd px-[var(--space-4)] py-[var(--space-3)] font-semibold text-[color:var(--color-text-muted)] focus-visible:btn-accent-double-ring-dark sm:px-[var(--space-6)] sm:py-[var(--space-4)]"
                 onClick={() => markOnboardingComplete()}
               >
                 Not now
@@ -107,7 +110,7 @@ export default function OnboardingModal() {
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="inline-flex min-h-tap items-center rounded-tokenMd bg-accent px-[var(--space-8)] py-[var(--space-4)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark"
+                className="inline-flex min-h-tap items-center rounded-tokenMd bg-accent px-[var(--space-6)] py-[var(--space-3)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark sm:px-[var(--space-8)] sm:py-[var(--space-4)]"
                 onClick={() => {
                   persist();
                   markOnboardingComplete();
