@@ -128,5 +128,31 @@ services:
     entrypoint: ["python", "/app/scripts/ingest_dc.py"]
     restart: "no"
 
+  # First-deploy / refresh only. Loads named-place aliases (landmarks, schools,
+  # metro stations, ...) from the bundled dc_points_of_interest.jsonl into the
+  # `dc_points_of_interest` table. Requires `dc_addresses` to be populated
+  # first (rows are resolved by MAR_ID join).
+  ingest-pois:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-prod-ingest-pois
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:${SCOUT_DB_PASSWORD:?set SCOUT_DB_PASSWORD in .env}@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/ingest_dc_points_of_interest.py"]
+    restart: "no"
+
 volumes:
   pgdata:

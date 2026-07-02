@@ -163,15 +163,17 @@ curl -fsS http://127.0.0.1:8080/api/health
 
 ## 6. Load data (first deploy only)
 
-Run once after the database is healthy:
+Run once after the database is healthy. Order matters — `ingest-pois` joins
+against `dc_addresses` by MAR_ID, so addresses must be loaded first:
 
 ```bash
 docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-features
 docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
+docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-pois
 ```
 
-Both scripts are idempotent UPSERTs. Re-run only after recreating the database
-volume or when intentionally refreshing data (see
+All three scripts are idempotent UPSERTs. Re-run only after recreating the
+database volume or when intentionally refreshing data (see
 [`runbooks/refresh-dc-addresses.md`](runbooks/refresh-dc-addresses.md)).
 
 Confirm features loaded:
@@ -272,6 +274,7 @@ search, and route planning work.
 | Build OOM / killed | Server too small | Resize to CX32 or add swap |
 | `308` on HTTP, loop on HTTPS | Unconditional `redir` in Caddyfile | Use the split HTTP/HTTPS config in step 7 |
 | Health OK, no autocomplete | MAR not loaded | Run `ingest-addresses` |
+| Health OK, landmark names not searchable | POIs not loaded | Run `ingest-pois` (requires `ingest-addresses` first) |
 | Health OK, routing fails | Missing ORS key | Set `SCOUT_ORS_API_KEY` in `.env` and recreate the app container |
 | DNS OK but HTTPS fails | Port 80/443 blocked or Caddy down | Check Hetzner firewall and `sudo systemctl status caddy` |
 
