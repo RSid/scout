@@ -95,6 +95,8 @@ First-time production setup (Hetzner VPS, Hostinger DNS, Docker Compose, host
 Caddy for HTTPS) is documented step-by-step in
 **[`infra/first-deploy.md`](infra/first-deploy.md)**.
 
+(Wondering why Hetzner? See [docs/proposals/green-hosting-shortlist.md](docs/proposals/green-hosting-shortlist.md))
+
 ### Subsequent deploys
 
 After the first deploy, shipping a new version is a pull-and-rebuild on the
