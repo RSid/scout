@@ -8,9 +8,9 @@
 #
 # Quick start (from the repo root, on the host):
 #   cp .env.example .env          # then set the secrets below
-#   docker compose -f infra/docker-compose.prod.yml up -d --build
-#   # first deploy only — load data (see infra/runbooks/first-deploy.md):
-#   docker compose -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
+#   docker compose --project-directory . -f infra/docker-compose.prod.yml up -d --build
+#   # first deploy only — load data (see infra/first-deploy.md):
+#   docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
 #
 # Required env (set in .env or the shell):
 #   SCOUT_DB_PASSWORD   - Postgres password (no default; deploy fails without it)
