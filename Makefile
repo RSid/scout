@@ -6,7 +6,8 @@ COMPOSE := $(ROOT)/infra/docker-compose.yml
 # `.env` (sibling of this Makefile) instead of looking inside `infra/`. That
 # means SCOUT_DB_HOST_PORT et al. live in the same .env as backend settings.
 COMPOSE_FLAGS := --project-directory "$(ROOT)" -f "$(COMPOSE)"
-PROD_COMPOSE := --project-directory /opt/scout -f /opt/scout/infra/docker-compose.prod.yml
+SCOUT_DEPLOY_DIR ?= /home/deploy/scout
+PROD_COMPOSE := --project-directory $(SCOUT_DEPLOY_DIR) -f $(SCOUT_DEPLOY_DIR)/infra/docker-compose.prod.yml
 
 # Release / deploy config.  Override in .env or inline:
 #   SCOUT_DEPLOY_HOST=root@1.2.3.4 BUMP=minor make release
@@ -186,7 +187,7 @@ release: ## deploy main to prod, then tag the release (BUMP=patch|minor|major)
 	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo 'error: local main is not up to date with origin — pull or push first'; exit 1; }
 	$(eval VERSION := $(shell "$(ROOT)/scripts/next-version.sh" "$(BUMP)"))
 	@echo "==> deploying $$(git rev-parse --short HEAD) to $(SCOUT_DEPLOY_HOST) …"
-	ssh $(SCOUT_DEPLOY_HOST) 'cd /opt/scout && git pull && docker compose $(PROD_COMPOSE) up -d --build'
+	ssh $(SCOUT_DEPLOY_HOST) 'cd $(SCOUT_DEPLOY_DIR) && git pull && docker compose $(PROD_COMPOSE) up -d --build'
 	@echo "==> waiting for health check …"
 	@ssh $(SCOUT_DEPLOY_HOST) '\
 		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
@@ -205,7 +206,7 @@ rollback: ## redeploy a previous release tag (VERSION=vX.Y.Z)
 	@test -n "$(VERSION)" || { echo 'usage: make rollback VERSION=v0.1.0'; exit 1; }
 	@git rev-parse "$(VERSION)" >/dev/null 2>&1 || { echo 'error: tag $(VERSION) not found'; exit 1; }
 	@echo "==> rolling back to $(VERSION) on $(SCOUT_DEPLOY_HOST) …"
-	ssh $(SCOUT_DEPLOY_HOST) 'cd /opt/scout && git fetch --tags && git checkout $(VERSION) && docker compose $(PROD_COMPOSE) up -d --build'
+	ssh $(SCOUT_DEPLOY_HOST) 'cd $(SCOUT_DEPLOY_DIR) && git fetch --tags && git checkout $(VERSION) && docker compose $(PROD_COMPOSE) up -d --build'
 	@echo "==> waiting for health check …"
 	@ssh $(SCOUT_DEPLOY_HOST) '\
 		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
