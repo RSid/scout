@@ -1181,8 +1181,9 @@ its own — each row must be joined to the existing `dc_addresses` table by
 - **Bundled MAR "Points of Interest" alias layer, joined to `dc_addresses`
   by `MAR_ID`** _(chosen)._ Same CC0-licensed data family already accepted
   under `DEC-023` — zero new ToS surface, zero new cost, no new live
-  third-party calls, small dataset (low thousands of rows vs. `dc_addresses`'
-  ~143k), and reuses the existing bundled-snapshot ingestion/query/adapter
+  third-party calls, small dataset (~13k rows vs. `dc_addresses`' ~143k —
+  measured from the real `--fetch`, not the initial "low thousands"
+  estimate), and reuses the existing bundled-snapshot ingestion/query/adapter
   pattern almost verbatim.
 
 **Decision.** Add a `dc_points_of_interest` table (Alembic `0003`), ingested

@@ -13,6 +13,9 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=500]
+        # Bundled DC MAR snapshots (DEC-023, DEC-026) are intentionally
+        # large, offline-refreshed data files, not accidental commits.
+        exclude: ^data/.*\.jsonl$
       - id: mixed-line-ending
         args: [--fix=lf]
 
