@@ -234,7 +234,7 @@ column.
 | Things along a route the user wants to avoid | **obstacle** | barrier, hazard, problem | "Barrier" is reserved for the DC `BARRIERS_PUB_ROW` dataset where it's a term of art. |
 | Things along a route the user wants to find | **support** | aid, amenity, perk | "Support" reads more naturally than "aid." Code paths can stay `aid/` until refactored separately — this is a copy rule, not a code rule. |
 | A row of data on the map | _(don't surface)_ | feature, point, marker, datum | Use the concrete category: "restrooms," "curb ramps," "audible signals." "Feature" is internal/dev jargon. |
-| How old the data is | **last inspected** in user copy; **freshness** only in maintainer copy | "vintage," "as of" | The chip's exact text: _"Data may be outdated (last inspected YYYY)"_ |
+| How old the data is | **last inspected** in user copy; **freshness** only in maintainer copy | "vintage," "as of" | The chip's exact text: _"Last inspected YYYY"_ |
 | The crosswalk audio indicator | **audible signal** in body; expand to **accessible pedestrian signal (APS)** on first mention in long-form prose | "talking crosswalk," "chirper" | Matches DC OpenData. |
 | Path drop at a corner | **curb ramp** | curb cut | Matches DC OpenData and the federal ADA term. |
 | The city | **Washington, DC** on first mention; **DC** thereafter; **the District** as a warm alternative after first mention | "D.C.," "DC area," "the DMV" | Pick one short form and stay consistent within a single surface. |
@@ -391,7 +391,7 @@ surrounding sentence carry the trust posture.
 
 Canonical copy:
 
-- Chip: _"Data may be outdated (last inspected 2016)"_
+- Chip: _"Last inspected 2016"_
 - Inline: _"Last inspected: 2016"_
 - Unknown date: _"Inspection date unknown"_ (better than _"N/A"_ or
   _"Unknown date"_).

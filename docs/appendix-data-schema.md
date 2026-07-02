@@ -302,7 +302,7 @@ via `xmax = 0` or by comparing counts).
 |---|---|
 | ≤ 1 year | No warning |
 | 1–3 years | Subtle "as of YYYY" label |
-| > 3 years | Inline warning chip: "Data may be outdated (last inspected YYYY)" |
+| > 3 years | Inline warning chip: "Last inspected YYYY" |
 | Missing | "Inspection date unknown" |
 
 These thresholds power the Feature popup (M1-F08) and the list view (M1-F09).

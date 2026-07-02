@@ -489,9 +489,10 @@ describe("AddressAutocomplete", () => {
       ),
     );
 
-    // The debounced re-search that follows selection uses the clean label, so it
-    // should find a match and never show the "DC addresses only" hint.
-    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+    // Selection suppresses the debounced re-search, so the provider is only
+    // called once (the initial "Dupont" query) and the "DC addresses only"
+    // hint never appears.
+    expect(search).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByText(/Washington, DC addresses only/i),
     ).not.toBeInTheDocument();

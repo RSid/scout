@@ -136,7 +136,7 @@ describe("FeatureListView", () => {
     await user.click(summary as HTMLElement);
 
     expect(await screen.findByTestId("freshness-chip")).toHaveTextContent(
-      /Data may be outdated \(last inspected 2016\)/,
+      /Last inspected 2016/,
     );
   });
 
