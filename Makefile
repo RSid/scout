@@ -178,28 +178,13 @@ dev-mobile-tunnel: ## detached Compose + cloudflared quick tunnel for HTTPS phon
 #   BUMP=major make release             # major bump  (v0.2.0 → v1.0.0)
 #   make rollback VERSION=v0.1.0        # redeploy a previous tag
 
-define next_version
-$(shell \
-	latest=$$(git tag -l 'v*' --sort=-v:refname | head -1); \
-	if [ -z "$$latest" ]; then echo "v0.1.0"; exit 0; fi; \
-	major=$$(echo "$$latest" | sed 's/^v//' | cut -d. -f1); \
-	minor=$$(echo "$$latest" | sed 's/^v//' | cut -d. -f2); \
-	patch=$$(echo "$$latest" | sed 's/^v//' | cut -d. -f3); \
-	case "$(BUMP)" in \
-		major) echo "v$$((major+1)).0.0" ;; \
-		minor) echo "v$$major.$$((minor+1)).0" ;; \
-		*)     echo "v$$major.$$minor.$$((patch+1))" ;; \
-	esac \
-)
-endef
-
 release: ## deploy main to prod, then tag the release (BUMP=patch|minor|major)
 	@# Preflight: clean working tree, on main, up to date with remote.
 	@test -z "$$(git status --porcelain)" || { echo 'error: working tree is dirty — commit or stash first'; exit 1; }
 	@test "$$(git branch --show-current)" = "main" || { echo 'error: releases must be cut from main'; exit 1; }
 	@git fetch origin main --quiet
 	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo 'error: local main is not up to date with origin — pull or push first'; exit 1; }
-	$(eval VERSION := $(next_version))
+	$(eval VERSION := $(shell "$(ROOT)/scripts/next-version.sh" "$(BUMP)"))
 	@echo "==> deploying $$(git rev-parse --short HEAD) to $(SCOUT_DEPLOY_HOST) …"
 	ssh $(SCOUT_DEPLOY_HOST) 'cd /opt/scout && git pull && docker compose $(PROD_COMPOSE) up -d --build'
 	@echo "==> waiting for health check …"
