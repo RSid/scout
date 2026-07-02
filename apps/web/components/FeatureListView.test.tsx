@@ -201,6 +201,42 @@ describe("FeatureListView", () => {
     expect(await screen.findByText(/inspection date unknown/i)).toBeInTheDocument();
   });
 
+  it("excludes features whose category lacks map marker support", async () => {
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "supported",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Good",
+            condition_normalized: "good",
+            inspected_year: 2021,
+            along_route_meters: 10,
+          }),
+          corridorPoint({
+            id: "unsupported",
+            category: "bus_stops",
+            kind: "aid",
+            condition: "Present",
+            condition_normalized: "good",
+            inspected_year: 2021,
+            along_route_meters: 20,
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /^Along your route/ });
+
+    expect(container.querySelectorAll("details")).toHaveLength(1);
+    expect(screen.getAllByText(/Curb ramps/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/bus_stops/i)).not.toBeInTheDocument();
+  });
+
   it("renders refuge restroom notes as plain text, never as HTML", async () => {
     const user = userEvent.setup({ delay: null });
 

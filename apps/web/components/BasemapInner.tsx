@@ -26,6 +26,7 @@ import MarkerKeyboardRail, {
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 import FeaturePopup from "@/components/FeaturePopup";
 import {
+  corridorFeatureId,
   corridorFeatureWithMarkerSeverity,
   registerScoutRouteMarkerSprites,
 } from "@/lib/map/markers";
@@ -176,18 +177,7 @@ function featureCollection(feats: GeoJSON.Feature[]): GeoJSON.FeatureCollection 
   };
 }
 
-function featureIdCandidate(feature: GeoJSON.Feature): string | null {
-  if (feature.id !== undefined && feature.id !== null) {
-    return String(feature.id);
-  }
-
-  const raw = feature.properties as Record<string, unknown> | undefined;
-  if (raw?.id !== undefined && raw?.id !== null) {
-    return String(raw.id as string | number | boolean);
-  }
-
-  return null;
-}
+const featureIdCandidate = corridorFeatureId;
 
 export default function BasemapInner({
   corridor,

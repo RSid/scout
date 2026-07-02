@@ -206,6 +206,27 @@ export function removeScoutRouteMarkerSprites(map: maplibregl.Map): void {
   }
 }
 
+const ROUTE_MARKER_CATEGORY_SET: ReadonlySet<string> = new Set(
+  ROUTE_MARKER_CATEGORY_IDS,
+);
+
+export function hasMapMarkerSupport(categoryId: string): boolean {
+  return ROUTE_MARKER_CATEGORY_SET.has(categoryId);
+}
+
+export function corridorFeatureId(
+  feature: Pick<GeoJSON.Feature, "id" | "properties">,
+): string | null {
+  if (feature.id !== undefined && feature.id !== null) {
+    return String(feature.id);
+  }
+  const raw = feature.properties as Record<string, unknown> | undefined;
+  if (raw?.id !== undefined && raw?.id !== null) {
+    return String(raw.id as string | number | boolean);
+  }
+  return null;
+}
+
 /** Adds `scout_severity` GeoJSON props for cluster + symbol layouts. */
 export function corridorFeatureWithMarkerSeverity(
   feature: CorridorResponse["features"][number],
