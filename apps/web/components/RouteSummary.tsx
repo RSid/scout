@@ -71,8 +71,6 @@ export default function RouteSummary({ summary, mode }: RouteSummaryProps) {
       text: String(warning),
     })) ?? [];
 
-  const profileDescription = summary !== null ? en.routeProfileWheelchair : "—";
-
   return (
     <section
       aria-labelledby="scout-route-summary-heading"
@@ -111,15 +109,6 @@ export default function RouteSummary({ summary, mode }: RouteSummaryProps) {
                 {placeholderValue}
               </span>
             )}
-          </dd>
-        </div>
-
-        <div>
-          <dt className="text-sm font-semibold text-[color:var(--color-text-muted)]">
-            {en.routeProfileLabel}
-          </dt>
-          <dd className="text-lg font-semibold text-[color:var(--color-text)]">
-            {profileDescription}
           </dd>
         </div>
       </dl>

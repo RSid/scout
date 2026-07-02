@@ -15,8 +15,6 @@ export const en = {
   routeSummaryHeading: "Route summary",
   routeDistanceLabel: "Distance",
   routeDurationLabel: "Walking time",
-  routeProfileLabel: "Routing profile",
-  routeProfileWheelchair: "Wheelchair-aware route",
   routeProfileFallbackNote:
     "Wheelchair-aware routing wasn't available, so we used standard walking directions.",
   /** Shown when `POST /api/route` fails (e.g. routing service unreachable). */
