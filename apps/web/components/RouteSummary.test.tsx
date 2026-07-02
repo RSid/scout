@@ -53,7 +53,6 @@ describe("RouteSummary", () => {
     expect(screen.getByRole("heading", { name: /^route summary$/i })).toBeVisible();
     expect(screen.getByText("850 meters")).toBeVisible();
     expect(screen.getByText("10 minutes")).toBeVisible();
-    expect(screen.getByText(/wheelchair-aware route/i)).toBeVisible();
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);

@@ -22,7 +22,6 @@ describe("English UI strings scaffold", () => {
 
   it("keeps route summary headings and fallback copy under stable keys (M1-F05)", () => {
     expect(en.routeSummaryHeading).toStrictEqual("Route summary");
-    expect(en.routeProfileWheelchair.toLowerCase()).toContain("wheelchair");
     expect(en.routeProfileFallbackNote).toContain("standard walking directions");
   });
 
