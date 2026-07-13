@@ -71,11 +71,19 @@ cp .env.example .env
    resolves landmark names like "National Building Museum" (`DEC-026`). Run
    this once whenever you recreate the DB volume, right after step 2.
 
-4. **Refuge Restrooms** — no key, no signup. The default
+4. **DC street-segment snapshot load** (`make ingest-dc-street-segments`) —
+   no signup. After migration `0004+` and **after features are already
+   loaded** (`make ingest-write`), this ingests
+   `data/dc_street_segments.jsonl` and stamps each feature's
+   `street_name` via a nearest-segment KNN update. Run once after
+   recreating the DB volume, right after steps 2–3 and the initial feature
+   ingest.
+
+5. **Refuge Restrooms** — no key, no signup. The default
    `SCOUT_REFUGE_BASE_URL` in `.env.example` is the public API
    (<https://www.refugerestrooms.org/api/v1>). Nothing further to do.
 
-5. **Protomaps basemap tiles** — no key. Run `scripts/build_pmtiles.sh`
+6. **Protomaps basemap tiles** — no key. Run `scripts/build_pmtiles.sh`
    once after cloning to populate `apps/web/public/tiles/dc.pmtiles` for
    the interactive MapLibre basemap (requires the `pmtiles` CLI from the
    prerequisites above).
@@ -147,7 +155,7 @@ What happens automatically:
 
 What you usually **do not** repeat:
 
-- Data ingest (`ingest-features`, `ingest-addresses`) — only needed after
+- Data ingest (`ingest-features`, `ingest-addresses`, `ingest-dc-street-segments`) — only needed after
   recreating the database volume or when intentionally refreshing data. See
   [`infra/runbooks/refresh-dc-addresses.md`](infra/runbooks/refresh-dc-addresses.md).
 
