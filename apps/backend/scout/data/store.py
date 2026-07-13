@@ -102,21 +102,25 @@ def corridor_features_select(
     buffer_meters: float,
     *,
     limit: int = 500,
-) -> Select[tuple[Feature, float]]:
+) -> Select[tuple[Feature, float, int]]:
     """The corridor page query: buffered match, along-route order, +1 cap probe.
 
     Extracted from `corridor_features_geojson` so the SQL contract (M1-F07 S2/S3:
     `ST_DWithin` filter, `ST_LineLocatePoint` ordering — not `ST_Distance` —,
     category allow-list, and the 500 cap) is unit-testable without a live
     PostGIS database. See `tests/test_store_corridor_query.py`.
+
+    Each result row carries ``total_count`` (window ``COUNT(*) OVER()``) so the
+    caller gets the uncapped match count without a separate query.
     """
     line_geography, route_geom = _corridor_geographies(coordinates)
     point_geom = sa_cast(
         Feature.geom, Geometry(srid=4326, spatial_index=False, dimension=2)
     )
     along_route = ST_LineLocatePoint(route_geom, point_geom).label("along_route")
+    total_count = func.count().over().label("total_count")
     return (
-        select(Feature, along_route)
+        select(Feature, along_route, total_count)
         .where(*_corridor_match_filters(categories, line_geography, buffer_meters))
         .order_by(along_route.asc(), Feature.id.asc())
         .limit(limit + 1)
@@ -142,19 +146,15 @@ async def corridor_features_geojson(
     route_length_stmt = select(gf.ST_Length(line_geography))
     route_length_m = float((await session.execute(route_length_stmt)).scalar_one())
 
-    count_stmt = (
-        select(func.count())
-        .select_from(Feature)
-        .where(*_corridor_match_filters(categories, line_geography, buffer_meters))
-    )
-    feature_count_total = int((await session.execute(count_stmt)).scalar_one())
-
     stmt = corridor_features_select(coordinates, categories, buffer_meters, limit=limit)
     rows = (await session.execute(stmt)).all()
 
     truncated = len(rows) > limit
     if truncated:
         rows = rows[:limit]
+
+    # total_count comes from COUNT(*) OVER() on every row; 0 when no rows match.
+    feature_count_total = int(rows[0][2]) if rows else 0
 
     feats: list[dict[str, Any]] = []
     for row in rows:
