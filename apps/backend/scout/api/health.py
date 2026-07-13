@@ -36,6 +36,10 @@ async def read_health(
     reachable, features = await _probe_features_table(session)
     if reachable:
         body = HealthResponse(db="up", features=features, checked_at=checked_at)
-        return JSONResponse(status_code=200, content=body.model_dump(mode="json"))
+        return JSONResponse(
+            status_code=200,
+            content=body.model_dump(mode="json"),
+            headers={"Cache-Control": "public, max-age=30"},
+        )
     body = HealthResponse(db="down", features=None, checked_at=checked_at)
     return JSONResponse(status_code=503, content=body.model_dump(mode="json"))

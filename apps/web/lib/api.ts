@@ -56,7 +56,7 @@ export interface HealthPayload {
 }
 
 export async function fetchHealth(signal?: AbortSignal): Promise<HealthPayload> {
-  const resp = await fetch(`${apiBase()}/api/health`, { signal, cache: "no-store" });
+  const resp = await fetch(`${apiBase()}/api/health`, { signal });
 
   const body = await safeReadJson(resp);
   if (!resp.ok || typeof body !== "object") {
@@ -87,10 +87,7 @@ export interface ApiCategory {
 }
 
 export async function fetchCategories(signal?: AbortSignal): Promise<ApiCategory[]> {
-  const resp = await fetch(`${apiBase()}/api/categories`, {
-    signal,
-    cache: "no-store",
-  });
+  const resp = await fetch(`${apiBase()}/api/categories`, { signal });
   const body = await safeReadJson(resp);
   if (!resp.ok || typeof body !== "object" || body === null) {
     throw parseUpstreamError(body);
