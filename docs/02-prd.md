@@ -607,20 +607,24 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Estimate:** M
 - **Prompt seed:** `docs/prompts/10-street-names.md`.
 
-#### M2-F25 — Map street labels (deferred)
+#### M2-F25 — Map street labels (delivered; see DEC-028)
 - **Persona:** P1, P2
 - **User value:** *So street names are legible on the map itself, not only in
   the list.*
-- **Depends on:** M2-F24; **blocked on glyph infrastructure** (the MapLibre
-  style has no `glyphs:` URL, so no `text-field` can render today).
-- **Acceptance criteria (scope only):** Self-hosted SDF glyph `.pbf` ranges
-  under `apps/web/public/glyphs/` (`NF-PRIV-01`, no CDN), `glyphs:` added to
-  `buildDcBasemapStyle`, then a streets-only `symbol` layer over the existing
-  `roads` source-layer (`text-field` from
-  `["coalesce", ["get","pgf:name"], ["get","name"]]`), min-zoom gated, haloed
-  for ≥3:1 contrast, honoring `prefers-color-scheme`, ordered below markers/route.
+- **Depends on:** M2-F24.
+- **Acceptance criteria (delivered):** Self-hosted SDF glyph `.pbf` ranges
+  under `apps/web/public/fonts/glyphs/` (`NF-PRIV-01`, no CDN;
+  `scripts/fetch_map_glyphs.sh`), `glyphs:` added to `buildDcBasemapStyle`
+  (now `apps/web/lib/map/basemap-style.ts`), then streets-only `symbol` layers
+  over the existing `roads` source-layer (`text-field` from
+  `["coalesce", ["get","name"], ""]`), min-zoom gated (major z11 / minor z15),
+  haloed for ≥3:1 contrast, honoring `prefers-color-scheme`, ordered below
+  markers/route. Label source is the Protomaps extract's own road names; a
+  follow-up may serve `dc_street_segments` to match the list's normalized
+  names exactly (DEC-028).
 - **Accessibility notes:** Halo contrast ≥3:1; labels never occlude obstacle
-  markers.
+  markers; labels are decorative canvas duplicates kept out of the a11y tree
+  (the `<FeatureListView/>` is the textual equivalent).
 - **Estimate:** M
 - **Prompt seed:** `docs/prompts/10-street-names.md` (§M2-F25).
 

@@ -1337,4 +1337,80 @@ assuming clearance (`AGENTS.md` #12).
 
 ---
 
+## DEC-028 — Street labels on the basemap: Protomaps road names + self-hosted Noto Sans glyphs
+
+**Context.** `M2-F25` (deferred by `DEC-027`) renders street-name labels on the
+MapLibre basemap itself. Two blockers had to be resolved: (1) the style had no
+`glyphs:` URL, so any `text-field`/`symbol` layer rendered nothing; (2) glyphs
+must be **self-hosted** and CC0 / SIL-OFL — no Mapbox/Google/CDN glyph endpoints
+(they leak client IPs, which `NF-PRIV-01` / `DEC-018` forbid).
+
+**Options considered — label source.**
+
+- **Serve our own `dc_street_segments`** (the table that backs the derived
+  `street_name` in the list/popup) as a vector source. This would make the map
+  labels read the *exact* normalized names users see elsewhere
+  (`"14th St NW"`). Rejected for `M2-F25`: it needs a whole new vector-tile
+  pipeline (tippecanoe/pmtiles build + a second source + Docker builder stage) —
+  a separate concern from "turn labels on," and one PR is one concern.
+- **Protomaps' built-in `roads` source-layer (chosen).** The local
+  `dc.pmtiles` extract already carries road geometry and a `name` field. Two
+  `symbol` layers (`scout-street-labels-{major,minor}`) read it directly — no
+  new data path. Trade-off: OSM names render in their long form
+  (`"14th Street Northwest"`) rather than our normalized `"14th St NW"`. That
+  divergence is documented as a follow-up (serve `dc_street_segments` as a
+  vector source) rather than blocking the first cut.
+
+**Options considered — glyph font.**
+
+- **Generate SDF glyphs from Atkinson Hyperlegible** (the app UI font) for brand
+  and legibility consistency. Rejected for now: reproducible generation needs
+  `font-maker`/`fontnik` (native `node-canvas` deps) in the build — a heavy new
+  dependency for a decorative duplicate. A future `chore:` can swap the
+  fontstack once a scripted generator lands.
+- **Prebuilt `Noto Sans Regular` PBF glyphs (chosen).** Matches the `text-font`
+  the Protomaps theme already defaults to, so one fontstack covers every label.
+  Fetched from `protomaps/basemaps-assets` (SIL OFL) into
+  `apps/web/public/fonts/glyphs/` and served same-origin at
+  `/fonts/glyphs/{fontstack}/{range}.pbf`. Only Latin + General-Punctuation
+  ranges are shipped (DC names are English; MapLibre silently skips any range it
+  can't load).
+
+**Decision.** Add `glyphs: "/fonts/glyphs/{fontstack}/{range}.pbf"` to the
+basemap style and two `symbol` layers over the extract's `roads` layer
+(`major_road`/`highway` from z11, `minor_road`/`other`/`path` from z15).
+`buildDcBasemapStyle` moves from `BasemapInner.tsx` into
+`apps/web/lib/map/basemap-style.ts` so the glyph-URL and label-layer invariants
+are unit-testable without a WebGL context.
+
+**Accessibility.** Label colors are an ink/paper pair per scheme
+(`prefers-color-scheme`) chosen for ≥3:1 contrast against the Protomaps earth
+fill, with a full-tone halo — the theme's own road-label grays fall below 3:1 on
+the light earth (`NF-A11Y`). Labels are static, so `prefers-reduced-motion`
+needs no style-level change (camera motion stays gated at the call sites). Map
+labels are **decorative duplicates** of the already-accessible list/popup/marker
+text and render on the WebGL canvas, outside the a11y tree; the
+`<FeatureListView/>` remains the non-map textual equivalent.
+
+**Third-party TOS review.** The glyph PBFs are compiled from Noto Sans and
+distributed by `protomaps/basemaps-assets` under the **SIL Open Font License
+v1.1**, which permits self-hosted redistribution — the same license family and
+fetch pattern already vetted for Atkinson Hyperlegible (`DEC-015`,
+`scripts/fetch_fonts.sh`). The upstream repo is fetched **once at setup time**
+(`scripts/fetch_map_glyphs.sh`); nothing points at `protomaps.github.io` (or any
+CDN) at runtime, so no client IP leaks.
+
+**Consequences.**
+
+- New `scripts/fetch_map_glyphs.sh` (+ `scripts/AGENTS.md` registry row),
+  mirroring `fetch_fonts.sh`; the committed PBFs ride into the image via the
+  existing `COPY apps/web/ ...` step, like the woff2 fonts.
+- New `apps/web/lib/map/basemap-style.ts` + `basemap-style.test.ts` (glyphs URL
+  self-hosted, street symbol layers wired, per-scheme color swap).
+- **Follow-up.** Serve `dc_street_segments` as a vector source so map labels
+  match the normalized `"14th St NW"` names exactly; optionally regenerate the
+  fontstack from Atkinson Hyperlegible for visual consistency.
+
+---
+
 _End of decisions log._

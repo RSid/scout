@@ -2,7 +2,6 @@
 
 import type { ApiCategory, CorridorResponse } from "@/lib/api";
 import type { GeoJSON } from "geojson";
-import { noLabels } from "protomaps-themes-base";
 import maplibregl from "maplibre-gl";
 /**
  * MapLibre's stylesheet is REQUIRED. It includes
@@ -25,6 +24,7 @@ import MarkerKeyboardRail, {
 } from "@/components/a11y/MarkerKeyboardRail";
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 import FeaturePopup from "@/components/FeaturePopup";
+import { buildDcBasemapStyle } from "@/lib/map/basemap-style";
 import {
   corridorFeatureId,
   corridorFeatureWithMarkerSeverity,
@@ -530,6 +530,10 @@ export default function BasemapInner({
           filter: ["has", "point_count"],
           layout: {
             "text-field": ["to-string", ["get", "point_count"]],
+            // Pin the fontstack we self-host glyphs for (DEC-028). Without it
+            // MapLibre requests its default "Open Sans" stack, which we don't
+            // ship, and the cluster count renders blank.
+            "text-font": ["Noto Sans Regular"],
             "text-size": 12,
           },
           paint: {
@@ -776,26 +780,4 @@ export default function BasemapInner({
       </noscript>
     </div>
   );
-}
-
-function buildDcBasemapStyle(
-  prefersDarkScheme: boolean,
-): maplibregl.StyleSpecification {
-  const sourceId = "scout_dc_basemap";
-  const themeKey = prefersDarkScheme ? "dark" : "light";
-
-  const layers = noLabels(sourceId, themeKey);
-
-  return {
-    version: 8,
-    sources: {
-      [sourceId]: {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a> (Open Database License). Tiles via Protomaps.',
-        type: "vector",
-        url: "pmtiles:///tiles/dc.pmtiles",
-      },
-    },
-    layers,
-  };
 }
