@@ -4,10 +4,7 @@ Thanks for being here. Scout is an open-source accessibility navigation tool
 for Washington, DC. Contributions of any size — code, design, docs, data, or
 domain expertise — are welcome.
 
-> **Status (May 2026):** Scout is pre-MVP. The M1 scaffold (FastAPI backend,
-> Next.js frontend, data ingestion, Dockerization) is in progress; some
-> commands below assume that scaffold has landed. If something isn't on disk
-> yet, see `docs/prompts/` for the current scaffolding tasks.
+> **Status (July 2026):** Scout is in early alpha. We're deployed and in use by a small number of users!
 
 ## Start here
 
@@ -42,85 +39,23 @@ contempt is not.
 ### Accessibility is non-negotiable
 
 Scout exists for people who are routinely failed by mainstream mapping
-apps. Accessibility regressions block release. WCAG 2.2 AA is the floor
+apps. Accessibility regressions block release. WCAG 2.2 AA is the quality floor
 (`NF-A11Y-*` in the PRD); axe-core runs in CI.
 
 ## Development setup
 
-### Prerequisites
+See the [README](readme.md) for prerequisites, first-time setup,
+running the local stack, loading DC data, and API keys. `make help`
+lists every shortcut. `make test` runs the full suite; coverage floors
+and the testing philosophy live in `AGENTS.md`.
 
-- **Python ≥ 3.12** with [`uv`](https://github.com/astral-sh/uv).
-- **Node ≥ 20** with `pnpm` (for the frontend, once it scaffolds).
-- **Docker** with Compose (for local Postgres + PostGIS, once `M1-F15`
-  lands).
-- **`pre-commit`** for the lint/format hooks (`brew install pre-commit` or
-  `uv tool install pre-commit`).
+## Agentic development (AI)
 
-### First-time setup
+I love humans coding! However, I have a relatively severe hand RSI, and often find typing painful. So, voice to text to an LLM has been a large part of how scout has been developed. There's a lot that is problematic and disappointing in the AI landscape, but I have done my best to be thoughtful about the tools I use.
 
-```bash
-git clone https://github.com/RSid/scout.git
-cd scout
-pre-commit install
-make bootstrap
-make sync                  # installs apps/backend deps via uv
-cp .env.example .env       # then edit SCOUT_* for your machine
-```
+If you would like to do agentic development when you are contributing to this repo I support [GreenPT](https://greenpt.com/) for sustainability and privacy-focused LLMs! The are hosting open source models on infrastructure that they attempt to make as green as possible, and have a good deal of information on their website about how they are doing this.
 
-Run `make help` for the full shortcut list (lint, typecheck, Compose,
-ingest dry-run, etc.).
-
-### Running locally
-
-The local stack lives in `infra/docker-compose.yml` (`M1-T05a`). It boots
-PostGIS, the FastAPI backend with hot reload, and the Next.js frontend in
-dev mode against each other:
-
-```bash
-make docker-up        # builds images on first run, then `docker compose up`
-open http://localhost:3000   # web UI
-open http://localhost:8080/api/health   # backend
-make docker-down      # stop, preserve the pgdata volume
-```
-
-`make dev` is an alias for `make docker-up`. See `infra/README.md` for
-service layout, volume rationale, and how to reset the database.
-
-Production hosting is host-neutral (`DEC-025`) and tracked separately under
-`M1-T05b`; it is intentionally not part of the local workflow — you should not
-need a host account to develop Scout.
-
-There is intentionally no stub `fastapi dev main.py` entrypoint;
-`apps/backend/` is scaffolded in `M1-T01` and runs via Compose.
-
-### Loading the DC data
-
-```bash
-make ingest                            # dry-run smoke (no DB writes)
-
-# Real write against the Compose database (M1-F11 / M1-T03):
-docker compose --project-directory . -f infra/docker-compose.yml \
-    --profile ingest run --rm ingest
-```
-
-Idempotent: re-running with unchanged inputs writes zero rows. See
-`scripts/README.md` for flags, the Overpass cache, and the testcontainers-
-backed test suite under `apps/backend/tests/test_ingest_db.py`.
-
-### Running tests
-
-```bash
-make test
-```
-
-Behind the scenes this runs backend `pytest` when `apps/backend/tests/` exists,
-and frontend `pnpm test` when `apps/web/package.json` lands. Frontend E2E:
-
-```bash
-cd apps/web && pnpm exec playwright test
-```
-
-Coverage floors and the full testing philosophy live in `AGENTS.md`.
+I have also used pi.dev, ollama, and qwen (a local open source model) for some of my development in this repo, and definitely recommend checking it out as a more sustainable and transparent option.
 
 ## Submitting a change
 
@@ -130,7 +65,7 @@ Coverage floors and the full testing philosophy live in `AGENTS.md`.
    one exists: `feat/m1-f04-route-caching`, `fix/m1-f06-focus-trap`,
    `docs/contributing-clarification`.
 3. **Make the change.** Follow `AGENTS.md` for conventions. Keep PRs
-   scoped to one concern. We love humans coding, but if you're using agents we support [GreenPT](https://greenpt.com/) for sustainability and privacy-focused LLMs!
+   scoped to one concern.
 4. **Test it.** New behavior gets a new test. A red CI isn't a reviewer's
    problem.
 5. **Push and open a PR** using the description template below. Fill in
