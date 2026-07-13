@@ -119,6 +119,16 @@ export const en = {
     "Interactive map paused because Scout could not load its local tiles.",
 } satisfies LocaleMessages;
 
+/**
+ * Location label for a feature sitting on a named street (M2-F24, DEC-027).
+ * e.g. `onStreetLabel("14th St NW")` -> "on 14th St NW". Structured so an
+ * intersection framing ("14th St NW & P St NW") can replace the single street
+ * later without touching callers.
+ */
+export function onStreetLabel(street: string): string {
+  return `on ${street}`;
+}
+
 /** §6 house-word labels for obstacle vs mapped support (stores `kind: aid`). */
 export function kindObstacleLabel(): string {
   return "Obstacle";

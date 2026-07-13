@@ -22,4 +22,16 @@ describe("FeatureMarkerAriaLabel", () => {
       en.conditionUnknownForAria,
     );
   });
+
+  it("includes the location fragment between condition and inspection", () => {
+    expect(FeatureMarkerAriaLabel("Curb ramps", "Good", 2021, "on 14th St NW")).toBe(
+      `Curb ramps, Good, on 14th St NW, ${en.lastInspectedShort} 2021`,
+    );
+  });
+
+  it("omits the location fragment when no location is provided", () => {
+    expect(FeatureMarkerAriaLabel("Curb ramps", "Good", 2021, null)).toBe(
+      `Curb ramps, Good, ${en.lastInspectedShort} 2021`,
+    );
+  });
 });

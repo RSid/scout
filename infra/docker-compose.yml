@@ -193,6 +193,38 @@ services:
     entrypoint: ["python", "/app/scripts/ingest_dc_points_of_interest.py"]
     restart: "no"
 
+  # Sibling service for the DC Street Centerline layer (DEC-027). Kept
+  # separate for the same reason as `ingest-poi`; this one has a hard runtime
+  # dependency on `features` already being populated (`make ingest-write`),
+  # since after upserting segments it stamps each feature's nearest
+  # `street_name`.
+  #
+  #   make ingest-dc-street-segments
+  #   # raw equivalent:
+  #   docker compose --project-directory . -f infra/docker-compose.yml \
+  #                  --profile ingest run --rm ingest-street-segments
+  ingest-street-segments:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-ingest-street-segments
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/ingest_dc_street_segments.py"]
+    restart: "no"
+
 volumes:
   pgdata:
   web-node_modules:

@@ -12,6 +12,7 @@ import {
   scoutMarkerTintedSvgDataUriBatch,
   type ScoutMarkerSeverity,
 } from "@/lib/map/markers";
+import { resolveLocationLabel } from "@/lib/map/location-label";
 import {
   asOfYearNote,
   en,
@@ -212,6 +213,7 @@ function FeatureRow({
     typeof props?.source_dataset === "string" ? props.source_dataset : "";
 
   const alongText = alongRouteSummaryText(feature);
+  const location = resolveLocationLabel(props ?? null);
   const selectableId = rowSelectableId(feature);
   const isSelected =
     selectableId !== null &&
@@ -229,9 +231,14 @@ function FeatureRow({
           />
           <span className="text-left text-sm font-medium leading-snug">
             <span aria-hidden>{`${categoryLabel} · ${condition}`}</span>
+            {location !== null ? (
+              <span aria-hidden>{` · ${location.text}`}</span>
+            ) : null}
             <span aria-hidden>{` · ${alongText}`}</span>
             <span className="sr-only">
-              {`${categoryLabel}, ${condition}, ${alongText}`}
+              {location !== null
+                ? `${categoryLabel}, ${condition}, ${location.text}, ${alongText}`
+                : `${categoryLabel}, ${condition}, ${alongText}`}
             </span>
           </span>
         </summary>

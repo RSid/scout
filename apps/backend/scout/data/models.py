@@ -27,6 +27,10 @@ class Feature(Base):  # noqa: D401
     inspected_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     source_dataset: Mapped[str] = mapped_column(Text, nullable=False)
     source_id: Mapped[str] = mapped_column(Text, nullable=False)
+    # Nearest DC street-centerline name, derived once at ingest (DEC-027).
+    # First-class + nullable so it stays queryable and the future
+    # intersection upgrade has a home; restroom rows never set it.
+    street_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     attributes: Mapped[dict[str, object]] = mapped_column(
         JSONB,
         nullable=False,
@@ -60,6 +64,25 @@ class DcAddress(Base):  # noqa: D401 — ORM table for bundled DC MAR autocomple
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     geom: Mapped[WKBElement] = mapped_column(
         Geography(geometry_type="POINT", srid=4326),
+        nullable=False,
+    )
+
+
+class DcStreetSegment(Base):  # noqa: D401 — ORM table for DC street centerlines
+    """One DC street-centerline (SubBlock) segment from the OCTO snapshot.
+
+    Populated offline by ``scripts/ingest_dc_street_segments.py``; the KNN
+    join in ``store.nearest_street_name_select`` reads it to stamp each
+    ``features`` row with its nearest street name (DEC-027).
+    """
+
+    __tablename__ = "dc_street_segments"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[str] = mapped_column(Text, nullable=False)
+    geom: Mapped[WKBElement] = mapped_column(
+        Geography(geometry_type="LINESTRING", srid=4326),
         nullable=False,
     )
 

@@ -109,6 +109,10 @@ class CorridorFeatureProperties(BaseModel):
     source_id: str
     attributes: dict[str, Any]
     along_route_meters: float
+    # Nearest DC street-centerline name (DEC-027 / M2-F24). Null for restrooms
+    # and any feature with no segment within range. Defaulted so the restroom
+    # merge path (which never sets it) still validates.
+    street_name: str | None = None
 
 
 class CorridorGeoJSONFeature(BaseModel):

@@ -1261,4 +1261,80 @@ These don't block scaffolding but should be settled before M1 ships.
 
 ---
 
+## DEC-027 — Street-name attribution via nearest DC Street Centerline
+
+**Context.** Scout's accessibility features are Points with an opaque
+`attributes` bag; the raw DC ADA GeoJSONs carry **no street name** (only
+`INTERSECTION_ID` / `STREETSEGID` with no bundled lookup table). Users
+planning a trip — especially the mobility-challenged Phase-1 audience — need to
+know *where* along the route each obstacle or support sits ("on 14th St NW"),
+both visually and via screen reader. A street name must therefore be
+**derived**.
+
+**Options considered.**
+
+- **Nearest-address parsing (reuse `dc_addresses`).** Snap each feature to the
+  nearest MAR address point and parse its street. Rejected: features live on
+  the roadway, not at an address point; the parsed street would be whichever
+  building happens to be closest, not the corridor the feature is on.
+- **Nearest Street Centerline segment (chosen).** Ingest DC's Street
+  Centerline (DDOT SubBlock) dataset into a PostGIS reference table and
+  spatial-join each feature to its nearest segment. The segment's full display
+  name (`ROUTENAME`, e.g. `"14TH ST NW"`) is normalized to `"14th St NW"`.
+- **Per-request KNN.** Compute the nearest segment at query time. Rejected: a
+  per-feature KNN across the 500-cap corridor would blow the latency budget
+  (`NF-PERF`). Derivation is done **once at ingest** instead.
+
+**Decision.** Ingest the DC Street Centerline dataset into a first-class
+PostGIS reference table `dc_street_segments` (LineString `Geography`, GIST
+indexed), mirroring the `dc_addresses` pattern. After the `features` upsert, a
+KNN `UPDATE` (`geom <-> geom`, `LIMIT 1`) stamps each feature's nearest street
+name into a new **first-class nullable `Feature.street_name` column** (not
+`attributes`) — intersection context is a likely follow-up and the value should
+be queryable/indexable. The corridor endpoint passes `street_name` through to
+`CorridorFeatureProperties`; the list, popup, and marker aria-label read it.
+
+Restrooms come from Refuge (not PostGIS) and have no segment to join against, so
+their `street_name` stays `null`; the frontend falls back to
+`attributes.address` as a location label so restroom rows are not locationless.
+
+**Two tickets, two PRs.** `M2-F24` (list + popup + aria-label) ships first;
+`M2-F25` (map labels) is deferred behind self-hosted SDF glyph infrastructure
+the app currently lacks (no `glyphs:` in `buildDcBasemapStyle`).
+
+**Third-party TOS review.** The DC Street Centerline layer is published by
+OCTO on Open Data DC under the District's
+[Terms and Conditions of Use for District Data](https://dc.gov/node/939602):
+public-domain **CC0 1.0 Universal**, commercial use permitted, attribution
+appreciated but not required — the same posture already vetted for
+`dc_addresses` (`DEC-023`). The OCTO GIS Terms explicitly encourage building
+applications on the APIs and services. No autocomplete-style prohibition
+applies. Same host as `dc_addresses`, but re-read on its own terms rather than
+assuming clearance (`AGENTS.md` #12).
+
+**Consequences.**
+
+- New Alembic migration `0004`: `features.street_name TEXT NULL` +
+  `dc_street_segments` table with a GIST geom index.
+- New `scripts/ingest_dc_street_segments.py` (committed-snapshot JSONL path +
+  `--fetch` path, `--dry-run`, sync engine via `SCOUT_DATABASE_URL`) and
+  `make ingest-dc-street-segments`. Depends on `features` already ingested
+  (it performs the enrichment `UPDATE`).
+- The KNN SQL contract is extracted as pure `nearest_street_name_select()` /
+  `feature_street_name_update()` in `store.py`, unit-testable without live
+  PostGIS (same approach as `corridor_features_select`).
+- Idempotent: re-running recomputes the same value; fits the existing upsert
+  model.
+- Frontend copy is structured so an intersection framing
+  ("14th St NW & P St NW") can replace the single-street string later without
+  touching the data path.
+- **Risk — corner features.** Nearest-segment is right for sidewalk/barrier
+  points; a curb ramp at a corner may snap to either cross-street. Acceptable
+  for single-street v1; the persisted centerline table is what makes the
+  intersection upgrade clean later.
+- **Risk — restroom address dependency.** If the Refuge dataset ever drops
+  `attributes.address`, restroom rows will appear locationless.
+
+---
+
 _End of decisions log._
