@@ -14,6 +14,7 @@ from sqlalchemy import (
     BindParameter,
     Row,
     Select,
+    Update,
     and_,
     asc,
     bindparam,
@@ -25,17 +26,28 @@ from sqlalchemy import (
     or_,
     select,
     union_all,
+    update,
 )
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement
+from sqlalchemy.sql.selectable import ScalarSelect
 
 from scout.data.mar_address_mapping import (
     normalize_dc_address_query_text,
     prefix_tsquery_from_tokens,
 )
-from scout.data.models import DcAddress, DcPointOfInterest, Feature
+from scout.data.models import (
+    DcAddress,
+    DcPointOfInterest,
+    DcStreetSegment,
+    Feature,
+)
+
+# Restroom rows come from Refuge (not PostGIS) and have no centerline to join
+# against, so the enrichment UPDATE skips them defensively (DEC-027).
+RESTROOMS_SOURCE_DATASET = "refugerestrooms"
 
 # Per-row "is this useful as a map marker?" rule. We still ingest these rows
 # (analytics and M2 P3 low-vision routing weights both read them), but the
@@ -175,6 +187,7 @@ async def corridor_features_geojson(
             "source_id": feature_row.source_id,
             "attributes": dict(feature_row.attributes),
             "along_route_meters": along_route_meters,
+            "street_name": feature_row.street_name,
         }
         feats.append(
             {
@@ -276,6 +289,55 @@ async def search_dc_addresses(
         return ()
     result = await session.execute(stmt)
     return tuple(result.all())
+
+
+def _nearest_street_name_scalar() -> ScalarSelect[str]:
+    """Correlated KNN subquery: the nearest centerline name for one feature.
+
+    Uses the geography `<->` operator so the GIST index on
+    `dc_street_segments.geom` orders candidates by true distance; `LIMIT 1`
+    keeps only the closest. Correlates to the enclosing `features` row.
+    """
+    return (
+        select(DcStreetSegment.name)
+        .order_by(DcStreetSegment.geom.op("<->")(Feature.geom))
+        .limit(1)
+        .scalar_subquery()
+    )
+
+
+def nearest_street_name_select() -> Select[tuple[str, str | None]]:
+    """`(feature_id, nearest_street_name)` for every feature (DEC-027).
+
+    Extracted so the KNN SQL contract (geography `<->`, `LIMIT 1`, the
+    `dc_street_segments` source) is unit-testable without live PostGIS — same
+    approach as `corridor_features_select`. See
+    `tests/test_store_street_name_query.py`.
+    """
+    return select(
+        Feature.id.label("feature_id"),
+        _nearest_street_name_scalar().label("street_name"),
+    )
+
+
+def feature_street_name_update() -> Update:
+    """Idempotent UPDATE stamping `features.street_name` from the nearest segment.
+
+    Re-running recomputes the same value (pure function of geometry). The
+    `is_distinct_from` guard makes an unchanged re-run a true no-op — no row is
+    touched, so `updated_at` (and the freshness signal) does not churn, matching
+    the ingest pipeline's diff-aware upsert. Restroom rows are skipped: they
+    never live in PostGIS, but the guard keeps the contract explicit.
+    """
+    nearest = _nearest_street_name_scalar()
+    return (
+        update(Feature)
+        .values(street_name=nearest)
+        .where(
+            Feature.source_dataset != RESTROOMS_SOURCE_DATASET,
+            Feature.street_name.is_distinct_from(nearest),
+        )
+    )
 
 
 async def reverse_dc_nearest_row(

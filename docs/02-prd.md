@@ -589,6 +589,41 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Prompt seed:** Generate stories for i18n scaffolding, string extraction
   policy, and language toggle UX.
 
+#### M2-F24 — Street names in the feature list
+- **Persona:** P1, P2 (mobility-challenged planners)
+- **User value:** *So I can tell where along my route each obstacle or support
+  actually sits ("on 14th St NW") without reading a map.*
+- **Depends on:** M1-F07 (corridor), M1-F09 (list), M1-F13 (restrooms)
+- **Decision:** `DEC-027` (nearest-centerline street attribution).
+- **Acceptance criteria:** Each PostGIS feature carries a derived
+  `street_name` (nearest DC Street Centerline segment, computed once at ingest
+  and stored in a first-class nullable column). The list row, popup, and marker
+  aria-label render "on {street}" in both the visible and `sr-only` channels.
+  Restroom rows (from Refuge, not PostGIS) fall back to `attributes.address`
+  as a location label; when neither exists the location segment (and its
+  separator) is omitted gracefully.
+- **Accessibility notes:** Location is a non-map textual channel (`NF-A11Y`),
+  present in the `sr-only` line and marker names, never color- or map-only.
+- **Estimate:** M
+- **Prompt seed:** `docs/prompts/10-street-names.md`.
+
+#### M2-F25 — Map street labels (deferred)
+- **Persona:** P1, P2
+- **User value:** *So street names are legible on the map itself, not only in
+  the list.*
+- **Depends on:** M2-F24; **blocked on glyph infrastructure** (the MapLibre
+  style has no `glyphs:` URL, so no `text-field` can render today).
+- **Acceptance criteria (scope only):** Self-hosted SDF glyph `.pbf` ranges
+  under `apps/web/public/glyphs/` (`NF-PRIV-01`, no CDN), `glyphs:` added to
+  `buildDcBasemapStyle`, then a streets-only `symbol` layer over the existing
+  `roads` source-layer (`text-field` from
+  `["coalesce", ["get","pgf:name"], ["get","name"]]`), min-zoom gated, haloed
+  for ≥3:1 contrast, honoring `prefers-color-scheme`, ordered below markers/route.
+- **Accessibility notes:** Halo contrast ≥3:1; labels never occlude obstacle
+  markers.
+- **Estimate:** M
+- **Prompt seed:** `docs/prompts/10-street-names.md` (§M2-F25).
+
 ---
 
 ### §6.3 Milestone M3 — Accounts + user contributions (~6 weekends)

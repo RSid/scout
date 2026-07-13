@@ -6,6 +6,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { FeatureMarkerAriaLabel } from "@/components/FeatureMarker";
+import { resolveLocationLabel } from "@/lib/map/location-label";
 
 type CorridorFeat = CorridorResponse["features"][number];
 
@@ -138,7 +139,14 @@ function buttonLabel(
       ? condition
       : undefined;
 
-  return FeatureMarkerAriaLabel(label, safeCondition, inspected);
+  const location = resolveLocationLabel(props ?? null);
+
+  return FeatureMarkerAriaLabel(
+    label,
+    safeCondition,
+    inspected,
+    location?.text ?? null,
+  );
 }
 
 function clampIndex(index: number, length: number): number {

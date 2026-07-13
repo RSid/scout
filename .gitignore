@@ -12,7 +12,7 @@ node_modules/
 apps/web/.next/
 .turbo/
 .pnpm-store/
-apps/web/tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # Data artifacts
 *.pmtiles
@@ -39,8 +39,10 @@ apps/web/scripts/inspect-artifacts/
 # Runtime cache (SCOUT_CACHE_DIR default)
 .scout-cache/
 
-# IDE + OS
+# IDE + OS + AI agent configs
 .DS_Store
 .idea/
 .vscode/
 *.swp
+.claude/
+.cursor/

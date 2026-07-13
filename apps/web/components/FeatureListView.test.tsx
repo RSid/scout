@@ -269,4 +269,93 @@ describe("FeatureListView", () => {
     ).toBeInTheDocument();
     expect(container.querySelector("img[src='x']")).toBeNull();
   });
+
+  it("shows the derived street name in the summary and the sr-only line", async () => {
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:on-street",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Good",
+            condition_normalized: "good",
+            inspected_year: 2021,
+            along_route_meters: 30,
+            street_name: "14th St NW",
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /^Along your route/ });
+
+    // Rendered in both the visible (aria-hidden) summary and the sr-only line.
+    expect(screen.getAllByText(/on 14th St NW/).length).toBe(2);
+
+    const axeResults = await axe(container);
+    expect(axeResults.violations).toStrictEqual([]);
+  });
+
+  it("falls back to the restroom address when there is no street name", async () => {
+    render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:restroom-addr",
+            category: "restrooms",
+            kind: "aid",
+            condition: "Accessible",
+            condition_normalized: "good",
+            inspected_year: 2022,
+            source_dataset: "refugerestrooms",
+            along_route_meters: 20,
+            street_name: null,
+            attributes: { address: "800 F Street NW, Washington, DC 20004" },
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /^Along your route/ });
+
+    expect(
+      screen.getAllByText(/800 F Street NW, Washington, DC 20004/).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("omits the location segment when neither a street nor an address exists", async () => {
+    const { container } = render(
+      <FeatureListView
+        features={[
+          corridorPoint({
+            id: "scout:no-loc",
+            category: "curb_ramps",
+            kind: "obstacle",
+            condition: "Good",
+            condition_normalized: "good",
+            inspected_year: 2021,
+            along_route_meters: 30,
+            street_name: null,
+          }),
+        ]}
+        listingStatus="ready"
+        selectedFeatureId={null}
+        onShowOnMap={() => {}}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: /^Along your route/ });
+
+    // No leading separator for an absent location: the sr-only line is exactly
+    // "category, condition, along-route" with no empty segment between them.
+    const srOnly = container.querySelector(".sr-only");
+    expect(srOnly?.textContent).toBe("Curb ramps, Good, ~30 meters from start");
+  });
 });
