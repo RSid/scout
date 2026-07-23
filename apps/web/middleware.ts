@@ -1,29 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 
-const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign"] as const;
+function utmBackendBase(): string {
+  return (
+    process.env.SCOUT_BACKEND_INTERNAL_URL?.replace(/\/$/, "") ||
+    process.env.NEXT_PUBLIC_SCOUT_API_BASE_URL?.replace(/\/$/, "") ||
+    ""
+  );
+}
 
-export function middleware(request: NextRequest): NextResponse {
+export function middleware(request: NextRequest, event: NextFetchEvent): NextResponse {
   const url = request.nextUrl;
   const source = url.searchParams.get("utm_source");
 
   if (source) {
     const medium = url.searchParams.get("utm_medium") ?? "";
     const campaign = url.searchParams.get("utm_campaign") ?? "";
-
-    const backendBase =
-      process.env.SCOUT_BACKEND_INTERNAL_URL?.replace(/\/$/, "") ?? "";
+    const backendBase = utmBackendBase();
 
     if (backendBase) {
-      const body = JSON.stringify({ source, medium, campaign });
-
-      // Fire-and-forget — don't block page load for analytics
-      fetch(`${backendBase}/api/utm`, {
+      const pending = fetch(`${backendBase}/api/utm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body,
+        body: JSON.stringify({ source, medium, campaign }),
       }).catch(() => {
-        // Silently swallow — UTM tracking must never break the user experience
+        // UTM tracking must never break the user experience
       });
+
+      event.waitUntil(pending);
     }
   }
 

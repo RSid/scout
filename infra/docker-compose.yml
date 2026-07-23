@@ -100,6 +100,8 @@ services:
       # If SCOUT_BACKEND_HOST_PORT is overridden, the browser must hit the
       # new host port (not the container port 8080), hence the interpolation.
       NEXT_PUBLIC_SCOUT_API_BASE_URL: "http://localhost:${SCOUT_BACKEND_HOST_PORT:-8080}"
+      # Server-side (middleware) calls use the Compose network name, not localhost.
+      SCOUT_BACKEND_INTERNAL_URL: "http://backend:8080"
       NEXT_PUBLIC_SCOUT_MAP_MODE: stub
       # Per DEC-022 the frontend's only geocoder transports are `backend`
       # (calls our own /api/geocode/*) and `stub`. The stubbed stack here

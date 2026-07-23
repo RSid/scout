@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,7 @@ POLICIES["utm_post"] = "10/minute"
 @limiter.limit(POLICIES["utm_post"])
 async def record_utm(
     payload: UtmEvent,
-    request: object,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> JSONResponse:
     today = datetime.now(tz=UTC).date()
