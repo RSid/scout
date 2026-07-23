@@ -16,6 +16,7 @@ import {
   asOfYearNote,
   en,
 } from "@/lib/i18n/messages";
+import { resolveLocationLabel } from "@/lib/map/location-label";
 
 export type CorridorFeatureLite = CorridorResponse["features"][number];
 
@@ -68,6 +69,7 @@ export default function FeaturePopup({ category, feature, referenceYear }: Props
   const description = category?.description?.trim?.() ?? "";
   const { treatment } = freshnessBlock(inspectedYear, refY);
   const kindDisplay = kindRaw === "aid" ? kindSupportLabel() : kindObstacleLabel();
+  const location = resolveLocationLabel(props ?? null);
 
   return (
     <section
@@ -85,6 +87,11 @@ export default function FeaturePopup({ category, feature, referenceYear }: Props
       </header>
       <div className="space-y-[var(--space-2)] text-sm leading-snug">
         <p className="text-[color:var(--color-text)]">{condition}</p>
+        {location !== null ? (
+          <p className="text-xs text-[color:var(--color-text-muted)]">
+            {location.text}
+          </p>
+        ) : null}
         <p className="text-xs text-[color:var(--color-text-muted)]">
           {lastInspectedLinePlain(inspectedYear)}
         </p>

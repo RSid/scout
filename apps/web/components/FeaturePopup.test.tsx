@@ -80,6 +80,45 @@ describe("FeaturePopup", () => {
     expect(screen.getAllByText("Inspection date unknown").length).toBeGreaterThan(0);
   });
 
+  it("shows the derived street name with the 'on' prefix", () => {
+    const props = pointFeature({
+      category: "curb_ramps",
+      kind: "obstacle",
+      condition: "Good",
+      condition_normalized: "good",
+      inspected_year: 2021,
+      source_dataset: "dc_curb_ramps",
+      street_name: "14th St NW",
+    });
+
+    render(<FeaturePopup category={null} feature={props} referenceYear={2026} />);
+
+    expect(screen.getByText("on 14th St NW")).toBeVisible();
+  });
+
+  it("falls back to the restroom address when no street name is present", () => {
+    const props = pointFeature({
+      category: restroomsCategory.id,
+      kind: "aid",
+      condition: "Accessible",
+      condition_normalized: "good",
+      inspected_year: 2022,
+      source_dataset: "refugerestrooms",
+      street_name: null,
+      attributes: { address: "800 F Street NW, Washington, DC 20004" },
+    });
+
+    render(
+      <FeaturePopup
+        category={restroomsCategory}
+        feature={props}
+        referenceYear={2026}
+      />,
+    );
+
+    expect(screen.getByText("800 F Street NW, Washington, DC 20004")).toBeVisible();
+  });
+
   it("routes jest-axe clean for nominal popup content", async () => {
     const props = pointFeature({
       category: restroomsCategory.id,

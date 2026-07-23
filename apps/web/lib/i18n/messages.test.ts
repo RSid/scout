@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   en,
+  onStreetLabel,
   routeAnnouncementApproxFallback,
   routeAnnouncementLoaded,
 } from "./messages";
@@ -33,5 +34,9 @@ describe("English UI strings scaffold", () => {
     expect(routeAnnouncementApproxFallback()).toMatch(
       /couldn't load walking directions/i,
     );
+  });
+
+  it("prefixes a street location label with 'on' (M2-F24)", () => {
+    expect(onStreetLabel("14th St NW")).toBe("on 14th St NW");
   });
 });

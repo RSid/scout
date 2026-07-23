@@ -16,7 +16,7 @@ BUMP ?= patch
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses ingest-dc-pois docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps  dev-mobile-lan dev-mobile-tunnel release rollback
+.PHONY: help bootstrap sync dev test lint typecheck fmt format migrate ingest ingest-write ingest-dc-addresses ingest-dc-pois docker-up docker-up-stubbed-run docker-up-realistic-run docker-down docker-reset-web-deps docker-reset-backend-deps  dev-mobile-lan dev-mobile-tunnel release rollback ingest-dc-street-segments
 
 help: ## print Make targets with short descriptions
 	@grep -hE '^[a-zA-Z_-]+:.*?##' "$(ROOT)/Makefile" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -113,6 +113,13 @@ ingest-dc-pois: ## load bundled DC MAR points-of-interest into Postgres (migrati
 	@# Same Compose-network rationale as ingest-dc-addresses; this ingest
 	@# depends on dc_addresses already being populated (it joins by MAR_ID).
 	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest-poi $(ARGS)
+
+ingest-dc-street-segments: ## load DC street centerlines + stamp features.street_name (migration 0004 + data/dc_street_segments.jsonl); run ingest-write first
+	@test -f "$(ROOT)/scripts/ingest_dc_street_segments.py" || { echo 'missing scripts/ingest_dc_street_segments.py'; exit 1; }
+	@# Same Compose-network rationale as ingest-dc-addresses; this ingest
+	@# depends on `features` already being populated (it stamps each feature's
+	@# nearest street name via a KNN UPDATE).
+	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest-street-segments $(ARGS)
 
 ingest: ## dry-run DC GeoJSON ingest tally (parses files; no Postgres write)
 	@if [ -f "$(ROOT)/scripts/ingest_dc.py" ]; then \

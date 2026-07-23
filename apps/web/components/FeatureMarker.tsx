@@ -11,12 +11,14 @@ function conditionUnknownAria(): string {
 
 /**
  * Accessible name fragment for marker controls (voice-and-copy §9.1, ≤10 words).
- * Uses category label fragment, verbatim condition text, inspection year clause.
+ * Uses category label fragment, verbatim condition text, optional location
+ * ("on 14th St NW" / restroom address, M2-F24), and inspection year clause.
  */
 export function FeatureMarkerAriaLabel(
   categoryLabel: string,
   condition: string | undefined | null,
   inspectedYear: number | null | undefined,
+  location?: string | null | undefined,
 ): string {
   const phrase = sanitizedCondition(condition ?? "");
   const year =
@@ -29,5 +31,9 @@ export function FeatureMarkerAriaLabel(
     year === null
       ? en.inspectionDateUnknownAriaFragment
       : `${en.lastInspectedShort} ${year}`;
-  return `${categoryLabel}, ${phrase}, ${inspectionFrag}`;
+  const locationFrag =
+    typeof location === "string" && location.trim().length > 0
+      ? `, ${location.trim()}`
+      : "";
+  return `${categoryLabel}, ${phrase}${locationFrag}, ${inspectionFrag}`;
 }

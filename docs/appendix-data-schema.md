@@ -18,6 +18,7 @@ and by the Refuge Restrooms integration (M1-F13).
   "inspected_year": "integer | null",
   "source_dataset": "string — short ID for the dataset",
   "source_id": "string — original GIS_ID or equivalent",
+  "street_name": "string | null — nearest DC Street Centerline name (DEC-027)",
   "geometry": { "type": "Point|LineString", "coordinates": [...] },
   "attributes": { /* category-specific extras, e.g. estimated_year_of_improvement */ }
 }
@@ -257,6 +258,35 @@ time and bake into the source data:
 **`source_id`:** `osm:node/{osm_id}`.
 **`inspected_year`:** derived from the OSM tag `check_date` if present, else
 `null`.
+
+---
+
+### B.12 DC Street Centerline → `features.street_name` (DEC-027)
+
+A **reference dataset**, not a `features` category. Used only to derive each
+feature's `street_name`; its rows are never returned to end users.
+
+- **Source:** OCTO / DDOT `DDOT_TOPS` **Street Centerline (SubBlock)** layer
+  (`.../DCGIS_APPS/DDOT_TOPS/MapServer/5`). LineString geometry, one segment
+  per block-face, segmented at intersections.
+- **License:** Open Data DC **CC0 1.0 Universal** (see `DEC-027` TOS review).
+- **Name field:** `ROUTENAME` (full display label, e.g. `"14TH ST NW"`).
+  Normalized to title case with ordinals and quadrants preserved
+  (`"14th St NW"`) by `normalize_street_name` in
+  `scout/data/street_segment_mapping.py`. Segments with no `ROUTENAME`
+  (alleys, ramps) are skipped.
+- **Segment ID:** `SUBBLOCKKEY` (stable per segment) → `dc_street_segments.id`
+  / `source_id`.
+- **Storage:** `dc_street_segments` (LineString `Geography`, GIST indexed),
+  loaded by `scripts/ingest_dc_street_segments.py` from a committed JSONL
+  snapshot (`data/dc_street_segments.jsonl`) or `--fetch` from ArcGIS.
+
+**Derivation rule.** After the `features` upsert, an idempotent KNN `UPDATE`
+(`dc_street_segments.geom <-> features.geom`, `LIMIT 1`) writes the nearest
+segment's name into `features.street_name`. Computed **once at ingest**, never
+per request. Restroom rows (`source_dataset = refugerestrooms`) are never in
+PostGIS and are skipped; the frontend uses their `attributes.address` as a
+location-label fallback. Re-running recomputes the same value.
 
 ---
 
