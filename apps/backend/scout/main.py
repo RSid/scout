@@ -21,6 +21,7 @@ from scout.api.health import router as health_router
 from scout.api.restrooms import router as restrooms_router
 from scout.api.route import router as routing_router
 from scout.api.route_features import router as route_features_router
+from scout.api.utm import router as utm_router
 from scout.clients import get_restrooms_provider, get_routing_provider
 from scout.config import (
     Settings,
@@ -107,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(route_features_router, prefix="/api")
     app.include_router(restrooms_router, prefix="/api")
     app.include_router(geocode_router, prefix="/api")
+    app.include_router(utm_router, prefix="/api")
     return app
 
 
