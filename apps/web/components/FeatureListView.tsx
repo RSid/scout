@@ -392,7 +392,7 @@ function BlockGroupSection({
               width="16"
               height="16"
               viewBox="0 0 16 16"
-              className="shrink-0 text-[color:var(--color-text-muted)] transition-transform [[open]>&]:rotate-90"
+              className="shrink-0 text-[color:var(--color-text-muted)] transition-transform [details[open]_&]:rotate-90"
             >
               <path
                 d="M6 4l4 4-4 4"
