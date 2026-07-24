@@ -610,7 +610,7 @@ export default function FeatureListView({
             <button
               type="button"
               onClick={toggleAll}
-              className="text-xs font-medium text-accent"
+              className="min-h-tap text-xs font-medium text-accent"
             >
               {en.blockExpandAll} / {en.blockCollapseAll}
             </button>
