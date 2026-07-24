@@ -23,6 +23,7 @@ from scout.api.route import router as routing_router
 from scout.api.route_features import router as route_features_router
 from scout.api.utm import router as utm_router
 from scout.clients import get_restrooms_provider, get_routing_provider
+from scout.clients.restrooms.refuge import DC_BBOX
 from scout.config import (
     Settings,
     cors_origin_list,
@@ -70,6 +71,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if not scout_under_test():
                 init_engine_and_session(resolved.database_url)
                 run_startup_migrations(resolved.database_url)
+                try:
+                    await app.state.restrooms_provider.list_in_bbox(DC_BBOX)
+                    LOGGER.info("restrooms cache warmed at startup")
+                except Exception:
+                    LOGGER.warning(
+                        "restrooms prefetch failed; first request will be slow"
+                    )
             yield
         finally:
             await client.aclose()

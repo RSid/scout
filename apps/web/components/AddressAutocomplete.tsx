@@ -82,6 +82,13 @@ export default function AddressAutocomplete({
   const [inputValue, setInputValue] = useState("");
   const [hits, setHits] = useState<readonly AddressHit[]>([]);
   const [busy, setBusy] = useState(false);
+  /**
+   * True only after a geocode returned zero matches for the current query,
+   * so the "DC addresses only" hint stays quiet when hits are empty for any
+   * other reason (initial state, a pick that cleared hits, or an in-flight
+   * search).
+   */
+  const [noMatchesForCurrentQuery, setNoMatchesForCurrentQuery] = useState(false);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>({
     kind: "idle",
   });
@@ -115,6 +122,7 @@ export default function AddressAutocomplete({
         );
         const nextArray = [...nextHits];
         setHits(nextArray);
+        setNoMatchesForCurrentQuery(nextArray.length === 0);
 
         announce(
           nextArray.length === 0
@@ -142,8 +150,20 @@ export default function AddressAutocomplete({
   useEffect(() => {
     if (suppressNextSearch.current) {
       suppressNextSearch.current = false;
+      // The suppress branch fires when a selection (pick or reverse-geocode)
+      // just committed a final value. Any pending debounce from the user's
+      // preceding keystrokes gets cancelled below via cleanup, but `busy` was
+      // already set to true by that earlier effect run and would otherwise
+      // stick, leaving "Searching…" visible forever. The "no matches" hint
+      // is cleared for the same reason: a picked value is by definition a
+      // match, so the DC-scope guidance shouldn't linger.
+      setBusy(false);
+      setNoMatchesForCurrentQuery(false);
       return undefined;
     }
+    // A new keystroke starts fresh — the hint should only reappear once a
+    // fresh geocode round-trip confirms zero matches.
+    setNoMatchesForCurrentQuery(false);
     window.clearTimeout(debounceTimer.current);
     const trimmed = inputValue.trim();
     if (trimmed.length >= 3) {
@@ -216,7 +236,7 @@ export default function AddressAutocomplete({
           )}
         </ListBox>
       </Popover>
-      {trimmedForHint.length >= 3 && !busy && suggestionItems.length === 0 ? (
+      {trimmedForHint.length >= 3 && !busy && noMatchesForCurrentQuery ? (
         <p className="text-sm text-[color:var(--color-text-muted)]" aria-live="polite">
           We currently support Washington, DC addresses and named places only.
         </p>

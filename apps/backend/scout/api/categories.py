@@ -19,4 +19,8 @@ async def list_categories(request: Request) -> JSONResponse:
     rows = frozen_category_manifest()
     categories = [ApiCategory.model_validate(row) for row in rows]
     body = CategoriesResponse(categories=categories)
-    return JSONResponse(status_code=200, content=body.model_dump(mode="json"))
+    return JSONResponse(
+        status_code=200,
+        content=body.model_dump(mode="json"),
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
