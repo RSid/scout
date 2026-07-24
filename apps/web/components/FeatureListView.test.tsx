@@ -248,7 +248,7 @@ describe("FeatureListView", () => {
           }),
           corridorPoint({
             id: "unsupported",
-            category: "bus_stops",
+            category: "fake_nonexistent_category",
             kind: "aid",
             condition: "Present",
             condition_normalized: "good",
@@ -270,7 +270,7 @@ describe("FeatureListView", () => {
     );
     expect(featureRows).toHaveLength(1);
     expect(screen.getAllByText(/Curb ramps/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/bus_stops/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/fake_nonexistent_category/i)).not.toBeInTheDocument();
   });
 
   it("renders refuge restroom notes as plain text, never as HTML", async () => {
