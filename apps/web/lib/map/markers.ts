@@ -28,20 +28,8 @@ export const ROUTE_MARKER_CATEGORY_IDS = [
 
 export type RouteMarkerCategoryId = (typeof ROUTE_MARKER_CATEGORY_IDS)[number];
 
-const OBSTACLE_CATEGORIES = new Set<RouteMarkerCategoryId>([
-  "curb_ramps",
-  "barriers",
-  "audible_signals",
-  "sidewalk_condition",
-  "driveways",
-]);
-
 /** Icon paint variant: obstacles use severity tokens; aids use `aid`. */
 export type ScoutMarkerSeverity = "mild" | "difficult" | "blocking" | "aid";
-
-function isObstacleMarkerCategory(cat: string): cat is RouteMarkerCategoryId {
-  return OBSTACLE_CATEGORIES.has(cat as RouteMarkerCategoryId);
-}
 
 function colorTokenForSeverity(severity: ScoutMarkerSeverity): ColorToken {
   switch (severity) {
