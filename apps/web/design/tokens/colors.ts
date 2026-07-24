@@ -43,6 +43,7 @@ export type ColorToken =
   | "danger-surface"
   | "danger-border"
   | "danger-text"
+  | "cluster-mixed"
   | "stale-surface"
   | "stale-text";
 
@@ -121,6 +122,7 @@ export const lightTheme: Readonly<Record<ColorToken, string>> = {
   "danger-surface": "#f7e3df",
   "danger-border": "#8d2818",
   "danger-text": "#6c1f12",
+  "cluster-mixed": "#b0832e",
   "stale-surface": "#f1e6c5",
   "stale-text": "#5c4318",
 };
@@ -152,6 +154,7 @@ export const darkTheme: Readonly<Record<ColorToken, string>> = {
   "danger-surface": "#2e1a18",
   "danger-border": "#e07b69",
   "danger-text": "#f5b9ad",
+  "cluster-mixed": "#d6b068",
   "stale-surface": "#2a2418",
   "stale-text": "#d6b068",
 };

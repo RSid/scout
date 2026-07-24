@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 from alembic import op
 
@@ -13,6 +14,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    if inspect(conn).has_table("utm_visits"):
+        return
+
     op.create_table(
         "utm_visits",
         sa.Column("id", sa.Integer(), autoincrement=True, primary_key=True),
