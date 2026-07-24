@@ -78,11 +78,7 @@ export function scoutMarkerIconId(
 function combosForCategories(): Iterable<readonly [string, ScoutMarkerSeverity]> {
   const out: [string, ScoutMarkerSeverity][] = [];
   for (const cat of ROUTE_MARKER_CATEGORY_IDS) {
-    if (isObstacleMarkerCategory(cat)) {
-      out.push([cat, "mild"], [cat, "difficult"], [cat, "blocking"]);
-    } else {
-      out.push([cat, "aid"]);
-    }
+    out.push([cat, "aid"], [cat, "mild"], [cat, "difficult"], [cat, "blocking"]);
   }
   return out;
 }
