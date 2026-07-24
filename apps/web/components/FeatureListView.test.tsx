@@ -55,6 +55,20 @@ function corridorPoint(
   };
 }
 
+/** Open the first block group so inner feature rows are visible. */
+async function openFirstBlockGroup(
+  container: HTMLElement,
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> {
+  const group = container.querySelector<HTMLDetailsElement>(
+    '[data-testid="block-group"]',
+  );
+  if (group && !group.open) {
+    const summary = group.querySelector(":scope > summary");
+    if (summary) await user.click(summary);
+  }
+}
+
 describe("FeatureListView", () => {
   it("shows along-route meter summary and emits Open on map with the corridor id", async () => {
     const user = userEvent.setup({ delay: null });
@@ -81,6 +95,7 @@ describe("FeatureListView", () => {
     );
 
     await screen.findByRole("heading", { name: /^Along your route/ });
+    await openFirstBlockGroup(container, user);
 
     expect(screen.getAllByText(/~\s*211(\.3)? meters from start/i)[0]).toBeVisible();
 
@@ -131,9 +146,13 @@ describe("FeatureListView", () => {
       />,
     );
 
-    const summary = container.querySelector("summary");
-    expect(summary).not.toBeNull();
-    await user.click(summary as HTMLElement);
+    await openFirstBlockGroup(container, user);
+
+    const featureSummary = container.querySelector(
+      '[data-testid="block-group"] details summary',
+    );
+    expect(featureSummary).not.toBeNull();
+    await user.click(featureSummary as HTMLElement);
 
     expect(await screen.findByTestId("freshness-chip")).toHaveTextContent(
       /Last inspected 2016/,
@@ -171,7 +190,13 @@ describe("FeatureListView", () => {
 
     await screen.findByRole("heading", { name: /^Along your route/ });
 
-    expect(container.querySelectorAll("details")).toHaveLength(2);
+    const blockGroups = container.querySelectorAll('[data-testid="block-group"]');
+    expect(blockGroups).toHaveLength(1);
+
+    const featureRows = container.querySelectorAll(
+      '[data-testid="block-group"] details',
+    );
+    expect(featureRows).toHaveLength(2);
   });
 
   it("labels a missing inspection year rather than printing a placeholder number", async () => {
@@ -196,12 +221,19 @@ describe("FeatureListView", () => {
       />,
     );
 
-    await user.click(container.querySelector("summary") as HTMLElement);
+    await openFirstBlockGroup(container, user);
+
+    const featureSummary = container.querySelector(
+      '[data-testid="block-group"] details summary',
+    );
+    await user.click(featureSummary as HTMLElement);
 
     expect(await screen.findByText(/inspection date unknown/i)).toBeInTheDocument();
   });
 
   it("excludes features whose category lacks map marker support", async () => {
+    const user = userEvent.setup({ delay: null });
+
     const { container } = render(
       <FeatureListView
         features={[
@@ -216,7 +248,7 @@ describe("FeatureListView", () => {
           }),
           corridorPoint({
             id: "unsupported",
-            category: "bus_stops",
+            category: "fake_nonexistent_category",
             kind: "aid",
             condition: "Present",
             condition_normalized: "good",
@@ -231,10 +263,14 @@ describe("FeatureListView", () => {
     );
 
     await screen.findByRole("heading", { name: /^Along your route/ });
+    await openFirstBlockGroup(container, user);
 
-    expect(container.querySelectorAll("details")).toHaveLength(1);
+    const featureRows = container.querySelectorAll(
+      '[data-testid="block-group"] details',
+    );
+    expect(featureRows).toHaveLength(1);
     expect(screen.getAllByText(/Curb ramps/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/bus_stops/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/fake_nonexistent_category/i)).not.toBeInTheDocument();
   });
 
   it("renders refuge restroom notes as plain text, never as HTML", async () => {
@@ -261,7 +297,12 @@ describe("FeatureListView", () => {
       />,
     );
 
-    await user.click(container.querySelector("summary") as HTMLElement);
+    await openFirstBlockGroup(container, user);
+
+    const featureSummary = container.querySelector(
+      '[data-testid="block-group"] details summary',
+    );
+    await user.click(featureSummary as HTMLElement);
 
     // The raw string is shown verbatim; no <img> element is injected.
     expect(
@@ -271,6 +312,8 @@ describe("FeatureListView", () => {
   });
 
   it("shows the derived street name in the summary and the sr-only line", async () => {
+    const user = userEvent.setup({ delay: null });
+
     const { container } = render(
       <FeatureListView
         features={[
@@ -292,6 +335,7 @@ describe("FeatureListView", () => {
     );
 
     await screen.findByRole("heading", { name: /^Along your route/ });
+    await openFirstBlockGroup(container, user);
 
     // Rendered in both the visible (aria-hidden) summary and the sr-only line.
     expect(screen.getAllByText(/on 14th St NW/).length).toBe(2);
@@ -301,7 +345,9 @@ describe("FeatureListView", () => {
   });
 
   it("falls back to the restroom address when there is no street name", async () => {
-    render(
+    const user = userEvent.setup({ delay: null });
+
+    const { container } = render(
       <FeatureListView
         features={[
           corridorPoint({
@@ -324,6 +370,7 @@ describe("FeatureListView", () => {
     );
 
     await screen.findByRole("heading", { name: /^Along your route/ });
+    await openFirstBlockGroup(container, user);
 
     expect(
       screen.getAllByText(/800 F Street NW, Washington, DC 20004/).length,
@@ -331,6 +378,8 @@ describe("FeatureListView", () => {
   });
 
   it("omits the location segment when neither a street nor an address exists", async () => {
+    const user = userEvent.setup({ delay: null });
+
     const { container } = render(
       <FeatureListView
         features={[
@@ -352,10 +401,11 @@ describe("FeatureListView", () => {
     );
 
     await screen.findByRole("heading", { name: /^Along your route/ });
+    await openFirstBlockGroup(container, user);
 
     // No leading separator for an absent location: the sr-only line is exactly
     // "category, condition, along-route" with no empty segment between them.
-    const srOnly = container.querySelector(".sr-only");
+    const srOnly = container.querySelector('[data-testid="block-group"] .sr-only');
     expect(srOnly?.textContent).toBe("Curb ramps, Good, ~30 meters from start");
   });
 });

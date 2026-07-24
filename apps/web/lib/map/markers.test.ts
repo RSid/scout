@@ -98,14 +98,7 @@ describe("registerScoutRouteMarkerSprites", () => {
   });
 
   it("registers raster sprites exactly once per required icon id", async () => {
-    const obstacleCategories = ROUTE_MARKER_CATEGORY_IDS.filter((c) =>
-      ["curb_ramps", "barriers", "audible_signals", "sidewalk_condition"].includes(c),
-    );
-    expect(obstacleCategories).toHaveLength(4);
-
-    const expectedIcons =
-      (ROUTE_MARKER_CATEGORY_IDS.length - obstacleCategories.length) * 1 +
-      obstacleCategories.length * 3;
+    const expectedIcons = ROUTE_MARKER_CATEGORY_IDS.length * 4;
 
     const mockMap = {
       hasImage: (): boolean => false,

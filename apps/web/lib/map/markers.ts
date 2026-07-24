@@ -21,23 +21,15 @@ export const ROUTE_MARKER_CATEGORY_IDS = [
   "rest_spots",
   "water_cooling",
   "sidewalk_condition",
+  "bus_stops",
+  "driveways",
+  "median_cut_throughs",
 ] as const;
 
 export type RouteMarkerCategoryId = (typeof ROUTE_MARKER_CATEGORY_IDS)[number];
 
-const OBSTACLE_CATEGORIES = new Set<RouteMarkerCategoryId>([
-  "curb_ramps",
-  "barriers",
-  "audible_signals",
-  "sidewalk_condition",
-]);
-
 /** Icon paint variant: obstacles use severity tokens; aids use `aid`. */
 export type ScoutMarkerSeverity = "mild" | "difficult" | "blocking" | "aid";
-
-function isObstacleMarkerCategory(cat: string): cat is RouteMarkerCategoryId {
-  return OBSTACLE_CATEGORIES.has(cat as RouteMarkerCategoryId);
-}
 
 function colorTokenForSeverity(severity: ScoutMarkerSeverity): ColorToken {
   switch (severity) {
@@ -74,11 +66,7 @@ export function scoutMarkerIconId(
 function combosForCategories(): Iterable<readonly [string, ScoutMarkerSeverity]> {
   const out: [string, ScoutMarkerSeverity][] = [];
   for (const cat of ROUTE_MARKER_CATEGORY_IDS) {
-    if (isObstacleMarkerCategory(cat)) {
-      out.push([cat, "mild"], [cat, "difficult"], [cat, "blocking"]);
-    } else {
-      out.push([cat, "aid"]);
-    }
+    out.push([cat, "aid"], [cat, "mild"], [cat, "difficult"], [cat, "blocking"]);
   }
   return out;
 }
