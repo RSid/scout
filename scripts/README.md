@@ -20,11 +20,11 @@ make ingest
 
 # Real write against the Compose DB (after `make docker-up`).
 docker compose --project-directory . -f infra/docker-compose.yml \
-    --profile ingest run --rm ingest --no-include-osm
+    --profile ingest run --rm ingest-features --no-include-osm
 
 # Full real run including OSM amenities.
 docker compose --project-directory . -f infra/docker-compose.yml \
-    --profile ingest run --rm ingest
+    --profile ingest run --rm ingest-features
 
 # Direct CLI for unusual setups (host-side Postgres, custom DSN, etc.).
 uv run --directory apps/backend python scripts/ingest_dc.py \

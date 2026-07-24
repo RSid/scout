@@ -106,13 +106,13 @@ ingest-dc-addresses: ## load bundled DC MAR addresses into Postgres (migration 0
 	@# Runs inside the Compose bridge network so `db:5432` resolves and the
 	@# host-side .env / SCOUT_DB_HOST_PORT remap never enter the picture.
 	@# Pass extra args after `--`, e.g. `make ingest-dc-addresses ARGS='--dry-run'`.
-	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest $(ARGS)
+	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest-addresses $(ARGS)
 
 ingest-dc-pois: ## load bundled DC MAR points-of-interest into Postgres (migration 0003 + data/dc_points_of_interest.jsonl); run ingest-dc-addresses first
 	@test -f "$(ROOT)/scripts/ingest_dc_points_of_interest.py" || { echo 'missing scripts/ingest_dc_points_of_interest.py'; exit 1; }
 	@# Same Compose-network rationale as ingest-dc-addresses; this ingest
 	@# depends on dc_addresses already being populated (it joins by MAR_ID).
-	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest-poi $(ARGS)
+	docker compose $(COMPOSE_FLAGS) --profile ingest run --rm ingest-pois $(ARGS)
 
 ingest-dc-street-segments: ## load DC street centerlines + stamp features.street_name (migration 0004 + data/dc_street_segments.jsonl); run ingest-write first
 	@test -f "$(ROOT)/scripts/ingest_dc_street_segments.py" || { echo 'missing scripts/ingest_dc_street_segments.py'; exit 1; }
