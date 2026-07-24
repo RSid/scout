@@ -56,7 +56,18 @@ export const en = {
   /** M1-F09 — parallel corridor list heading (DEC-021 sentence case). */
   alongRouteHeading: "Along your route",
   alongRouteLead:
-    "Listed from start toward your destination, in the order you'd pass them. Expand any row.",
+    "Grouped by block from start toward your destination. Expand any block to see details.",
+
+  /** Block-group expand/collapse toggles (block-grouping feature). */
+  blockExpandAll: "Expand all",
+  blockCollapseAll: "Collapse all",
+  /** Block-group header: "{n} features" count. Replace `{n}`. */
+  blockFeatureCountTemplate: "{n} features",
+  /** Block-group aid/obstacle summary. Replace `{n}`. */
+  blockAidsTemplate: "{n} aids",
+  blockAidsSingular: "1 aid",
+  blockObstaclesTemplate: "{n} obstacles",
+  blockObstaclesSingular: "1 obstacle",
 
   openOnMap: "Open on map",
   showMapToggle: "Show map",
@@ -153,6 +164,25 @@ export function freshnessChipText(year: number): string {
 
 export function asOfYearNote(year: number): string {
   return en.publicDataAsOfYearTemplate.replace("{year}", String(year));
+}
+
+/** Block-group feature count, e.g. "3 features". */
+export function blockFeatureCount(n: number): string {
+  return en.blockFeatureCountTemplate.replace("{n}", String(n));
+}
+
+/** Block-group aid count with singular/plural. */
+export function blockAidsLabel(n: number): string {
+  return n === 1
+    ? en.blockAidsSingular
+    : en.blockAidsTemplate.replace("{n}", String(n));
+}
+
+/** Block-group obstacle count with singular/plural. */
+export function blockObstaclesLabel(n: number): string {
+  return n === 1
+    ? en.blockObstaclesSingular
+    : en.blockObstaclesTemplate.replace("{n}", String(n));
 }
 
 export function summarizeMetersFromStartRounded(meters: number): string {

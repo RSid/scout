@@ -15,6 +15,9 @@ import {
 import { resolveLocationLabel } from "@/lib/map/location-label";
 import {
   asOfYearNote,
+  blockAidsLabel,
+  blockFeatureCount,
+  blockObstaclesLabel,
   en,
   freshnessChipText,
   inspectionUnknownLabel,
@@ -27,7 +30,9 @@ import { useProfile } from "@/lib/profile";
 
 import type { ReactElement } from "react";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const BLOCK_SIZE_METERS = 100;
 
 export type CorridorFeatureProps = CorridorResponse["features"][number];
 
@@ -90,6 +95,7 @@ function uniqMarkerCombos(
       typeof catRaw === "string"
         ? catRaw
         : String(catRaw ?? "unknown_mapped_category_row");
+    if (!hasMapMarkerSupport(cat)) return;
     const kind = typeof props?.kind === "string" ? props.kind : "";
     const norm =
       typeof props?.condition_normalized === "string" ? props.condition_normalized : "";
@@ -129,6 +135,75 @@ function ListFreshnessBlock({
     default:
       return null;
   }
+}
+
+type BlockGroup = Readonly<{
+  key: number;
+  startMeters: number;
+  endMeters: number;
+  streetName: string | null;
+  features: readonly CorridorFeatureProps[];
+  aidCount: number;
+  obstacleCount: number;
+}>;
+
+function groupByBlock(
+  features: readonly CorridorFeatureProps[],
+): readonly BlockGroup[] {
+  const buckets = new Map<number, CorridorFeatureProps[]>();
+
+  for (const feat of features) {
+    const raw = feat.properties as Record<string, unknown> | undefined;
+    const m = raw?.along_route_meters;
+    const bucket =
+      typeof m === "number" && Number.isFinite(m)
+        ? Math.floor(m / BLOCK_SIZE_METERS)
+        : -1;
+    let list = buckets.get(bucket);
+    if (list === undefined) {
+      list = [];
+      buckets.set(bucket, list);
+    }
+    list.push(feat);
+  }
+
+  const keys = [...buckets.keys()].sort((a, b) => a - b);
+
+  return keys.map((bucket) => {
+    const items = buckets.get(bucket)!;
+    let aidCount = 0;
+    let obstacleCount = 0;
+    let streetName: string | null = null;
+
+    for (const feat of items) {
+      const props = feat.properties as Record<string, unknown> | undefined;
+      const kind = typeof props?.kind === "string" ? props.kind : "obstacle";
+      if (kind === "aid") {
+        aidCount++;
+      } else {
+        obstacleCount++;
+      }
+      if (streetName === null) {
+        const sn = props?.street_name;
+        if (typeof sn === "string" && sn.trim().length > 0) {
+          streetName = sn.trim();
+        }
+      }
+    }
+
+    const start = bucket < 0 ? 0 : bucket * BLOCK_SIZE_METERS;
+    const end = start + BLOCK_SIZE_METERS;
+
+    return {
+      key: bucket,
+      startMeters: start,
+      endMeters: end,
+      streetName,
+      features: items,
+      aidCount,
+      obstacleCount,
+    };
+  });
 }
 
 function FeatureGlyph({
@@ -284,6 +359,134 @@ function FeatureRow({
   );
 }
 
+function BlockGroupSection({
+  group,
+  categoryById,
+  markerUrls,
+  selectedFeatureId,
+  onShowOnMap,
+}: Readonly<{
+  group: BlockGroup;
+  categoryById: ReadonlyMap<string, { label: string; description: string }>;
+  markerUrls: ReadonlyMap<string, string>;
+  selectedFeatureId: string | null;
+  onShowOnMap: (id: string) => void;
+}>) {
+  const total = group.features.length;
+  const rangeLabel = `${String(group.startMeters)}–${String(group.endMeters)}m`;
+  const title =
+    group.streetName !== null ? `${group.streetName} · ${rangeLabel}` : rangeLabel;
+
+  const barTotal = group.aidCount + group.obstacleCount;
+
+  return (
+    <li>
+      <details
+        data-testid="block-group"
+        className="rounded-tokenLg border border-border bg-surface-elevated text-[color:var(--color-text)]"
+      >
+        <summary className="flex cursor-pointer list-none flex-col gap-[var(--space-2)] px-[var(--space-4)] py-[var(--space-3)] [&::-webkit-details-marker]:hidden">
+          <span className="flex min-h-tap items-center gap-[var(--space-3)]">
+            <svg
+              aria-hidden
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              className="shrink-0 text-[color:var(--color-text-muted)] transition-transform [[open]>&]:rotate-90"
+            >
+              <path
+                d="M6 4l4 4-4 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="flex-1 text-left text-sm font-medium leading-snug">
+              {title}
+            </span>
+            <span className="text-xs text-[color:var(--color-text-muted)]">
+              {blockFeatureCount(total)}
+            </span>
+          </span>
+          <span className="flex h-[6px] gap-[2px] overflow-hidden rounded-full">
+            {group.aidCount > 0 ? (
+              <span
+                className="rounded-full bg-[color:var(--color-aid)]"
+                style={{ flex: group.aidCount / barTotal }}
+              />
+            ) : null}
+            {group.obstacleCount > 0 ? (
+              <span
+                className="rounded-full bg-[color:var(--color-obstacle-blocking)]"
+                style={{ flex: group.obstacleCount / barTotal }}
+              />
+            ) : null}
+          </span>
+          <span className="flex gap-[var(--space-3)] text-xs">
+            {group.aidCount > 0 ? (
+              <span className="flex items-center gap-1">
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full bg-[color:var(--color-aid)]"
+                />
+                <span className="text-[color:var(--color-text-muted)]">
+                  {blockAidsLabel(group.aidCount)}
+                </span>
+              </span>
+            ) : null}
+            {group.obstacleCount > 0 ? (
+              <span className="flex items-center gap-1">
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full bg-[color:var(--color-obstacle-blocking)]"
+                />
+                <span className="text-[color:var(--color-text-muted)]">
+                  {blockObstaclesLabel(group.obstacleCount)}
+                </span>
+              </span>
+            ) : null}
+          </span>
+        </summary>
+
+        <ol className="space-y-[var(--space-2)] border-t border-border px-[var(--space-3)] py-[var(--space-3)]">
+          {group.features.map((feat, idx) => {
+            const catId =
+              typeof feat.properties?.category === "string"
+                ? feat.properties.category
+                : "unknown_mapped_category_row";
+            const cat = categoryById.get(catId);
+            const label =
+              typeof cat?.label === "string" && cat.label.length > 0
+                ? cat.label
+                : catId;
+            const description =
+              typeof cat?.description === "string"
+                ? cat.description
+                : "Description unavailable for this category.";
+
+            return (
+              <FeatureRow
+                key={
+                  featureStableId(feat as CorridorFeatureProps, idx) ??
+                  `row-${String(idx)}`
+                }
+                feature={feat as CorridorFeatureProps}
+                categoryLabel={label}
+                categoryDescription={description}
+                markerUrls={markerUrls}
+                selectedFeatureId={selectedFeatureId}
+                onShowOnMap={onShowOnMap}
+              />
+            );
+          })}
+        </ol>
+      </details>
+    </li>
+  );
+}
+
 export default function FeatureListView({
   listingStatus,
   features,
@@ -337,6 +540,23 @@ export default function FeatureListView({
     });
   }, [features]);
 
+  const blockGroups = useMemo(
+    () => groupByBlock(sortedPointFeatures),
+    [sortedPointFeatures],
+  );
+
+  const listRef = useRef<HTMLOListElement>(null);
+
+  const toggleAll = useCallback(() => {
+    const ol = listRef.current;
+    if (ol === null) return;
+    const details = ol.querySelectorAll<HTMLDetailsElement>(":scope > li > details");
+    const allOpen = Array.from(details).every((d) => d.open);
+    details.forEach((d) => {
+      d.open = !allOpen;
+    });
+  }, []);
+
   const showUpdating = listingStatus === "loading" && features.length === 0;
   const showError = listingStatus === "error";
   const showEmpty =
@@ -384,39 +604,30 @@ export default function FeatureListView({
         </p>
       ) : null}
 
-      {!showEmpty && !showError && sortedPointFeatures.length > 0 ? (
-        <ol className="space-y-[var(--space-3)]">
-          {sortedPointFeatures.map((feat, idx) => {
-            const catId =
-              typeof feat.properties?.category === "string"
-                ? feat.properties.category
-                : "unknown_mapped_category_row";
-            const cat = categoryById.get(catId);
-            const label =
-              typeof cat?.label === "string" && cat.label.length > 0
-                ? cat.label
-                : catId;
-            const description =
-              typeof cat?.description === "string"
-                ? cat.description
-                : "Description unavailable for this category.";
-
-            return (
-              <FeatureRow
-                key={
-                  featureStableId(feat as CorridorFeatureProps, idx) ??
-                  `row-${String(idx)}`
-                }
-                feature={feat as CorridorFeatureProps}
-                categoryLabel={label}
-                categoryDescription={description}
+      {!showEmpty && !showError && blockGroups.length > 0 ? (
+        <>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="text-xs font-medium text-accent"
+            >
+              {en.blockExpandAll} / {en.blockCollapseAll}
+            </button>
+          </div>
+          <ol ref={listRef} className="space-y-[var(--space-3)]">
+            {blockGroups.map((group) => (
+              <BlockGroupSection
+                key={group.key}
+                group={group}
+                categoryById={categoryById}
                 markerUrls={markerUrls}
                 selectedFeatureId={selectedFeatureId}
                 onShowOnMap={onShowOnMap}
               />
-            );
-          })}
-        </ol>
+            ))}
+          </ol>
+        </>
       ) : null}
     </section>
   );
