@@ -508,6 +508,10 @@ export default function BasemapInner({
           cluster: true,
           clusterMaxZoom: 15,
           clusterRadius: 50,
+          clusterProperties: {
+            obstacle_count: ["+", ["case", ["==", ["get", "kind"], "obstacle"], 1, 0]],
+            aid_count: ["+", ["case", ["==", ["get", "kind"], "aid"], 1, 0]],
+          },
         });
 
         map.addLayer({
@@ -516,7 +520,14 @@ export default function BasemapInner({
           source: "cluster-points",
           filter: ["has", "point_count"],
           paint: {
-            "circle-color": resolveColorToken("text-muted"),
+            "circle-color": [
+              "case",
+              ["==", ["get", "aid_count"], 0],
+              resolveColorToken("obstacle-blocking"),
+              ["==", ["get", "obstacle_count"], 0],
+              resolveColorToken("aid"),
+              resolveColorToken("cluster-mixed"),
+            ],
             "circle-radius": ["step", ["get", "point_count"], 12, 10, 16, 20, 20],
             "circle-stroke-color": resolveColorToken("surface"),
             "circle-stroke-width": 2,
@@ -538,7 +549,14 @@ export default function BasemapInner({
           },
           paint: {
             "text-color": resolveColorToken("text-inverse"),
-            "text-halo-color": resolveColorToken("text-muted"),
+            "text-halo-color": [
+              "case",
+              ["==", ["get", "aid_count"], 0],
+              resolveColorToken("obstacle-blocking"),
+              ["==", ["get", "obstacle_count"], 0],
+              resolveColorToken("aid"),
+              resolveColorToken("cluster-mixed"),
+            ],
             "text-halo-width": 1,
           },
         });

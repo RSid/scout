@@ -51,6 +51,9 @@
   --color-obstacle-difficult: #b05b1a; /* outline on surface: 4.4:1 (AA-large) — marker fill only */
   --color-obstacle-blocking: #8d2818; /* outline on surface: 7.8:1 (AAA) */
 
+  /* Cluster aggregate — amber when a cluster mixes obstacles and aids. */
+  --color-cluster-mixed: #b0832e;
+
   /* Disclaimer banner (DEC-010) — warm warning tint that reads "important, not error". */
   --color-warning-surface: #faf1d0;
   --color-warning-border: #b0832e;
@@ -95,6 +98,8 @@
     --color-obstacle-difficult: #e0925a;
     --color-obstacle-blocking: #e07b69;
 
+    --color-cluster-mixed: #d6b068;
+
     --color-warning-surface: #2e2620;
     --color-warning-border: #d6b068;
     --color-warning-text: #f0d89a;
@@ -135,6 +140,8 @@
   --color-obstacle-mild: #d6b068;
   --color-obstacle-difficult: #e0925a;
   --color-obstacle-blocking: #e07b69;
+
+  --color-cluster-mixed: #d6b068;
 
   --color-warning-surface: #2e2620;
   --color-warning-border: #d6b068;
