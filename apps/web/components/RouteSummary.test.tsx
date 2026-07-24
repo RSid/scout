@@ -108,9 +108,7 @@ describe("RouteSummary", () => {
       <RouteSummary summary={null} mode="approx-fallback" />,
     );
 
-    expect(
-      screen.queryByText(/walking directions unavailable/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/directions unavailable/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/^unavailable$/i).length).toBeGreaterThan(0);
 
     const results = await axe(container);

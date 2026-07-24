@@ -60,7 +60,7 @@ export default function RouteSummary({ summary, mode }: RouteSummaryProps) {
 
   const placeholderValue =
     mode === "pending"
-      ? en.routeSummaryPendingWalkingTime
+      ? en.routeSummaryPendingTravelTime
       : en.routeSummaryUnavailableValue;
 
   const showFallbackSentence = summary?.fallbackProfileUsed === true;

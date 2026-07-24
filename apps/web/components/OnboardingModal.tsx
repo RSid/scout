@@ -65,8 +65,8 @@ export default function OnboardingModal() {
             className="mt-[var(--space-4)] sm:mt-[var(--space-5)]"
           >
             <p className="text-[color:var(--color-text)]">
-              Scout shows public accessibility data alongside walking routes in
-              Washington, DC. It&apos;s a planning aid, not a real-time safety guide.{" "}
+              Scout shows public accessibility data alongside routes in Washington, DC.
+              It&apos;s a planning aid, not a real-time safety guide.{" "}
               <InfoTooltip label="About Scout's data sources">
                 Scout&apos;s data comes from public datasets. Information may be out of
                 date, and it will not reflect real time street closures or recent

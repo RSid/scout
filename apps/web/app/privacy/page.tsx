@@ -10,8 +10,8 @@ export default function PrivacyPage() {
           Privacy
         </h1>
         <p className="text-[color:var(--color-text-muted)]">
-          Scout is built for people planning walking routes. It tries to know as little
-          about you as possible.
+          Scout is built for people planning routes. It tries to know as little about
+          you as possible.
         </p>
       </header>
 
@@ -38,8 +38,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Coordinates from your plan</strong> (start and destination) flow
-            through Scout to calculate walking directions. They aren&apos;t stored by
-            Scout.
+            through Scout to calculate directions. They aren&apos;t stored by Scout.
           </li>
           <li>
             <strong>Your IP address</strong> appears in Scout&apos;s server logs (used

@@ -28,7 +28,7 @@ test.describe("markers map states (axe placeholders)", () => {
     page,
   }) => {
     await page.goto("/plan");
-    await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+    await page.getByRole("heading", { name: /plan a route/i }).waitFor();
     await page.locator('[data-testid="basemap-shell"]').waitFor();
 
     const summary = page.getByTestId("scout-route-summary");

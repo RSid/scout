@@ -82,7 +82,7 @@ describe("PlanExperience", () => {
 
   /** Reuses keyboard affordances exercised in Playwright `/plan`; drives stub geocoder hits only. */
   async function keyboardPickBothAddresses(user: UserEvent): Promise<void> {
-    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+    await screen.findByRole("heading", { name: /^plan a route$/i });
 
     const plannerRegion = screen.getByRole("group", { name: /plan a route/i });
     const planner = within(plannerRegion);
@@ -214,7 +214,7 @@ describe("PlanExperience", () => {
       </AnnounceProvider>,
     );
 
-    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+    await screen.findByRole("heading", { name: /^plan a route$/i });
 
     const plannerRegion = screen.getByRole("group", { name: /plan a route/i });
     const planner = within(plannerRegion);
@@ -245,7 +245,7 @@ describe("PlanExperience", () => {
       </AnnounceProvider>,
     );
 
-    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+    await screen.findByRole("heading", { name: /^plan a route$/i });
     await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
 
     const toggle = screen.getByRole("button", { name: /^show map$/i });
@@ -264,7 +264,7 @@ describe("PlanExperience", () => {
       </AnnounceProvider>,
     );
 
-    await screen.findByRole("heading", { name: /^plan a walking route$/i });
+    await screen.findByRole("heading", { name: /^plan a route$/i });
 
     await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
 
@@ -321,7 +321,7 @@ describe("PlanExperience", () => {
 
       await waitFor(() => expect(routeSpy).toHaveBeenCalled());
 
-      expect(await screen.findByText(/walking directions unavailable/i)).toBeVisible();
+      expect(await screen.findByText(/directions unavailable/i)).toBeVisible();
 
       // The map + features pipeline still runs even though routing failed.
       await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
@@ -342,7 +342,7 @@ describe("PlanExperience", () => {
         </AnnounceProvider>,
       );
 
-      await screen.findByRole("heading", { name: /^plan a walking route$/i });
+      await screen.findByRole("heading", { name: /^plan a route$/i });
 
       await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
 

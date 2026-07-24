@@ -91,7 +91,7 @@ reader knows their own body and their own neighborhood better than we
 do. Our job is to give them what they need to make their own call.
 
 - Do: _"We don't have inspection data for this block. You may want to
-  scout it on foot first."_
+  check it in person first."_
 - Don't: _"We've determined this route is suitable for your needs."_
 
 ### 2.5 Honest about limits
@@ -192,12 +192,16 @@ Scout's domain involves a lot of "accessible X." Be precise.
 ### 4.4 Replace "wheelchair-informed routes"
 
 The phrase _"wheelchair-informed walking routes"_ describes the routing
-engine, not the user. It's banned in product copy.
+engine, not the user. It's banned in product copy. **So is bare
+"walking" as a route or time qualifier** — it assumes ambulatory
+movement and quietly excludes wheelchair users and others who don't
+walk. Use **"route"** (already the §6 house word) and **"travel time"**
+(mode-neutral, colloquial).
 
-- **Long form** (About, social cards): _"walking routes that avoid
+- **Long form** (About, social cards): _"routes that avoid
   common mobility obstacles."_
-- **Short form** (homepage hero, route view header): _"walking routes
-  with accessibility cues"_ or _"step-aware walking routes."_
+- **Short form** (homepage hero, route view header): _"routes
+  with accessibility cues"_ or _"step-aware routes."_
 - **Shortest form** (buttons, share titles): _"Plan a route"_ — the
   qualifier lives in the surrounding context.
 
@@ -230,7 +234,7 @@ column.
 
 | Concept | Use | Don't use | Notes |
 | --- | --- | --- | --- |
-| The trip the user is planning | **route** | trip, walk, journey, path | Matches DC data and routing engine terminology. "Trip" is okay in About prose where "route" would repeat. |
+| The trip the user is planning | **route** | trip, walk, walking route, journey, path | Matches DC data and routing engine terminology. "Walking route" assumes ambulatory movement (§4.4). "Trip" is okay in About prose where "route" would repeat. |
 | Things along a route the user wants to avoid | **obstacle** | barrier, hazard, problem | "Barrier" is reserved for the DC `BARRIERS_PUB_ROW` dataset where it's a term of art. |
 | Things along a route the user wants to find | **support** | aid, amenity, perk | "Support" reads more naturally than "aid." Code paths can stay `aid/` until refactored separately — this is a copy rule, not a code rule. |
 | A row of data on the map | _(don't surface)_ | feature, point, marker, datum | Use the concrete category: "restrooms," "curb ramps," "audible signals." "Feature" is internal/dev jargon. |
@@ -647,7 +651,7 @@ as a surprise on the route view. No _"welcome aboard,"_ no _"let's go."_
 Three sentences max in the intro; the rest of the modal is the
 categories form.
 
-- Do: _"Scout shows public accessibility data along walking routes in
+- Do: _"Scout shows public accessibility data along routes in
   DC. The data is from city sources and is sometimes years old. Pick
   the categories that matter to you below."_
 - Don't: _"Meet Scout previews — three quick beats before plotting a
@@ -673,7 +677,7 @@ The pitch lives here. One short paragraph that names who it's for, what
 it does, and what it isn't. No exclamation marks; no marketing-speak.
 Two sentences, ideally.
 
-- Do: _"Walking routes in DC, with accessibility data drawn on top. A
+- Do: _"Routes in DC, with accessibility data drawn on top. A
   planning aid, not verified navigation."_
 - Don't: _"Plan smarter, walk safer — Scout knows the way!"_
 
@@ -749,6 +753,10 @@ that explains the rule.
   never
 - _"wheelchair-informed routes"_ — banned product phrase (use §4.4
   alternatives)
+- _"walking route," "walking time," "walking directions"_ — assumes
+  ambulatory movement; use _"route," "travel time," "directions"_
+  (§4.4)
+- _"on foot"_ — use _"in person"_ instead
 
 ### 12.2 Anthropomorphism and product voice (§7.4, §7.7)
 

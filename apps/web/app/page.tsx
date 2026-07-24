@@ -30,7 +30,7 @@ export default function HomePage() {
         Scout
       </h1>
       <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-loose)] text-[color:var(--color-text-muted)]">
-        Walking routes in Washington, DC, paired with public accessibility data.
+        Routes in Washington, DC, paired with public accessibility data.
       </p>
       <div className="flex flex-wrap gap-[var(--space-4)]">
         <Link
