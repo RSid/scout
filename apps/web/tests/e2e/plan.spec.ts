@@ -79,7 +79,7 @@ async function keyboardFillPlannerAddressesFromStubHits(page: Page): Promise<voi
     { timeout: 45_000 },
   );
 
-  await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+  await page.getByRole("heading", { name: /plan a route/i }).waitFor();
 
   await dismissScoutOnboardingIfShown(page);
 
@@ -197,7 +197,7 @@ test.describe("plan view keyboard affordances", () => {
     );
 
     await page.goto("/plan");
-    await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+    await page.getByRole("heading", { name: /plan a route/i }).waitFor();
     await corridorLoaded;
 
     await page.getByRole("link", { name: "Skip to list", exact: true }).focus();
@@ -210,7 +210,7 @@ test.describe("plan view keyboard affordances", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
 
     await page.goto("/plan");
-    await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+    await page.getByRole("heading", { name: /plan a route/i }).waitFor();
 
     await expect
       .poll(async () =>
@@ -249,7 +249,7 @@ test.describe("Planner address autocomplete (M1-F03)", () => {
   });
 });
 
-test.describe("Rendered walking route + summary text (M1-F05)", () => {
+test.describe("Rendered route + summary text (M1-F05)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
@@ -261,7 +261,7 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
     await scoutMockApis(page);
   });
 
-  test("route summary region shows mocked distance and walking time after both picks", async ({
+  test("route summary region shows mocked distance and travel time after both picks", async ({
     page,
   }) => {
     await page.goto("/plan");
@@ -274,7 +274,7 @@ test.describe("Rendered walking route + summary text (M1-F05)", () => {
 
     const summaryCard = page.getByTestId("scout-route-summary");
 
-    await expect(summaryCard).not.toContainText(/walking directions unavailable/i);
+    await expect(summaryCard).not.toContainText(/directions unavailable/i);
 
     await expect(summaryCard.getByText(/942\s+meters/i)).toBeVisible({
       timeout: 30_000,
@@ -459,7 +459,7 @@ test.describe(
 
       await scoutMockApis(page);
       await page.goto("/plan");
-      await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+      await page.getByRole("heading", { name: /plan a route/i }).waitFor();
       await page.locator('[data-testid="basemap-shell"]').waitFor();
     });
 

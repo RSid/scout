@@ -26,7 +26,7 @@ test.describe("parallel list to map", () => {
 
   test("exposes Open on map buttons when corridor rows hydrate", async ({ page }) => {
     await page.goto("/plan");
-    await page.getByRole("heading", { name: /plan a walking route/i }).waitFor();
+    await page.getByRole("heading", { name: /plan a route/i }).waitFor();
 
     const openers = page.getByRole("button", { name: /^open on map$/i });
     await expect(openers.first()).toBeVisible();

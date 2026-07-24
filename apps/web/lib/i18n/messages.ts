@@ -4,7 +4,7 @@ export type LocaleMessages = Record<string, string>;
 
 export const en = {
   locale: "en",
-  scoutTitle: "Scout — walking routes and accessibility data for DC",
+  scoutTitle: "Scout — routes and accessibility data for DC",
   /** M1-F02: short aria-label fragment (≤10 words, PRD §6.1 + voice-and-copy §9.2). */
   mapPlanAriaLabel: "Interactive map of Washington, DC",
   /** Paired keyboard hint; surfaced via aria-describedby on the application landmark. */
@@ -14,34 +14,34 @@ export const en = {
   routeSummaryAriaLabel: "Route summary",
   routeSummaryHeading: "Route summary",
   routeDistanceLabel: "Distance",
-  routeDurationLabel: "Walking time",
+  routeDurationLabel: "Travel time",
   routeProfileFallbackNote:
-    "Wheelchair-aware routing wasn't available, so we used standard walking directions.",
+    "Wheelchair-aware routing wasn't available, so we used standard directions.",
   /** Shown when `POST /api/route` fails (e.g. routing service unreachable). */
-  routeUnavailableTitle: "Walking directions unavailable",
+  routeUnavailableTitle: "Directions unavailable",
   routeApproxFallbackExplanation:
-    "We couldn't reach the routing service, so we can't show walking directions " +
+    "We couldn't reach the routing service, so we can't show directions " +
     "right now. The map and the accessibility features below still work — try " +
     "again in a moment.",
   /** Announced via LiveRegion when `POST /api/route` succeeds (M1-F05.S4). */
   routeAnnouncementLoadedTemplate:
     "Route loaded: {distance_km} kilometers, {minutes} minutes",
   routeAnnouncementApproxFallback:
-    "Couldn't load walking directions from the planner. The map and nearby " +
+    "Couldn't load directions from the planner. The map and nearby " +
     "accessibility features still work.",
 
   /** Appended after base loaded announcement when `fallback_profile_used` is true. */
   routeAnnouncementWheelchairFallback:
-    "Wheelchair-aware routing wasn't available, so we used standard walking directions.",
+    "Wheelchair-aware routing wasn't available, so we used standard directions.",
   routeWarningsNoticesHeading: "Notices along this route",
-  routeSummaryPendingWalkingTime: "Calculating…",
+  routeSummaryPendingTravelTime: "Calculating…",
   /** Distance/time placeholder before a real route returns (no straight-line estimate). */
   routeSummaryUnavailableValue: "Unavailable",
 
   /** Planner status strip (single home for planner-wide state). */
-  plannerPendingTitle: "Finding a walking route…",
+  plannerPendingTitle: "Finding a route…",
   plannerPendingDetail:
-    "We'll show the route, distance, and walking time as soon as it's ready. " +
+    "We'll show the route, distance, and travel time as soon as it's ready. " +
     "No line is drawn until then.",
   plannerSampleTitle: "Pick a start and a destination",
   plannerSampleDetail:
@@ -56,7 +56,7 @@ export const en = {
   /** M1-F09 — parallel corridor list heading (DEC-021 sentence case). */
   alongRouteHeading: "Along your route",
   alongRouteLead:
-    "Listed from start toward your destination like you would walk. Expand any row.",
+    "Listed from start toward your destination, in the order you'd pass them. Expand any row.",
 
   openOnMap: "Open on map",
   showMapToggle: "Show map",
@@ -112,7 +112,7 @@ export const en = {
   lastInspectedShort: "last inspected",
 
   /** Raster marker registration failed mid-load — factual, terse (voice §9.5 ≤12 words). */
-  mapSpriteLoadFailure: "Scout couldn't load walking-route icons.",
+  mapSpriteLoadFailure: "Scout couldn't load route icons.",
 
   /** Map tile / WebGL outage — polite, factual (voice §7.4 tones). */
   mapGenericLoadFailure:

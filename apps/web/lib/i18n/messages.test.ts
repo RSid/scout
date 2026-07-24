@@ -16,14 +16,12 @@ describe("English UI strings scaffold", () => {
   });
 
   it("exports locale metadata alongside marketing title", () => {
-    expect(`${en.locale} ${en.scoutTitle}`).toMatch(
-      /walking routes and accessibility data/,
-    );
+    expect(`${en.locale} ${en.scoutTitle}`).toMatch(/routes and accessibility data/);
   });
 
   it("keeps route summary headings and fallback copy under stable keys (M1-F05)", () => {
     expect(en.routeSummaryHeading).toStrictEqual("Route summary");
-    expect(en.routeProfileFallbackNote).toContain("standard walking directions");
+    expect(en.routeProfileFallbackNote).toContain("standard directions");
   });
 
   it("builds polite route-loaded announcements from distance and duration", () => {
@@ -31,9 +29,7 @@ describe("English UI strings scaffold", () => {
       "Route loaded: 0.9 kilometers, 11 minutes",
     );
 
-    expect(routeAnnouncementApproxFallback()).toMatch(
-      /couldn't load walking directions/i,
-    );
+    expect(routeAnnouncementApproxFallback()).toMatch(/couldn't load directions/i);
   });
 
   it("prefixes a street location label with 'on' (M2-F24)", () => {

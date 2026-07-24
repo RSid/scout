@@ -365,7 +365,7 @@ export default function PlanExperience() {
             id="scout-plan-heading"
             className="text-3xl font-semibold text-[color:var(--color-text)]"
           >
-            Plan a walking route
+            Plan a route
           </h1>
           <p className="max-w-2xl text-[color:var(--color-text-muted)]">
             Pick a start and a destination. Until you set both points, Scout shows a

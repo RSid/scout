@@ -56,10 +56,10 @@ export default function AboutPage() {
           </Link>
         </h1>
         <p className="text-[length:var(--font-size-lg)] leading-[var(--line-height-loose)] text-[color:var(--color-text-muted)]">
-          Scout previews walking routes in Washington, DC and surfaces public
-          accessibility data alongside them. It&apos;s intended for use as a planning
-          aid, but it will not have the kind of live and up to date data that you might
-          expect from google or apple maps.
+          Scout previews routes in Washington, DC and surfaces public accessibility data
+          alongside them. It&apos;s intended for use as a planning aid, but it will not
+          have the kind of live and up to date data that you might expect from google or
+          apple maps.
         </p>
       </header>
 
