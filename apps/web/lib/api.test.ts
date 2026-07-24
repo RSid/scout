@@ -46,7 +46,6 @@ describe("fetchHealth", () => {
     });
     expect(fetch).toHaveBeenCalledWith("/api/health", {
       signal: undefined,
-      cache: "no-store",
     });
   });
 

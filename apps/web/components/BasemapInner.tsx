@@ -698,7 +698,12 @@ export default function BasemapInner({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || scoutMapBootstrapDone !== true || !map.isStyleLoaded?.()) {
+    // Not gated on `isStyleLoaded()` for the same reason as the route source
+    // below: `isStyleLoaded()` momentarily reports false right after the
+    // bootstrap `load` handler registers this source, so gating dropped the
+    // first (and often only) markerCollection update, leaving the source
+    // stuck at the empty initial value.
+    if (!map || scoutMapBootstrapDone !== true) {
       return;
     }
 

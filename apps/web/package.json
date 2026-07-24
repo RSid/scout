@@ -50,12 +50,16 @@
     "eslint-config-next": "~15.5.18",
     "jest-axe": "~9.0.0",
     "jsdom": "~26.0.0",
-    "postcss": "~8.5.6",
+    "postcss": "^8.5.12",
     "prettier": "~3.6.2",
     "tailwindcss": "~3.4.17",
     "typescript": "~5.7.3",
     "typescript-eslint": "~8.46.4",
     "vitest": "~3.0.9"
   },
-  "packageManager": "pnpm@8.12.0+sha1.7134f9b8d0b70bc7a1954f47af52123cd2b2acce"
+  "packageManager": "pnpm@8.12.0+sha1.7134f9b8d0b70bc7a1954f47af52123cd2b2acce",
+  "overrides": {
+    "sharp": ">=0.35.0",
+    "postcss": "$postcss"
+  }
 }
