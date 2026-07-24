@@ -221,3 +221,13 @@ class GeocodeReverseResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     hit: ApiAddressHit
+
+
+class UtmEvent(BaseModel):
+    """`POST /api/utm` — server-side UTM capture (no PII)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    source: Annotated[str, Field(min_length=1, max_length=200)]
+    medium: Annotated[str, Field(max_length=200)] = ""
+    campaign: Annotated[str, Field(max_length=200)] = ""

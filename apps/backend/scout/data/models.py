@@ -6,7 +6,7 @@ from datetime import datetime
 
 from geoalchemy2 import Geography
 from geoalchemy2.elements import WKBElement
-from sqlalchemy import DateTime, Float, SmallInteger, Text
+from sqlalchemy import Date, DateTime, Float, Integer, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -66,6 +66,17 @@ class DcAddress(Base):  # noqa: D401 — ORM table for bundled DC MAR autocomple
         Geography(geometry_type="POINT", srid=4326),
         nullable=False,
     )
+
+
+class UtmVisit(Base):  # noqa: D401
+    __tablename__ = "utm_visits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    medium: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    campaign: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    visited_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
 
 
 class DcStreetSegment(Base):  # noqa: D401 — ORM table for DC street centerlines
