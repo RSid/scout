@@ -55,7 +55,7 @@ class Settings(BaseSettings):
         default="refuge",
         description="restrooms adapter: refuge | stub",
     )
-    ors_base_url: str = Field(default="https://api.openrouteservice.org")
+    ors_base_url: str = Field(default="https://api.heigit.org")
     ors_api_key: str | None = Field(default=None)
     refuge_base_url: str = Field(
         default="https://www.refugerestrooms.org/api/v1",
