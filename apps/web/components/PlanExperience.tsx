@@ -198,6 +198,11 @@ export default function PlanExperience() {
     return () => controller.abort();
   }, [announce, destinationHit, routeKey, startHit]);
 
+  const routingUnavailable =
+    routeFetch.kind === "error" &&
+    routeKey !== null &&
+    routeFetch.routeKey === routeKey;
+
   /**
    * Geometry used to query corridor features. A straight-line approximation is
    * acceptable here even when routing is unavailable: the nearby DC features it
@@ -303,7 +308,7 @@ export default function PlanExperience() {
     void fetchCorridorFeatures(
       {
         route_geometry: corridorRouteFeature.geometry,
-        buffer_meters: 30,
+        buffer_meters: routingUnavailable ? 200 : 30,
         categories: enabledCategories,
       },
       controller.signal,
@@ -322,7 +327,7 @@ export default function PlanExperience() {
       });
 
     return () => controller.abort();
-  }, [announce, corridorRouteFeature, enabledCategories, isReady]);
+  }, [announce, corridorRouteFeature, enabledCategories, isReady, routingUnavailable]);
 
   const revealMapForSmallScreens = useCallback(() => {
     if (matchesDesktopMd === true) {
@@ -449,6 +454,14 @@ export default function PlanExperience() {
               <BasemapView
                 corridor={corridorFeatures}
                 route={mapRoute}
+                viewportHint={
+                  routingUnavailable && startHit && destinationHit
+                    ? {
+                        start: [startHit.lon, startHit.lat],
+                        end: [destinationHit.lon, destinationHit.lat],
+                      }
+                    : null
+                }
                 selectedFeatureId={selectedCorridorFeatureId}
                 onSelectFeature={setSelectedCorridorFeatureId}
               />
