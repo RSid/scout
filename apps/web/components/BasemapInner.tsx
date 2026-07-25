@@ -735,6 +735,19 @@ export default function BasemapInner({
 
     const src = map.getSource("cluster-points") as maplibregl.GeoJSONSource | undefined;
     src?.setData?.(markerCollection);
+
+    // When there's no route to frame (e.g. routing service down), fit the
+    // viewport to the corridor features so they're still visible on the map.
+    if (routeRef.current === null && markerCollection.features.length > 0) {
+      const bounds = lngLatBoundsForLeaves(markerCollection.features);
+      if (bounds !== null) {
+        fitBoundsA11y(map, bounds, {
+          padding: 48,
+          maxZoom: 15,
+          duration: 600,
+        });
+      }
+    }
   }, [markerCollection, scoutMapBootstrapDone]);
 
   useEffect(() => {
