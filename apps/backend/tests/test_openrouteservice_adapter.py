@@ -18,7 +18,7 @@ from scout.errors import RouteNotFoundError, RouteServiceUnavailableError
 @pytest.mark.asyncio
 @respx.mock
 async def test_openrouteservice_adapter_success() -> None:
-    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
     respx.post(wheelchair_url).respond(
         200,
         json={
@@ -44,7 +44,7 @@ async def test_openrouteservice_adapter_success() -> None:
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="unit-test-token",
-        ors_base_url="https://api.openrouteservice.org",
+        ors_base_url="https://api.heigit.org",
         cors_allowlist_csv="",
     )
 
@@ -66,7 +66,7 @@ async def test_openrouteservice_adapter_reads_feature_property_summary() -> None
     """Real ORS v2 directions/<profile>/geojson puts
     summary on features[0].properties."""
 
-    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
     respx.post(wheelchair_url).respond(
         200,
         json={
@@ -92,7 +92,7 @@ async def test_openrouteservice_adapter_reads_feature_property_summary() -> None
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="unit-test-token",
-        ors_base_url="https://api.openrouteservice.org",
+        ors_base_url="https://api.heigit.org",
         cors_allowlist_csv="",
     )
 
@@ -109,8 +109,8 @@ async def test_openrouteservice_adapter_reads_feature_property_summary() -> None
 @pytest.mark.asyncio
 @respx.mock
 async def test_openrouteservice_adapter_fallback() -> None:
-    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
-    foot_url = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson"
+    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
+    foot_url = "https://api.heigit.org/v2/directions/foot-walking/geojson"
     respx.post(wheelchair_url).respond(404)
     respx.post(foot_url).respond(
         200,
@@ -131,7 +131,7 @@ async def test_openrouteservice_adapter_fallback() -> None:
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="token",
-        ors_base_url="https://api.openrouteservice.org",
+        ors_base_url="https://api.heigit.org",
         cors_allowlist_csv="",
     )
 
@@ -157,14 +157,14 @@ def test_openrouteservice_routing_cache_keys_differ_across_profiles() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_openrouteservice_connect_timeout_is_route_unavailable() -> None:
-    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
     respx.post(wheelchair_url).mock(side_effect=httpx.ConnectTimeout("timeout"))
 
     settings = Settings(
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="unit-test-token",
-        ors_base_url="https://api.openrouteservice.org",
+        ors_base_url="https://api.heigit.org",
         cors_allowlist_csv="",
     )
 
@@ -179,14 +179,14 @@ async def test_openrouteservice_connect_timeout_is_route_unavailable() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_openrouteservice_rate_limit_is_route_unavailable() -> None:
-    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
+    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
     respx.post(wheelchair_url).respond(429)
 
     settings = Settings(
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="unit-test-token",
-        ors_base_url="https://api.openrouteservice.org",
+        ors_base_url="https://api.heigit.org",
         cors_allowlist_csv="",
     )
 
@@ -201,8 +201,8 @@ async def test_openrouteservice_rate_limit_is_route_unavailable() -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_openrouteservice_both_profiles_404_raises_not_found() -> None:
-    wheelchair_url = "https://api.openrouteservice.org/v2/directions/wheelchair/geojson"
-    foot_url = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson"
+    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
+    foot_url = "https://api.heigit.org/v2/directions/foot-walking/geojson"
     respx.post(wheelchair_url).respond(404)
     respx.post(foot_url).respond(404)
 
@@ -210,7 +210,7 @@ async def test_openrouteservice_both_profiles_404_raises_not_found() -> None:
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="token",
-        ors_base_url="https://api.openrouteservice.org",
+        ors_base_url="https://api.heigit.org",
         cors_allowlist_csv="",
     )
 
