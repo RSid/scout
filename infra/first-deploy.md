@@ -226,6 +226,12 @@ https://yourdomain.com {
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}
+
+	handle_errors {
+		root * /var/www/scout-maintenance
+		rewrite * /index.html
+		file_server
+	}
 }
 
 http://www.yourdomain.com {
@@ -245,6 +251,19 @@ sudo systemctl restart caddy
 > **Important:** keep HTTP and HTTPS in **separate blocks**. An unconditional
 > `redir https://…` inside a combined `yourdomain.com { }` block redirects HTTPS
 > requests to the same URL and causes a redirect loop.
+
+### Install the maintenance page
+
+The `handle_errors` block above serves a static page when the app container is
+unreachable (during deploys or restarts). Copy it into place:
+
+```bash
+sudo mkdir -p /var/www/scout-maintenance
+sudo cp infra/maintenance/index.html /var/www/scout-maintenance/index.html
+```
+
+To test it, stop the app container and visit the site — you should see the
+maintenance page instead of a Caddy error. Start the app again to resume.
 
 Confirm ports:
 

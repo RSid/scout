@@ -194,7 +194,7 @@ release: ## deploy main to prod, then tag the release (BUMP=patch|minor|major)
 	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo 'error: local main is not up to date with origin — pull or push first'; exit 1; }
 	$(eval VERSION := $(shell "$(ROOT)/scripts/next-version.sh" "$(BUMP)"))
 	@echo "==> deploying $$(git rev-parse --short HEAD) to $(SCOUT_DEPLOY_HOST) …"
-	ssh $(SCOUT_DEPLOY_HOST) 'cd $(SCOUT_DEPLOY_DIR) && git pull && docker compose $(PROD_COMPOSE) up -d --build'
+	ssh $(SCOUT_DEPLOY_HOST) 'cd $(SCOUT_DEPLOY_DIR) && git pull && docker compose $(PROD_COMPOSE) build && docker compose $(PROD_COMPOSE) up -d'
 	@echo "==> waiting for health check …"
 	@ssh $(SCOUT_DEPLOY_HOST) '\
 		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
@@ -213,7 +213,7 @@ rollback: ## redeploy a previous release tag (VERSION=vX.Y.Z)
 	@test -n "$(VERSION)" || { echo 'usage: make rollback VERSION=v0.1.0'; exit 1; }
 	@git rev-parse "$(VERSION)" >/dev/null 2>&1 || { echo 'error: tag $(VERSION) not found'; exit 1; }
 	@echo "==> rolling back to $(VERSION) on $(SCOUT_DEPLOY_HOST) …"
-	ssh $(SCOUT_DEPLOY_HOST) 'cd $(SCOUT_DEPLOY_DIR) && git fetch --tags && git checkout $(VERSION) && docker compose $(PROD_COMPOSE) up -d --build'
+	ssh $(SCOUT_DEPLOY_HOST) 'cd $(SCOUT_DEPLOY_DIR) && git fetch --tags && git checkout $(VERSION) && docker compose $(PROD_COMPOSE) build && docker compose $(PROD_COMPOSE) up -d'
 	@echo "==> waiting for health check …"
 	@ssh $(SCOUT_DEPLOY_HOST) '\
 		for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \

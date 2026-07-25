@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scout — updating</title>
+  <style>
+    :root {
+      --surface: #faf3dc;
+      --text: #221c14;
+      --text-muted: #5c5246;
+      --accent: #a8422a;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #1a1612;
+        --text: #f2ebdc;
+        --text-muted: #b5ab99;
+        --accent: #e89478;
+      }
+    }
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Atkinson Hyperlegible", system-ui, -apple-system,
+        "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 24px;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    main {
+      text-align: center;
+      max-width: 45ch;
+    }
+
+    .mark {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+
+    .mark svg {
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    p {
+      font-size: 1.125rem;
+      line-height: 1.7;
+      color: var(--text-muted);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 class="mark">
+      <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
+        <circle cx="10" cy="13" r="7" fill="none" stroke="currentColor" stroke-width="2.2"/>
+        <circle cx="10" cy="13" r="2.3" fill="currentColor"/>
+        <path d="M 17 8 L 21 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      Scout
+    </h1>
+    <p>Scout is updating and will be back in a moment. This usually takes less than a minute.</p>
+  </main>
+</body>
+</html>
