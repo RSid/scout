@@ -765,19 +765,16 @@ export default function BasemapInner({
     if (!map || scoutMapBootstrapDone !== true) {
       return;
     }
-    if (route !== null || viewportHint == null) {
+    if (route !== null || viewportHint === null || viewportHint === undefined) {
       return;
     }
-    const bounds: [[number, number], [number, number]] = [
-      [
-        Math.min(viewportHint.start[0], viewportHint.end[0]),
-        Math.min(viewportHint.start[1], viewportHint.end[1]),
-      ],
-      [
-        Math.max(viewportHint.start[0], viewportHint.end[0]),
-        Math.max(viewportHint.start[1], viewportHint.end[1]),
-      ],
-    ];
+    const bounds = lngLatBoundsForRoute({
+      type: "LineString",
+      coordinates: [viewportHint.start, viewportHint.end],
+    });
+    if (bounds === null) {
+      return;
+    }
     const reduceMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;

@@ -14,6 +14,8 @@ import { DEMO_ROUTE, DEMO_ROUTE_SUMMARY } from "@/lib/fixtures/route-plan-fixtur
 import { derivePlannerStatus } from "@/lib/planner-status";
 
 import {
+  CORRIDOR_BUFFER_METERS,
+  CORRIDOR_BUFFER_METERS_FALLBACK,
   fetchCorridorFeatures,
   fetchRoute,
   type CorridorResponse,
@@ -308,7 +310,9 @@ export default function PlanExperience() {
     void fetchCorridorFeatures(
       {
         route_geometry: corridorRouteFeature.geometry,
-        buffer_meters: routingUnavailable ? 200 : 30,
+        buffer_meters: routingUnavailable
+          ? CORRIDOR_BUFFER_METERS_FALLBACK
+          : CORRIDOR_BUFFER_METERS,
         categories: enabledCategories,
       },
       controller.signal,
