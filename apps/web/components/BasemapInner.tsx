@@ -1,6 +1,7 @@
 "use client";
 
 import type { ApiCategory, CorridorResponse } from "@/lib/api";
+import type { ViewportHint } from "@/components/BasemapView";
 import type { GeoJSON } from "geojson";
 import maplibregl from "maplibre-gl";
 /**
@@ -151,6 +152,7 @@ function fitMapViewportToRoute(
 export type BasemapInnerProps = Readonly<{
   corridor: CorridorResponse["features"];
   route: GeoJSON.Feature<GeoJSON.LineString> | null;
+  viewportHint?: ViewportHint | null | undefined;
   selectedFeatureId?: string | null | undefined;
   onSelectFeature?: ((id: string | null) => void) | undefined;
 }>;
@@ -182,6 +184,7 @@ const featureIdCandidate = corridorFeatureId;
 export default function BasemapInner({
   corridor,
   route,
+  viewportHint,
   selectedFeatureId = null,
   onSelectFeature,
 }: BasemapInnerProps) {
@@ -756,6 +759,32 @@ export default function BasemapInner({
       fitMapViewportToRoute(map, route.geometry, { preferInstant });
     }
   }, [route, scoutMapBootstrapDone]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || scoutMapBootstrapDone !== true) {
+      return;
+    }
+    if (route !== null || viewportHint === null || viewportHint === undefined) {
+      return;
+    }
+    const bounds = lngLatBoundsForRoute({
+      type: "LineString",
+      coordinates: [viewportHint.start, viewportHint.end],
+    });
+    if (bounds === null) {
+      return;
+    }
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.fitBounds(bounds, {
+      padding: 48,
+      maxZoom: 16,
+      animate: !reduceMotion,
+      duration: reduceMotion ? 0 : 600,
+    });
+  }, [viewportHint, route, scoutMapBootstrapDone]);
 
   const handleRailFocusChange = useCallback((nextIndex: number) => {
     setRailFocusIdx(nextIndex);

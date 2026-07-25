@@ -16,9 +16,15 @@ const LoadedMap = dynamic(() => import("./BasemapInner"), {
   ssr: false,
 });
 
+export type ViewportHint = Readonly<{
+  start: [number, number];
+  end: [number, number];
+}>;
+
 type BasemapProps = Readonly<{
   corridor: CorridorResponse["features"];
   route: GeoJSON.Feature<GeoJSON.LineString> | null;
+  viewportHint?: ViewportHint | null | undefined;
   selectedFeatureId?: string | null | undefined;
   onSelectFeature?: ((id: string | null) => void) | undefined;
 }>;
@@ -26,6 +32,7 @@ type BasemapProps = Readonly<{
 export default function BasemapView({
   corridor,
   route,
+  viewportHint,
   selectedFeatureId = null,
   onSelectFeature,
 }: BasemapProps) {
@@ -40,6 +47,7 @@ export default function BasemapView({
     <LoadedMap
       corridor={corridor}
       route={route}
+      viewportHint={viewportHint}
       selectedFeatureId={selectedFeatureId}
       onSelectFeature={onSelectFeature}
     />

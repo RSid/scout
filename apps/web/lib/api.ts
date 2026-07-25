@@ -2,6 +2,9 @@ import type { GeoJSON } from "geojson";
 
 import type { AddressHit } from "@/lib/providers/geocoding/protocol";
 
+export const CORRIDOR_BUFFER_METERS = 30;
+export const CORRIDOR_BUFFER_METERS_FALLBACK = 200;
+
 /** Server-side callers use relative `/api`; browser dev points at the host-published FastAPI port (`:8080` by default, overridable via `SCOUT_BACKEND_HOST_PORT`). Name must match `infra/docker-compose.yml` `NEXT_PUBLIC_SCOUT_API_BASE_URL`. */
 /** Browser dev normally points at the host-published API port (`NEXT_PUBLIC_SCOUT_API_BASE_URL` in `infra/docker-compose.yml`; unset for same-origin `/api/*`). Same-origin builds pair with `infra/docker-compose.mobile.yml` + `SCOUT_BACKEND_INTERNAL_URL` so `apps/web/next.config.ts` rewrites `/api/*` → `http://backend:8080/api/*`. Server Components may use relative `/api`. */
 export function apiBase(): string {
@@ -232,7 +235,7 @@ export async function fetchCorridorFeatures(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       route_geometry: payload.route_geometry,
-      buffer_meters: payload.buffer_meters ?? 30,
+      buffer_meters: payload.buffer_meters ?? CORRIDOR_BUFFER_METERS,
       categories: [...payload.categories],
     }),
     cache: "no-store",
