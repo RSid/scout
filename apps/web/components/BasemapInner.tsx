@@ -33,6 +33,7 @@ import {
 } from "@/lib/map/markers";
 import { resolveColorToken } from "@/design/tokens/colors";
 import { corridorClusterMixAnnouncement, en } from "@/lib/i18n/messages";
+import { prefersReducedMotion } from "@/lib/a11y";
 import { useProfile } from "@/lib/profile";
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
@@ -126,6 +127,20 @@ function lngLatBoundsForRoute(
   ];
 }
 
+function fitBoundsA11y(
+  map: maplibregl.Map,
+  bounds: maplibregl.LngLatBoundsLike,
+  opts: { padding: number; maxZoom: number; duration: number; instant?: boolean },
+): void {
+  const skip = opts.instant === true || prefersReducedMotion();
+  map.fitBounds(bounds, {
+    padding: opts.padding,
+    maxZoom: opts.maxZoom,
+    animate: !skip,
+    duration: skip ? 0 : opts.duration,
+  });
+}
+
 function fitMapViewportToRoute(
   map: maplibregl.Map,
   line: GeoJSON.LineString,
@@ -136,16 +151,14 @@ function fitMapViewportToRoute(
     return;
   }
 
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const shouldAnimate = opts?.preferInstant !== true && reduceMotion === false;
   // Tight padding + a generous zoom cap keep short routes (e.g. the first-load
   // sample) filling the frame instead of sitting small inside it. Long routes
   // settle well below the cap, so this only changes the close-up cases.
-  map.fitBounds(fitted, {
+  fitBoundsA11y(map, fitted, {
     padding: 24,
     maxZoom: 17,
-    animate: shouldAnimate,
-    duration: shouldAnimate ? 600 : 0,
+    duration: 600,
+    instant: opts?.preferInstant,
   });
 }
 
@@ -280,9 +293,7 @@ export default function BasemapInner({
         return;
       }
       const [lonRaw, latRaw] = target.geometry.coordinates;
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
+      const reduceMotion = prefersReducedMotion();
       map.easeTo({
         center: [Number(lonRaw), Number(latRaw)],
         zoom: Math.max(map.getZoom(), 16),
@@ -433,9 +444,7 @@ export default function BasemapInner({
 
     registerScoutPmtilesProtocol();
 
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reducedMotion = prefersReducedMotion();
     const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     const map = new maplibregl.Map({
@@ -501,7 +510,7 @@ export default function BasemapInner({
           paint: {
             "line-color": resolveColorToken("accent"),
             "line-width": 5,
-            "line-opacity": prefersReducedMotion ? 0.9 : 0.92,
+            "line-opacity": reducedMotion ? 0.9 : 0.92,
           },
         });
 
@@ -629,14 +638,13 @@ export default function BasemapInner({
               // reliably than a center+zoom guess.
               const bounds = lngLatBoundsForLeaves(leaves);
               if (bounds === null) {
-                map.zoomIn({ animate: prefersReducedMotion ? false : true });
+                map.zoomIn({ animate: !prefersReducedMotion() });
                 return;
               }
-              map.fitBounds(bounds, {
+              fitBoundsA11y(map, bounds, {
                 padding: 64,
                 maxZoom: 17,
-                animate: prefersReducedMotion ? false : true,
-                duration: prefersReducedMotion ? 0 : 360,
+                duration: 360,
               });
             })
             .catch(() => {
@@ -646,7 +654,7 @@ export default function BasemapInner({
               ) {
                 announceCount();
               }
-              map.zoomIn({ animate: prefersReducedMotion ? false : true });
+              map.zoomIn({ animate: !prefersReducedMotion() });
             });
         });
 
@@ -730,6 +738,19 @@ export default function BasemapInner({
 
     const src = map.getSource("cluster-points") as maplibregl.GeoJSONSource | undefined;
     src?.setData?.(markerCollection);
+
+    // When there's no route to frame (e.g. routing service down), fit the
+    // viewport to the corridor features so they're still visible on the map.
+    if (routeRef.current === null && markerCollection.features.length > 0) {
+      const bounds = lngLatBoundsForLeaves(markerCollection.features);
+      if (bounds !== null) {
+        fitBoundsA11y(map, bounds, {
+          padding: 48,
+          maxZoom: 15,
+          duration: 600,
+        });
+      }
+    }
   }, [markerCollection, scoutMapBootstrapDone]);
 
   useEffect(() => {
@@ -747,14 +768,9 @@ export default function BasemapInner({
     const data = route !== null ? featureCollection([route]) : EMPTY_FC;
     src?.setData?.(data);
 
-    if (
-      typeof window !== "undefined" &&
-      route !== null &&
-      route.geometry.coordinates.length >= 2
-    ) {
+    if (route !== null && route.geometry.coordinates.length >= 2) {
       const preferInstant =
-        pendingInitialRouteViewportRef.current ||
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        pendingInitialRouteViewportRef.current || prefersReducedMotion();
       pendingInitialRouteViewportRef.current = false;
       fitMapViewportToRoute(map, route.geometry, { preferInstant });
     }

@@ -31,6 +31,7 @@ import {
 import type { CorridorListingStatus } from "@/components/FeatureListView";
 
 import type { AddressHit } from "@/lib/providers/geocoding";
+import { prefersReducedMotion } from "@/lib/a11y";
 import { useProfile } from "@/lib/profile";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -344,9 +345,7 @@ export default function PlanExperience() {
 
   const scrollMapIntoComfort = useCallback(() => {
     queueMicrotask(() => {
-      const reduceMotion =
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches === true;
+      const reduceMotion = prefersReducedMotion();
       mapShellRef.current?.scrollIntoView({
         behavior: reduceMotion ? "auto" : "smooth",
         block: "nearest",
