@@ -152,7 +152,9 @@ def test_route_fallback_warning_round_trips() -> None:
 
 @respx.mock
 def test_route_cache_returns_second_response_without_second_ors_request() -> None:
-    wheelchair_url = "https://api.heigit.org/v2/directions/wheelchair/geojson"
+    wheelchair_url = (
+        "https://api.heigit.org/openrouteservice/v2/directions/wheelchair/geojson"
+    )
     route_stub = respx.post(wheelchair_url).respond(
         200,
         json={
@@ -177,7 +179,7 @@ def test_route_cache_returns_second_response_without_second_ors_request() -> Non
         database_url="postgresql+asyncpg://scout:scout@localhost:5444/pytest-db",
         routing_provider="openrouteservice",
         ors_api_key="unit-route-cache-token",
-        ors_base_url="https://api.heigit.org",
+        ors_base_url="https://api.heigit.org/openrouteservice",
         cors_allowlist_csv="",
     )
     routed_app = create_app(settings)

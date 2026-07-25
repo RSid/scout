@@ -158,7 +158,7 @@ Env vars, all optional with sensible defaults:
   - `SCOUT_GEOCODING_PROVIDER` — `local_dc` (default per DEC-023) | `stub`
   - `SCOUT_RESTROOMS_PROVIDER` — `refuge` (default) | `stub`
 - **Provider-specific config** (only read by the relevant adapter):
-  - `SCOUT_ORS_BASE_URL` — default `https://api.heigit.org`.
+  - `SCOUT_ORS_BASE_URL` — default `https://api.heigit.org/openrouteservice`.
   - `SCOUT_ORS_API_KEY` — required for the openrouteservice provider in prod.
   - `SCOUT_REFUGE_BASE_URL` — default `https://www.refugerestrooms.org/api/v1`.
 - `SCOUT_CACHE_DIR` — default `./.scout-cache`.
