@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -32,16 +33,11 @@ from scout.config import (
 )
 from scout.data.session import close_engine, init_engine_and_session
 from scout.errors import register_exception_handlers
+from scout.logging import configure_logging, correlation_id
 from scout.runtime_flags import scout_under_test
 from scout.security.rate_limit import install_rate_limiter
 
 LOGGER = logging.getLogger("scout")
-
-
-def configure_logging(level: str) -> None:
-    """Baseline logging until M1-T19 expands structured payloads."""
-
-    logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO))
 
 
 def run_startup_migrations(database_url: str) -> None:
@@ -105,9 +101,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def add_request_correlation_headers(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        correlation = request.headers.get("x-request-id") or str(uuid.uuid4())
-        response = await call_next(request)
-        response.headers.setdefault("x-request-id", correlation)
+        cid = request.headers.get("x-request-id") or str(uuid.uuid4())
+        token = correlation_id.set(cid)
+        t0 = time.monotonic()
+        try:
+            response = await call_next(request)
+        finally:
+            duration_ms = round((time.monotonic() - t0) * 1000, 2)
+            LOGGER.info(
+                "request_end",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code
+                    if "response" in locals()
+                    else 500,
+                    "duration_ms": duration_ms,
+                },
+            )
+            correlation_id.reset(token)
+        response.headers.setdefault("x-request-id", cid)
         return response
 
     app.include_router(health_router, prefix="/api")
