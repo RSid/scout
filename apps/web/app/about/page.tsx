@@ -76,7 +76,6 @@ export default function AboutPage() {
           Restrooms and OpenStreetMap. Where an inspection year is available we have
           annotated it, but community sources often don&apos;t have that available.
         </p>
-        <br />
         <ul className="divide-y divide-border rounded-tokenLg border border-border">
           {DATA_SOURCES.map((row) => (
             <li key={row.id} className="px-[var(--space-2)] py-[var(--space-2)]">
@@ -137,7 +136,7 @@ export default function AboutPage() {
           .
         </p>
       </section>
-      <br />
+
       <section className="space-y-[var(--space-4)]" aria-labelledby="license-heading">
         <h2
           id="license-heading"
@@ -172,7 +171,6 @@ export default function AboutPage() {
           </li>
         </ul>
       </section>
-      <br />
 
       <section className="space-y-[var(--space-4)]" aria-labelledby="contact-heading">
         <h2
