@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+const GITHUB_NEW_ISSUE =
+  "https://github.com/RSid/scout/issues/new?template=feature_request.yml";
+
 export default function HomePage() {
   return (
     <article className="mx-auto grid max-w-[var(--measure-body)] gap-[var(--space-6)] px-[var(--space-6)] py-[var(--space-16)]">
@@ -46,6 +49,18 @@ export default function HomePage() {
           About Scout
         </Link>
       </div>
+      <p className="text-[color:var(--color-text-muted)]">
+        Suggestions or feedback?{" "}
+        <Link
+          href={GITHUB_NEW_ISSUE}
+          className="font-semibold text-[color:var(--color-link)] underline underline-offset-4"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Create an issue on GitHub
+        </Link>
+        .
+      </p>
     </article>
   );
 }

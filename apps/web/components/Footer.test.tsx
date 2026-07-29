@@ -17,10 +17,13 @@ describe("<Footer/>", () => {
 
   it.each<[string, string]>([
     ["About Scout", "/about"],
-    ["Route planner", "/plan"],
+    ["Source on GitHub", "https://github.com/RSid/scout"],
+    [
+      "Suggest a feature",
+      "https://github.com/RSid/scout/issues/new?template=feature_request.yml",
+    ],
     ["Privacy policy", "/privacy"],
     ["Accessibility statement", "/accessibility"],
-    ["Source on GitHub", "https://github.com/RSid/scout"],
   ])("links %s to %s", (name, href) => {
     render(<Footer />);
     expect(screen.getByRole("link", { name }).getAttribute("href")).toBe(href);
