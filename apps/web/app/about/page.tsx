@@ -203,6 +203,20 @@ export default function AboutPage() {
           </li>
         </ul>
       </section>
+
+      <section className="space-y-[var(--space-4)]" aria-labelledby="about-maintainer">
+        <h2
+          id="maintainer-heading"
+          className="text-2xl font-semibold text-[color:var(--color-text)]"
+        >
+          About the maintainer
+        </h2>
+        <p>
+          I&apos;m Alla! I&apos;m a software engineer, local organizer, writer, and DC
+          native. I made Scout to help myself and others get around the city more
+          comfortably.
+        </p>
+      </section>
     </article>
   );
 }
