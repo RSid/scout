@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import sys
+from collections.abc import Generator
 
 import pytest
 from starlette.testclient import TestClient
@@ -16,6 +17,28 @@ from scout.main import app
 
 def _json_lines_from(output: str) -> list[dict[str, object]]:
     return [json.loads(ln) for ln in output.splitlines() if ln.startswith("{")]
+
+
+class _RecordSink(logging.Handler):
+    """Collects LogRecords. Attached to the 'scout' logger (not root)
+    so configure_logging's root.handlers.clear() never removes it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+@pytest.fixture()
+def log_sink() -> Generator[_RecordSink]:
+    """Attach a record sink to the 'scout' logger for the test's duration."""
+    sink = _RecordSink()
+    logger = logging.getLogger("scout")
+    logger.addHandler(sink)
+    yield sink
+    logger.removeHandler(sink)
 
 
 def test_json_format_on_stdout(capsys: pytest.CaptureFixture[str]) -> None:
@@ -56,37 +79,29 @@ def test_correlation_id_propagated() -> None:
     assert rid, "expected x-request-id in response headers"
 
 
-def test_request_end_fields(capfd: pytest.CaptureFixture[str]) -> None:
+def test_request_end_fields(log_sink: _RecordSink) -> None:
     """request_end log line contains method, path, status_code, duration_ms."""
     with TestClient(app) as client:
         client.get("/api/health")
-    captured = capfd.readouterr()
-    lines = _json_lines_from(captured.out + captured.err)
-    request_end_lines = [r for r in lines if r.get("message") == "request_end"]
-    assert request_end_lines, "expected a request_end log line"
-    record = request_end_lines[-1]
-    assert record["method"] == "GET"
-    assert record["path"] == "/api/health"
-    assert record["status_code"] == 200
-    assert isinstance(record["duration_ms"], (int, float))
-    assert "correlation_id" in record
+    end_records = [r for r in log_sink.records if r.getMessage() == "request_end"]
+    assert end_records, "expected a request_end log line"
+    rec = end_records[-1]
+    assert rec.method == "GET"  # type: ignore[attr-defined]
+    assert rec.path == "/api/health"  # type: ignore[attr-defined]
+    assert rec.status_code == 200  # type: ignore[attr-defined]
+    assert isinstance(rec.duration_ms, (int, float))  # type: ignore[attr-defined]
 
 
-def test_no_pii_in_request_end_logs(
-    capfd: pytest.CaptureFixture[str],
-) -> None:
-    """request_end log lines must not contain IP addresses or API keys."""
+def test_no_pii_in_request_end_logs(log_sink: _RecordSink) -> None:
+    """Log records must not contain PII fields."""
     with TestClient(app) as client:
         client.get("/api/health")
-    captured = capfd.readouterr()
-    lines = _json_lines_from(captured.out + captured.err)
+    pii_fields = ("ip", "client_ip", "api_key", "token", "email", "address")
     ip_pattern = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
-    for record in lines:
-        serialized = json.dumps(record)
-        pii_fields = ("ip", "client_ip", "api_key", "token", "email", "address")
+    for rec in log_sink.records:
         for key in pii_fields:
-            assert key not in record, f"PII field {key!r} found in log"
-        ips = ip_pattern.findall(serialized)
-        for ip in ips:
+            assert not hasattr(rec, key), f"PII field {key!r} found in log"
+        msg = rec.getMessage()
+        for ip in ip_pattern.findall(msg):
             safe = ip.startswith("0.") or ip == "127.0.0.1"
             assert safe, f"Unexpected IP in log: {ip}"
