@@ -1,0 +1,67 @@
+name: Feature request or suggestion
+description: Suggest a new feature, improvement, or change to Scout.
+title: "[feature] <one-line summary>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for Scout? We'd love to hear it!
+
+        **Before you open a new issue, please
+        [search existing issues](https://github.com/RSid/scout/issues?q=is%3Aissue+label%3Aenhancement)
+        to see if someone has already suggested something similar.** If so,
+        give it a 👍 and add a comment instead of filing a duplicate — it
+        helps us prioritize.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Describe the situation or frustration that prompted this idea.
+        What are you trying to do that Scout doesn't support well today?
+      placeholder: |
+        When I plan a route using a wheelchair, I can't tell whether
+        the sidewalks along the way have curb cuts...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe your ideal solution
+      description: |
+        How would you like Scout to work? Be as specific or as
+        hand-wavy as you'd like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: |
+        Have you tried a workaround, or is there another tool that
+        does something similar? Understanding what you've already
+        tried helps us design a better solution.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: |
+        Screenshots, mockups, links, or anything else that helps
+        illustrate the idea.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: dupe_check
+    attributes:
+      label: Duplicate check
+      options:
+        - label: I searched existing issues and didn't find a duplicate of this suggestion.
+          required: true
