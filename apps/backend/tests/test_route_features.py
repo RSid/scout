@@ -345,6 +345,45 @@ def test_route_features_skips_restrooms_when_not_enabled(
     assert ids == ["fixture:pg"] and fake.called is False
 
 
+class _FailingRestroomsProvider:
+    """Simulates Refuge API being down with no cache."""
+
+    async def list_in_bbox(self, bbox: Bbox) -> list[Restroom]:
+        del bbox
+        from scout.errors import RestroomsUpstreamUnavailableError
+
+        raise RestroomsUpstreamUnavailableError()
+
+
+def test_route_features_degrades_when_restrooms_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Corridor features must still return when the restrooms upstream is down."""
+
+    monkeypatch.setattr(
+        route_features_module, "corridor_features_geojson", _one_pg_feature(140.6)
+    )
+    app.dependency_overrides[restrooms_dependency] = _FailingRestroomsProvider
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/api/route-features",
+                json={
+                    "route_geometry": _VALID_LINE,
+                    "buffer_meters": 30,
+                    "categories": ["curb_ramps", "restrooms"],
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(restrooms_dependency, None)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    ids = [f["properties"]["id"] for f in body["features"]]
+    assert ids == ["fixture:pg"]
+    assert body["meta"]["feature_count_total"] == 1
+
+
 @pytest.mark.integration
 @pytest.mark.skipif(
     not os.getenv("SCOUT_RUN_PG_TESTS"),

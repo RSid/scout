@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -18,8 +19,10 @@ from scout.data.models import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-if config.config_file_name is not None:
+# Skip fileConfig when running inside the app lifespan — our JSON formatter
+# (scout.logging.configure_logging) is already wired up and fileConfig would
+# replace the root handler with a plain-text stderr handler.
+if config.config_file_name is not None and not logging.getLogger().handlers:
     fileConfig(config.config_file_name)
 
 

@@ -367,5 +367,26 @@ describe("PlanExperience", () => {
         0,
       );
     });
+
+    it("does not flash an error when a corridor fetch is aborted", async () => {
+      corridorSpy.mockRejectedValue(new DOMException("Aborted", "AbortError"));
+
+      render(
+        <AnnounceProvider>
+          <ProfileProvider>
+            <PlanExperience />
+          </ProfileProvider>
+        </AnnounceProvider>,
+      );
+
+      await screen.findByRole("heading", { name: /^plan a route$/i });
+
+      await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
+
+      // Give any erroneous state updates a chance to flush.
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(screen.queryByText(en.corridorListingErrorTitle)).not.toBeInTheDocument();
+    });
   });
 });

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -65,10 +66,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.restrooms_provider = get_restrooms_provider(resolved, client)
         try:
             if not scout_under_test():
+                await asyncio.to_thread(run_startup_migrations, resolved.database_url)
                 init_engine_and_session(resolved.database_url)
-                run_startup_migrations(resolved.database_url)
                 try:
-                    await app.state.restrooms_provider.list_in_bbox(DC_BBOX)
+                    await asyncio.wait_for(
+                        app.state.restrooms_provider.list_in_bbox(DC_BBOX),
+                        timeout=15.0,
+                    )
                     LOGGER.info("restrooms cache warmed at startup")
                 except Exception:
                     LOGGER.warning(

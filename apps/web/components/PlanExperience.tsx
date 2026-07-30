@@ -325,7 +325,10 @@ export default function PlanExperience() {
           corridorFetchSuccessAnnouncement(payload.features.length, payload.meta),
         );
       })
-      .catch(() => {
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") {
+          return;
+        }
         setCorridorFeatures([]);
         setCorridorListingStatus("error");
         announce(en.corridorListingFailedBrief);
