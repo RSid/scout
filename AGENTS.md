@@ -212,7 +212,7 @@ choices are left to the implementing agent; the principles are not.
   understand with HTTP 400 — never silently coerce.
 - **Minimal third-party scripts** (`NF-PRIV-01`). No fonts from a CDN, no
   embedded widgets. The only approved analytics provider is Umami Cloud
-  (cookie-free, gated on `NEXT_PUBLIC_UMAMI_WEBSITE_ID`).
+  (cookie-free, gated on `SCOUT_UMAMI_WEBSITE_ID`).
 - **L7 DDoS / WAF** is principally handled by whatever sits in front of the app
   (Cloudflare or equivalent) once we have a hostname. The app's job is per-IP
   rate limits, cheap health checks, and capping any unbounded query (e.g.

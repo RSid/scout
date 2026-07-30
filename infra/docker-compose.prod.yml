@@ -73,7 +73,7 @@ services:
       # Server-side middleware (UTM tracking) reaches uvicorn on the loopback.
       SCOUT_BACKEND_INTERNAL_URL: "http://127.0.0.1:8081"
       SCOUT_LOG_LEVEL: INFO
-      NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
+      SCOUT_UMAMI_WEBSITE_ID: ${SCOUT_UMAMI_WEBSITE_ID:-}
       # Public Caddy port inside the container; mapped to the host below.
       PORT: "8080"
     ports:
