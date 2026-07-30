@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scout — Routing preferences design brief</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<style>
+:root {
+  --pico-font-size: 16px;
+  --c-green: #2F7A2E;
+  --c-amber: #BA7517;
+  --c-rust: #A8422A;
+  --c-cream: #FAF3DC;
+  --c-gray-bg: #f5f3ee;
+  --c-blue: #2563eb;
+  --c-blue-bg: #eff6ff;
+}
+body { max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+h2 { font-size: 1.25rem; border-bottom: 2px solid var(--c-rust); padding-bottom: 0.3rem; margin-top: 2.5rem; }
+h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+.subtitle { color: #666; font-size: 0.95rem; margin-bottom: 2rem; }
+.confidence { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.conf-high { background: #dcfce7; color: #166534; }
+.conf-med { background: #fef9c3; color: #854d0e; }
+.conf-low { background: #fee2e2; color: #991b1b; }
+.callout { background: var(--c-blue-bg); border-left: 3px solid var(--c-blue); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1.5rem 0; }
+.callout p { margin: 0; }
+.constraint { background: var(--c-gray-bg); padding: 1rem 1.25rem; border-radius: 6px; margin: 1rem 0; }
+table { font-size: 0.9rem; }
+.mockup-frame { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; max-width: 340px; margin: 1rem auto; }
+.mockup-label { text-align: center; font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.phone { background: #fff; border-radius: 20px; border: 2px solid #d1d5db; padding: 14px 10px; display: flex; flex-direction: column; gap: 8px; }
+.wire { border: 1px dashed #d1d5db; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; color: #6b7280; }
+.wire-solid { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; background: #fff; }
+.seg-control { display: flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; font-size: 0.75rem; }
+.seg-opt { flex: 1; text-align: center; padding: 6px 2px; color: #6b7280; border-right: 1px solid #d1d5db; }
+.seg-opt:last-child { border-right: none; }
+.seg-active { background: var(--c-blue-bg); color: var(--c-blue); font-weight: 600; }
+.map-placeholder { background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 6px; min-height: 100px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #9ca3af; }
+.explain-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #fff; font-size: 0.8rem; }
+.explain-header { font-size: 0.7rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+.explain-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; color: #4b5563; line-height: 1.4; }
+.dot-icon { width: 18px; height: 18px; min-width: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; margin-top: 1px; }
+.dot-green { background: #dcfce7; color: #166534; }
+.dot-amber { background: #fef9c3; color: #854d0e; }
+.dot-gray { background: #f3f4f6; color: #9ca3af; }
+.preset-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; font-size: 0.8rem; }
+.preset-active { border: 2px solid var(--c-blue); background: var(--c-blue-bg); }
+.preset-icon { width: 26px; height: 26px; min-width: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+.pi-blue { background: #dbeafe; }
+.pi-amber { background: #fef3c7; }
+.pi-gray { background: #f3f4f6; }
+.toggle-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.8rem; }
+.toggle-name { font-weight: 500; }
+.toggle-desc { font-size: 0.7rem; color: #9ca3af; }
+.toggle-switch { width: 32px; height: 18px; border-radius: 9px; margin-left: auto; position: relative; }
+.t-on { background: var(--c-blue); }
+.t-off { background: #d1d5db; }
+.t-knob { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; }
+.tk-on { right: 2px; }
+.tk-off { left: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 14px; border: 1px solid #d1d5db; font-size: 0.75rem; background: #fff; }
+.section-label { font-size: 0.7rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.3px; margin: 10px 0 6px; }
+.fallback-bar { background: #fef9c3; border-radius: 6px; padding: 8px 10px; font-size: 0.75rem; color: #854d0e; line-height: 1.4; margin-top: 8px; }
+.route-summary { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+.route-time { font-weight: 600; font-size: 0.95rem; }
+.route-dist { color: #9ca3af; }
+.anno { font-size: 0.65rem; color: var(--c-blue); font-weight: 600; background: var(--c-blue-bg); padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+.divider { height: 1px; background: #e5e7eb; margin: 8px 0; }
+.agent-prompt { background: #1e1e2e; color: #cdd6f4; padding: 1.25rem; border-radius: 8px; font-family: monospace; font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; overflow-x: auto; }
+@media print {
+  body { max-width: 100%; }
+  .mockup-frame { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<h1>Routing preferences design brief</h1>
+<p class="subtitle">Scout &mdash; accessibility-aware routing for Washington, DC<br>
+Prepared for UX design prototyping &middot; July 2026</p>
+
+<h2>Context</h2>
+
+<p>Scout helps people with mobility-related accessibility needs plan routes in DC. It shows obstacles (broken curb ramps, sidewalk gaps, missing audible signals) and supports (accessible restrooms, benches, accessible bus stops) along the exact route, filtered to the categories that affect each person's specific needs.</p>
+
+<p>Today, Scout requests routes from OpenRouteService using the <code>wheelchair</code> profile with no additional parameters. If wheelchair routing fails, it silently falls back to <code>foot-walking</code>. Users have no control over routing behavior and no visibility into what the route does or doesn't account for.</p>
+
+<div class="callout">
+<p><strong>The core problem:</strong> Different people have very different mobility needs &mdash; a power wheelchair user, a manual wheelchair user, a walker user, and someone walking with a cane all get identical routes. And everyone gets zero explanation of why a route was chosen or what it avoids.</p>
+</div>
+
+<h2>Product principles (binding)</h2>
+
+<p>These are Scout's product goals in priority order. Every design decision should be evaluated against them:</p>
+
+<ol>
+<li><strong>Reduce uncertainty before a trip.</strong> A person should know in under a minute whether a planned route in DC is feasible for their specific needs.</li>
+<li><strong>Be honest about data quality.</strong> Every datapoint shows when it was last inspected. Never imply knowing more than the data tells.</li>
+<li><strong>Be itself accessible.</strong> WCAG 2.2 AA conformance. Where map info would be visual-only, a parallel non-map view is always available.</li>
+<li><strong>Be portable, free, and durable.</strong></li>
+</ol>
+
+<h2>Voice constraints (binding)</h2>
+
+<p>Scout's voice is <strong>clear, friendly, civic, community-minded, and honest about limits</strong>. These apply to every surface:</p>
+
+<div class="constraint">
+<ul>
+<li>Like a well-written transit sign &mdash; never sales-y, never "delight"-y</li>
+<li>The reader knows their own body better than we do &mdash; our job is to give them facts to make their own call</li>
+<li>No exclamation marks in user-facing copy, ever</li>
+<li>Use "route" not "trip" or "walk"; use "obstacle" not "barrier"; use "support" not "aid"</li>
+<li>Never use "walking route" or "walking time" &mdash; assumes ambulatory movement</li>
+<li>Task-descriptive disability language: "people who use a wheelchair" not "wheelchair-bound"</li>
+<li>Flesch-Kincaid grade 8 or lower for body copy, 6 or lower for microcopy</li>
+</ul>
+</div>
+
+<h2>Persona spectrum</h2>
+
+<p>The primary persona is <strong>the partially-mobile DC resident</strong> &mdash; ambulatory, can walk short distances, may use a cane, brace, or occasional wheelchair. But the design must serve a broader spectrum without centering any single device or condition:</p>
+
+<table>
+<thead><tr><th>Person</th><th>Needs from routing</th><th>Needs along the way</th></tr></thead>
+<tbody>
+<tr><td>Power wheelchair user</td><td>Handles inclines, needs wider paths</td><td>Curb ramps, accessible restrooms</td></tr>
+<tr><td>Manual wheelchair user</td><td>Avoids steep grades, prefers smooth surfaces</td><td>Curb ramps, rest areas</td></tr>
+<tr><td>Walker/rollator user</td><td>Avoids steep curbs, tolerates rougher surfaces</td><td>Benches, smooth crossings</td></tr>
+<tr><td>Walking with a cane/brace</td><td>Wants to know route difficulty, avoids worst grades</td><td>Benches, audible signals</td></tr>
+<tr><td>Ambulatory, no device</td><td>Wants route difficulty info (cardiac, chronic fatigue, etc.)</td><td>Rest stops, audible signals</td></tr>
+<tr><td>Blind/low-vision</td><td>May walk without mobility device</td><td>Audible signals at crossings are critical</td></tr>
+</tbody>
+</table>
+
+<h2>Available ORS parameters (backend)</h2>
+
+<p>OpenRouteService's wheelchair profile accepts restrictions that can tune routing. The designer does not need to expose these directly &mdash; they are the levers behind the scenes:</p>
+
+<table>
+<thead><tr><th>Parameter</th><th>What it does</th><th>DC data coverage</th></tr></thead>
+<tbody>
+<tr><td><code>maximum_incline</code></td><td>Steepest slope the router will consider (3&ndash;15%)</td><td>Spotty</td></tr>
+<tr><td><code>maximum_sloped_kerb</code></td><td>Tallest curb the router will cross</td><td>Good on main sidewalks</td></tr>
+<tr><td><code>minimum_width</code></td><td>Narrowest path the router will use</td><td>Spotty</td></tr>
+<tr><td><code>surface_type</code></td><td>Worst acceptable surface (concrete &rarr; unpaved)</td><td>Good on main sidewalks</td></tr>
+<tr><td><code>smoothness_type</code></td><td>Minimum smoothness (excellent &rarr; horrible)</td><td>Moderate</td></tr>
+</tbody>
+</table>
+
+<h2>Design treatments</h2>
+
+<p>Below are three treatments to prototype. <strong>Treatments A and B are recommended as a pair.</strong> Treatment C is a comparison approach.</p>
+
+<!-- TREATMENT A -->
+<h3>Treatment A: Route explanation card <span class="confidence conf-high">90% confidence</span></h3>
+
+<p>After a route is generated, show a collapsible summary of what this route does and doesn't encounter &mdash; not as configuration, but as transparency. The card has two sections mirroring the user's profile: <strong>Route</strong> (surface, grade, curbs) and <strong>Along the way</strong> (audible signals, benches, restrooms based on their toggle selections).</p>
+
+<p>When wheelchair routing fails and Scout falls back to foot-walking, show an explicit warning instead of failing silently.</p>
+
+<p><strong>Why it fits Scout:</strong> Directly serves goal 1 (reduce uncertainty) and goal 2 (be honest about data quality). Zero new controls &mdash; just information. Addresses the silent-fallback problem.</p>
+
+<div class="mockup-frame">
+<p class="mockup-label">Route explanation card (expanded)</p>
+<div class="phone">
+  <div class="route-summary">
+    <span class="route-time">22 min</span>
+    <span class="route-dist">1.1 mi</span>
+  </div>
+  <div class="explain-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <span style="font-weight:600; font-size:0.85rem;">About this route</span>
+      <span style="font-size:0.7rem; color:#9ca3af;">&#9650;</span>
+    </div>
+    <p class="explain-header">Route</p>
+    <div class="explain-row"><span class="dot-icon dot-green">&#10003;</span><span>Paved sidewalks throughout</span></div>
+    <div class="explain-row"><span class="dot-icon dot-amber">&#9888;</span><span>Moderate hill on Q St NW (7% grade)</span></div>
+    <div class="divider"></div>
+    <p class="explain-header">Along the way</p>
+    <div class="explain-row"><span class="dot-icon dot-amber">&#9888;</span><span>No audible signal at Connecticut Ave and Q St NW</span></div>
+    <div class="explain-row"><span class="dot-icon dot-green">&#10003;</span><span>2 benches near Dupont Circle fountain</span></div>
+    <div class="explain-row"><span class="dot-icon dot-gray">&mdash;</span><span style="color:#9ca3af;">Restroom alerts off</span></div>
+  </div>
+</div>
+</div>
+
+<div class="mockup-frame">
+<p class="mockup-label">Fallback warning variant</p>
+<div class="fallback-bar">&#9888; Wheelchair routing unavailable for this route. Showing a walking route instead &mdash; it may include obstacles.</div>
+</div>
+
+<p><strong>Prototype checklist:</strong></p>
+<ul>
+<li>Collapsed vs. expanded state (what shows by default?)</li>
+<li>How the "along the way" items map to the user's profile toggles</li>
+<li>The muted "off" row &mdash; does it help discoverability or add clutter?</li>
+<li>The fallback warning &mdash; placement, dismissibility, tone</li>
+</ul>
+
+<!-- TREATMENT B -->
+<h3>Treatment B: Inclusive routing profile <span class="confidence conf-high">85% confidence</span></h3>
+
+<p>A profile modal structured in two independent sections: <strong>"How you move"</strong> (controls the ORS routing engine) and <strong>"What you need along the way"</strong> (controls which of Scout's existing aid/obstacle categories are surfaced on the route). The active profile appears as a compact chip on the planner.</p>
+
+<p>"How you move" offers 3 presets that don't assume a specific device: Wheelchair, Walking with support (cane, brace, limited stamina), and On foot, no device (still shows route difficulty). These map to ORS parameter bundles behind the scenes.</p>
+
+<p>"What you need along the way" uses independent toggles for audible signals, rest stops, and accessible restrooms. These are orthogonal to how someone moves &mdash; a blind person walking without a device still needs audible signal alerts.</p>
+
+<p><strong>Why it fits Scout:</strong> Two independent axes avoid the "wheelchair-only" framing trap. Absorbs the existing accessibility preferences flow into one place rather than creating a parallel system.</p>
+
+<div class="mockup-frame">
+<p class="mockup-label">Routing profile modal</p>
+<div class="phone">
+  <div style="text-align:center; margin-bottom:6px;">
+    <div style="width:30px; height:3px; border-radius:2px; background:#d1d5db; margin:0 auto;"></div>
+  </div>
+  <div style="font-weight:600; font-size:0.95rem; margin-bottom:2px;">Your routing profile</div>
+  <div style="font-size:0.8rem; color:#6b7280; margin-bottom:12px;">Tell Scout what matters to you. Routes and alerts adjust to match.</div>
+
+  <p class="section-label">How you move</p>
+  <div class="preset-row preset-active">
+    <div class="preset-icon pi-blue">&#9855;</div>
+    <div style="flex:1;"><span class="toggle-name">Wheelchair</span></div>
+    <div style="width:16px; height:16px; border-radius:50%; border:2px solid var(--c-blue); display:flex; align-items:center; justify-content:center;"><div style="width:8px; height:8px; border-radius:50%; background:var(--c-blue);"></div></div>
+  </div>
+  <div class="preset-row">
+    <div class="preset-icon pi-amber">&#128694;</div>
+    <div style="flex:1;"><span class="toggle-name">Walking with support</span><br><span class="toggle-desc">Cane, brace, or limited stamina</span></div>
+    <div style="width:16px; height:16px; border-radius:50%; border:2px solid #d1d5db;"></div>
+  </div>
+  <div class="preset-row">
+    <div class="preset-icon pi-gray">&rarr;</div>
+    <div style="flex:1;"><span class="toggle-name">On foot, no device</span><br><span class="toggle-desc">Still show route difficulty</span></div>
+    <div style="width:16px; height:16px; border-radius:50%; border:2px solid #d1d5db;"></div>
+  </div>
+
+  <p class="section-label">What you need along the way <span class="anno">New</span></p>
+  <div class="toggle-row">
+    <div style="flex:1;"><span class="toggle-name">Audible signals</span><br><span class="toggle-desc">Alert me to crossings without them</span></div>
+    <div class="toggle-switch t-on"><div class="t-knob tk-on"></div></div>
+  </div>
+  <div class="toggle-row">
+    <div style="flex:1;"><span class="toggle-name">Rest stops</span><br><span class="toggle-desc">Show benches and seating</span></div>
+    <div class="toggle-switch t-on"><div class="t-knob tk-on"></div></div>
+  </div>
+  <div class="toggle-row">
+    <div style="flex:1;"><span class="toggle-name">Accessible restrooms</span><br><span class="toggle-desc">Show restrooms near the route</span></div>
+    <div class="toggle-switch t-off"><div class="t-knob tk-off"></div></div>
+  </div>
+</div>
+</div>
+
+<div class="mockup-frame">
+<p class="mockup-label">Active profile chip on planner</p>
+<div class="phone">
+  <div class="wire-solid">Union Station</div>
+  <div class="wire-solid">Eastern Market</div>
+  <div style="margin-top:4px;">
+    <span class="chip">&#9855; Walking with support &#9662;</span>
+  </div>
+  <div class="map-placeholder" style="margin-top:4px;">Map with route overlay</div>
+</div>
+</div>
+
+<p><strong>Prototype checklist:</strong></p>
+<ul>
+<li>Relationship between "how you move" presets and the existing accessibility categories flow &mdash; does this replace it or sit alongside?</li>
+<li>What "walking with support" means for the ORS engine (still wheelchair profile with looser restrictions? foot-walking with Scout's own obstacle overlay?)</li>
+<li>How the chip on the planner interacts with tapping &mdash; opens full modal, or a quick switcher?</li>
+<li>First-use vs. returning-user flow &mdash; when does this modal first appear?</li>
+</ul>
+
+<!-- TREATMENT C -->
+<h3>Treatment C: Route comfort dial <span class="confidence conf-med">78% confidence</span></h3>
+
+<p>A single three-position control on the planner: <strong>Cautious</strong> (flattest, smoothest, widest paths) &rarr; <strong>Balanced</strong> (Scout's current defaults) &rarr; <strong>Direct</strong> (tolerates rougher surfaces, steeper grades). Each position maps to a coordinated set of ORS restriction values.</p>
+
+<p><strong>Why it fits Scout:</strong> Acknowledges that mobility needs shift day-to-day without requiring configuration. One control, no jargon, no units. Pairs well with treatments A and B &mdash; the profile sets a baseline, the dial adjusts per-trip.</p>
+
+<p><strong>Risk:</strong> Loses nuance. Someone who handles steep inclines but can't tolerate cobblestone gets a bad tradeoff at every position. Mitigated by pairing with the explanation card (treatment A).</p>
+
+<div class="mockup-frame">
+<p class="mockup-label">Comfort dial on planner</p>
+<div class="phone">
+  <div class="wire-solid">Dupont Circle</div>
+  <div class="wire-solid">Georgetown Library</div>
+  <div style="margin-top:4px;">
+    <div style="font-size:0.7rem; color:#9ca3af; margin-bottom:3px;">Route comfort</div>
+    <div class="seg-control">
+      <div class="seg-opt">Cautious</div>
+      <div class="seg-opt seg-active">Balanced</div>
+      <div class="seg-opt">Direct</div>
+    </div>
+  </div>
+  <div class="map-placeholder" style="margin-top:8px;">Map with route overlay</div>
+</div>
+</div>
+
+<p><strong>Prototype checklist:</strong></p>
+<ul>
+<li>Does the dial coexist with the profile chip (treatment B), or do they compete for the same slot?</li>
+<li>If they coexist: profile = "who I am," dial = "how I feel today" &mdash; is that clear or confusing?</li>
+<li>Three positions vs. a continuous slider &mdash; which feels more Scout?</li>
+</ul>
+
+<h2>Design questions to resolve in prototyping</h2>
+
+<ol>
+<li><strong>Profile vs. preferences:</strong> Does the new routing profile replace or absorb the existing accessibility categories (the obstacle/support toggles)? A single "your routing profile" that handles both would be cleaner, but it's a larger change.</li>
+<li><strong>When does the profile modal first appear?</strong> During onboarding? First route? Or only when tapped? The answer depends on whether we want to front-load the setup or let people discover it.</li>
+<li><strong>Comfort dial + profile chip in the same view:</strong> If both live below the search bar, is the planner too busy? The designer should explore: (a) both visible, (b) dial only after profile is set, (c) dial hidden inside the explanation card.</li>
+<li><strong>Explanation card default state:</strong> Collapsed (saves space, user expands on demand) or expanded (serves the "reduce uncertainty" goal by default)? Probably expanded on first use, collapsed on repeat visits.</li>
+<li><strong>"Walking with support" backend mapping:</strong> This preset might still use ORS's wheelchair profile with more permissive restrictions, or it might use <code>foot-walking</code> with Scout's own obstacle data providing the awareness layer. The UX should not reveal this seam. But the designer should know that foot-walking routes won't respect surface/incline restrictions &mdash; only Scout's overlay data would flag obstacles.</li>
+</ol>
+
+<h2>Accessibility requirements (non-negotiable)</h2>
+
+<div class="constraint">
+<ul>
+<li>WCAG 2.2 AA across the board</li>
+<li>Color is never the sole signal &mdash; pair every color cue with shape, icon, or label</li>
+<li>Touch targets at least 44x44px</li>
+<li>Keyboard parity for every mouse and touch action</li>
+<li>The explanation card content must have a non-map textual equivalent</li>
+<li>Toggle switches need programmatic labels and announce state changes via live regions</li>
+<li>The segmented control (comfort dial) must be keyboard-navigable as a radio group</li>
+<li><code>prefers-reduced-motion</code> and <code>prefers-color-scheme</code> honored</li>
+</ul>
+</div>
+
+<h2>Scout's design system (reference)</h2>
+
+<table>
+<tr><td><strong>Colors</strong></td><td>Rust accent (#A8422A), cream surface (#FAF3DC), forest green for supports (#2F7A2E), brick severity ramp for obstacles. Full light and dark themes.</td></tr>
+<tr><td><strong>Typography</strong></td><td>Atkinson Hyperlegible (Braille Institute). Self-hosted. Scale from 12px to 48px.</td></tr>
+<tr><td><strong>Spacing</strong></td><td>4/8/12/16/24/32/48/64px scale. Min interactive target 44px.</td></tr>
+<tr><td><strong>Markers</strong></td><td>Angular shapes for obstacles, rounded shapes for supports. Severity encoded by color within the same shape.</td></tr>
+<tr><td><strong>Motion</strong></td><td>Honors <code>prefers-reduced-motion</code>. Max duration 320ms.</td></tr>
+</table>
+
+<h2>Recommended prototype plan</h2>
+
+<ol>
+<li><strong>Round 1 (primary):</strong> Treatments A + B together. The explanation card and routing profile as one coherent system. This is the highest-value, lowest-risk combination.</li>
+<li><strong>Round 2 (comparison):</strong> Add treatment C (comfort dial) to the round 1 prototype. Explore whether it's complementary or redundant with the profile presets.</li>
+<li><strong>Edge cases to sketch:</strong> The fallback warning. An explanation card when data coverage is poor ("Surface data unavailable for this section"). The profile modal on first visit vs. return visit.</li>
+</ol>
+
+</body>
+</html>
