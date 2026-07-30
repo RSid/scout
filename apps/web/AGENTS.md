@@ -116,7 +116,7 @@ axe(container)).toHaveNoViolations()`.
 - Don't load fonts from Google Fonts or any third-party CDN
   (`NF-PRIV-01`). Self-host under `apps/web/public/fonts/`.
 - Analytics: Umami Cloud (hobby tier) is the only approved analytics
-  provider. It is gated on `NEXT_PUBLIC_UMAMI_WEBSITE_ID` — see
+  provider. It is gated on `SCOUT_UMAMI_WEBSITE_ID` — see
   `apps/web/README.md` for setup. Don't add other analytics or telemetry.
 - Don't render the map server-side.
 - Don't use `next/image` for map markers — use the SVG sprite layer in

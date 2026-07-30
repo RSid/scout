@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const umamiId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
+  const umamiId = process.env.SCOUT_UMAMI_WEBSITE_ID;
   return (
     <html lang="en">
       {umamiId && (

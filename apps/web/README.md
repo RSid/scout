@@ -69,14 +69,14 @@ The `utm_visits` table stores one row per unique `(source, medium, campaign, dat
 
 ## Analytics (Umami Cloud)
 
-Privacy-friendly visitor analytics via [Umami Cloud](https://cloud.umami.is) (hobby tier — free, no cookies). The tracking script loads only when `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is set.
+Privacy-friendly visitor analytics via [Umami Cloud](https://cloud.umami.is) (hobby tier — free, no cookies). The tracking script loads only when `SCOUT_UMAMI_WEBSITE_ID` is set.
 
 ### Setup
 
 1. Create a free account at [cloud.umami.is](https://cloud.umami.is).
 2. Add a website (e.g. `scout-dc.com`) and copy the **Website ID** (a UUID).
 3. Set the env var:
-   - **Local dev**: add `NEXT_PUBLIC_UMAMI_WEBSITE_ID=<your-id>` to `.env` (optional — leave unset to disable tracking locally).
+   - **Local dev**: add `SCOUT_UMAMI_WEBSITE_ID=<your-id>` to `.env` (optional — leave unset to disable tracking locally).
    - **Production**: add it to `infra/docker-compose.prod.yml` environment or your deploy's env config. The prod compose already has the variable wired up; just set it in `.env` on the host.
 4. Restart the app. The script tag in `app/layout.tsx` renders only when the env var is present.
 
