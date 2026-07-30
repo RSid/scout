@@ -51,7 +51,9 @@ RUN npm ci --no-audit --no-fund
 
 COPY apps/web/ ./
 
+ARG SCOUT_UMAMI_WEBSITE_ID
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV SCOUT_UMAMI_WEBSITE_ID=${SCOUT_UMAMI_WEBSITE_ID}
 RUN npm run build
 
 
