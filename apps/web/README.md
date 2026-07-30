@@ -77,8 +77,8 @@ Privacy-friendly visitor analytics via [Umami Cloud](https://cloud.umami.is) (ho
 2. Add a website (e.g. `scout-dc.com`) and copy the **Website ID** (a UUID).
 3. Set the env var:
    - **Local dev**: add `SCOUT_UMAMI_WEBSITE_ID=<your-id>` to `.env` (optional — leave unset to disable tracking locally).
-   - **Production**: add it to `infra/docker-compose.prod.yml` environment or your deploy's env config. The prod compose already has the variable wired up; just set it in `.env` on the host.
-4. Restart the app. The script tag in `app/layout.tsx` renders only when the env var is present.
+   - **Production**: set it in `.env` on the host. The prod compose passes it as a Docker build arg, so the value is baked into the Next.js standalone bundle at image build time. `make release` rebuilds the image automatically.
+4. Deploy (or restart for local dev). The script tag in `app/layout.tsx` renders only when the env var was set at build time.
 
 ### Verifying
 

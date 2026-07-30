@@ -51,6 +51,8 @@ services:
       context: .
       dockerfile: infra/Dockerfile
       target: runtime
+      args:
+        SCOUT_UMAMI_WEBSITE_ID: ${SCOUT_UMAMI_WEBSITE_ID:-}
     image: scout-app:prod
     container_name: scout-prod-app
     depends_on:
