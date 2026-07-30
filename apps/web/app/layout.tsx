@@ -17,8 +17,18 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const umamiId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
   return (
     <html lang="en">
+      {umamiId && (
+        <head>
+          <script
+            defer
+            src="https://cloud.umami.is/script.js"
+            data-website-id={umamiId}
+          />
+        </head>
+      )}
       <body className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] antialiased">
         <Providers>
           <main id="main" tabIndex={-1} className="focus:outline-none">

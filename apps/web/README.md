@@ -67,6 +67,23 @@ ORDER BY visited_date;
 
 The `utm_visits` table stores one row per unique `(source, medium, campaign, date)` combination with a `hit_count` that increments on each visit. The migration is in `apps/backend/alembic/versions/0005_utm_visits.py`.
 
+## Analytics (Umami Cloud)
+
+Privacy-friendly visitor analytics via [Umami Cloud](https://cloud.umami.is) (hobby tier — free, no cookies). The tracking script loads only when `NEXT_PUBLIC_UMAMI_WEBSITE_ID` is set.
+
+### Setup
+
+1. Create a free account at [cloud.umami.is](https://cloud.umami.is).
+2. Add a website (e.g. `scout-dc.com`) and copy the **Website ID** (a UUID).
+3. Set the env var:
+   - **Local dev**: add `NEXT_PUBLIC_UMAMI_WEBSITE_ID=<your-id>` to `.env` (optional — leave unset to disable tracking locally).
+   - **Production**: add it to `infra/docker-compose.prod.yml` environment or your deploy's env config. The prod compose already has the variable wired up; just set it in `.env` on the host.
+4. Restart the app. The script tag in `app/layout.tsx` renders only when the env var is present.
+
+### Verifying
+
+Open browser DevTools → Network tab. If the env var is set, you should see a request to `https://cloud.umami.is/script.js`. Visit data appears in your Umami Cloud dashboard within a few minutes.
+
 ## Contracts
 
 Everything talks to FastAPI via HTTP only—see **`lib/api.ts`**. Never import Python code.

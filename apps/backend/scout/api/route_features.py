@@ -96,12 +96,15 @@ async def post_route_features(
 
     restroom_features: list[dict[str, Any]] = []
     if RESTROOMS_CATEGORY in cat_tuple:
-        restrooms = await restrooms_provider.list_in_bbox(
-            _route_bbox(numeric_coords, float(buf))
-        )
-        restroom_features = restrooms_along_route(
-            restrooms_to_features(restrooms), numeric_coords, float(buf)
-        )
+        try:
+            restrooms = await restrooms_provider.list_in_bbox(
+                _route_bbox(numeric_coords, float(buf))
+            )
+            restroom_features = restrooms_along_route(
+                restrooms_to_features(restrooms), numeric_coords, float(buf)
+            )
+        except Exception:
+            LOGGER.warning("restrooms fetch failed; returning corridor without them")
 
     merged = features_raw + restroom_features
     merged.sort(
