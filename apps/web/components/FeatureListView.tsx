@@ -372,6 +372,12 @@ function BlockGroupSection({
   selectedFeatureId: string | null;
   onShowOnMap: (id: string) => void;
 }>) {
+  const [hasOpened, setHasOpened] = useState(false);
+
+  const revealContent = useCallback(() => {
+    if (!hasOpened) setHasOpened(true);
+  }, [hasOpened]);
+
   const total = group.features.length;
   const rangeLabel = `${String(group.startMeters)}–${String(group.endMeters)}m`;
   const title =
@@ -385,7 +391,10 @@ function BlockGroupSection({
         data-testid="block-group"
         className="rounded-tokenLg border border-border bg-surface-elevated text-[color:var(--color-text)]"
       >
-        <summary className="flex cursor-pointer list-none flex-col gap-[var(--space-2)] px-[var(--space-4)] py-[var(--space-3)] [&::-webkit-details-marker]:hidden">
+        <summary
+          onClick={revealContent}
+          className="flex cursor-pointer list-none flex-col gap-[var(--space-2)] px-[var(--space-4)] py-[var(--space-3)] [&::-webkit-details-marker]:hidden"
+        >
           <span className="flex min-h-tap items-center gap-[var(--space-3)]">
             <svg
               aria-hidden
@@ -450,38 +459,40 @@ function BlockGroupSection({
           </span>
         </summary>
 
-        <ol className="space-y-[var(--space-2)] border-t border-border px-[var(--space-3)] py-[var(--space-3)]">
-          {group.features.map((feat, idx) => {
-            const catId =
-              typeof feat.properties?.category === "string"
-                ? feat.properties.category
-                : "unknown_mapped_category_row";
-            const cat = categoryById.get(catId);
-            const label =
-              typeof cat?.label === "string" && cat.label.length > 0
-                ? cat.label
-                : catId;
-            const description =
-              typeof cat?.description === "string"
-                ? cat.description
-                : "Description unavailable for this category.";
+        {hasOpened ? (
+          <ol className="space-y-[var(--space-2)] border-t border-border px-[var(--space-3)] py-[var(--space-3)]">
+            {group.features.map((feat, idx) => {
+              const catId =
+                typeof feat.properties?.category === "string"
+                  ? feat.properties.category
+                  : "unknown_mapped_category_row";
+              const cat = categoryById.get(catId);
+              const label =
+                typeof cat?.label === "string" && cat.label.length > 0
+                  ? cat.label
+                  : catId;
+              const description =
+                typeof cat?.description === "string"
+                  ? cat.description
+                  : "Description unavailable for this category.";
 
-            return (
-              <FeatureRow
-                key={
-                  featureStableId(feat as CorridorFeatureProps, idx) ??
-                  `row-${String(idx)}`
-                }
-                feature={feat as CorridorFeatureProps}
-                categoryLabel={label}
-                categoryDescription={description}
-                markerUrls={markerUrls}
-                selectedFeatureId={selectedFeatureId}
-                onShowOnMap={onShowOnMap}
-              />
-            );
-          })}
-        </ol>
+              return (
+                <FeatureRow
+                  key={
+                    featureStableId(feat as CorridorFeatureProps, idx) ??
+                    `row-${String(idx)}`
+                  }
+                  feature={feat as CorridorFeatureProps}
+                  categoryLabel={label}
+                  categoryDescription={description}
+                  markerUrls={markerUrls}
+                  selectedFeatureId={selectedFeatureId}
+                  onShowOnMap={onShowOnMap}
+                />
+              );
+            })}
+          </ol>
+        ) : null}
       </details>
     </li>
   );
@@ -553,7 +564,11 @@ export default function FeatureListView({
     const details = ol.querySelectorAll<HTMLDetailsElement>(":scope > li > details");
     const allOpen = Array.from(details).every((d) => d.open);
     details.forEach((d) => {
-      d.open = !allOpen;
+      if (!allOpen && !d.open) {
+        d.querySelector<HTMLElement>(":scope > summary")?.click();
+      } else {
+        d.open = !allOpen;
+      }
     });
   }, []);
 

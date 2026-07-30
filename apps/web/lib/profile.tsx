@@ -193,7 +193,7 @@ export function useProfile(): ProfileContextValue {
  * unreachable so the panel still offers the full M1 category set rather than a
  * single-row stub. Keep in sync with the backend if the canonical list changes.
  */
-const SAMPLE_CATEGORIES_FALLBACK: ApiCategory[] = [
+export const SAMPLE_CATEGORIES_FALLBACK: ApiCategory[] = [
   {
     id: "curb_ramps",
     label: "Curb ramps",

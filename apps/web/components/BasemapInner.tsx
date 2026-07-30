@@ -185,10 +185,12 @@ function registerScoutPmtilesProtocol(): void {
   );
 }
 
-function featureCollection(feats: GeoJSON.Feature[]): GeoJSON.FeatureCollection {
+function featureCollection(
+  feats: readonly GeoJSON.Feature[],
+): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
-    features: structuredClone(feats),
+    features: [...feats],
   };
 }
 

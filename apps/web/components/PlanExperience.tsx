@@ -32,7 +32,7 @@ import type { CorridorListingStatus } from "@/components/FeatureListView";
 
 import type { AddressHit } from "@/lib/providers/geocoding";
 import { prefersReducedMotion } from "@/lib/a11y";
-import { useProfile } from "@/lib/profile";
+import { SAMPLE_CATEGORIES_FALLBACK, useProfile } from "@/lib/profile";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -66,7 +66,7 @@ type RouteFetchSlice =
 
 export default function PlanExperience() {
   const announce = useAnnounce();
-  const { categories, selections, isReady } = useProfile();
+  const { categories, selections } = useProfile();
 
   const [startHit, setStartHit] = useState<AddressHit | null>(null);
   const [destinationHit, setDestinationHit] = useState<AddressHit | null>(null);
@@ -116,11 +116,8 @@ export default function PlanExperience() {
   }, []);
 
   const enabledCategories = useMemo(() => {
-    if (!isReady) {
-      return [];
-    }
-
-    return categories
+    const cats = categories.length > 0 ? categories : SAMPLE_CATEGORIES_FALLBACK;
+    return cats
       .filter((category) => {
         const override = selections[category.id];
         const enabled =
@@ -128,7 +125,7 @@ export default function PlanExperience() {
         return enabled;
       })
       .map((category) => category.id);
-  }, [categories, isReady, selections]);
+  }, [categories, selections]);
 
   const routeKey =
     startHit !== null && destinationHit !== null
@@ -294,11 +291,6 @@ export default function PlanExperience() {
   }
 
   useEffect(() => {
-    if (!isReady) {
-      setCorridorListingStatus("idle");
-      return undefined;
-    }
-
     if (enabledCategories.length === 0) {
       setCorridorFeatures([]);
       setCorridorListingStatus("ready");
@@ -335,7 +327,7 @@ export default function PlanExperience() {
       });
 
     return () => controller.abort();
-  }, [announce, corridorRouteFeature, enabledCategories, isReady, routingUnavailable]);
+  }, [announce, corridorRouteFeature, enabledCategories, routingUnavailable]);
 
   const revealMapForSmallScreens = useCallback(() => {
     if (matchesDesktopMd === true) {
