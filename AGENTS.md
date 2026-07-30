@@ -210,9 +210,9 @@ choices are left to the implementing agent; the principles are not.
 - **Input validation at the boundary.** Pydantic on inbound JSON; explicit
   allow-lists for enum-like query params; reject anything you don't
   understand with HTTP 400 — never silently coerce.
-- **No third-party scripts in M1** (`NF-PRIV-01`). No analytics, no fonts
-  from a CDN, no embedded widgets. Even harmless-looking ones (Google Fonts,
-  gtag, Hotjar) leak IPs.
+- **Minimal third-party scripts** (`NF-PRIV-01`). No fonts from a CDN, no
+  embedded widgets. The only approved analytics provider is Umami Cloud
+  (cookie-free, gated on `NEXT_PUBLIC_UMAMI_WEBSITE_ID`).
 - **L7 DDoS / WAF** is principally handled by whatever sits in front of the app
   (Cloudflare or equivalent) once we have a hostname. The app's job is per-IP
   rate limits, cheap health checks, and capping any unbounded query (e.g.
