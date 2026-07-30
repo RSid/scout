@@ -160,6 +160,8 @@ describe("FeatureListView", () => {
   });
 
   it("renders exactly one details row per corridor point feature", async () => {
+    const user = userEvent.setup({ delay: null });
+
     const { container } = render(
       <FeatureListView
         features={[
@@ -192,6 +194,8 @@ describe("FeatureListView", () => {
 
     const blockGroups = container.querySelectorAll('[data-testid="block-group"]');
     expect(blockGroups).toHaveLength(1);
+
+    await openFirstBlockGroup(container, user);
 
     const featureRows = container.querySelectorAll(
       '[data-testid="block-group"] details',
