@@ -1,0 +1,53 @@
+{
+    "data_format": 1,
+    "data_url": "https://raw.githubusercontent.com/RSid/scout/main/docs/taginfo.json",
+    "project": {
+        "name": "Scout",
+        "description": "An accessibility-focused web app for finding routes and rest stops in Washington, DC.",
+        "project_url": "https://github.com/RSid/scout",
+        "contact_name": "Alla Hoffman",
+        "contact_email": "allajdhoffman+scout@gmail.com"
+    },
+    "tags": [
+        {
+            "key": "amenity",
+            "value": "bench",
+            "object_types": ["node"],
+            "description": "Queried via Overpass to show rest stop locations along routes."
+        },
+        {
+            "key": "amenity",
+            "value": "drinking_water",
+            "object_types": ["node"],
+            "description": "Queried via Overpass to show drinking water locations along routes."
+        },
+        {
+            "key": "check_date",
+            "description": "Read from fetched nodes to track how recently the feature was surveyed."
+        },
+        {
+            "key": "wheelchair",
+            "description": "Used by the OpenRouteService wheelchair routing profile to compute accessible routes."
+        },
+        {
+            "key": "kerb",
+            "description": "Used by the OpenRouteService wheelchair routing profile to assess curb accessibility."
+        },
+        {
+            "key": "surface",
+            "description": "Used by the OpenRouteService wheelchair routing profile to assess path surface suitability."
+        },
+        {
+            "key": "incline",
+            "description": "Used by the OpenRouteService wheelchair routing profile to avoid steep slopes."
+        },
+        {
+            "key": "tactile_paving",
+            "description": "Used by the OpenRouteService wheelchair routing profile to assess crossing accessibility."
+        },
+        {
+            "key": "name",
+            "description": "Displayed as street labels on the basemap via Protomaps vector tiles."
+        }
+    ]
+}
