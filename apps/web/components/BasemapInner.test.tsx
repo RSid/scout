@@ -211,18 +211,14 @@ vi.mock("@/lib/profile", () => {
 const resizeObserverCallbacks: ResizeObserverCallback[] = [];
 
 vi.mock("maplibre-gl", () => {
-  const maplib = {
+  // maplibre-gl v6 is ESM-only with named exports (no default export).
+  return {
     Map: stubs.MapStubCtor,
     NavigationControl: stubs.NavigationControl,
     Popup: stubs.Popup,
     addProtocol: vi.fn(),
     removeProtocol: vi.fn(),
-  };
-
-  return {
-    __esModule: true,
-    default: maplib,
-    ...maplib,
+    setWorkerUrl: vi.fn(),
   };
 });
 
