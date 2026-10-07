@@ -66,9 +66,11 @@ cp .env.example .env
 docker compose --project-directory . -f infra/docker-compose.prod.yml up -d --build
 #    (the app runs `alembic upgrade head` automatically on boot)
 
-# 3. First deploy only — load data (idempotent UPSERTs)
+# 3. First deploy only — load data (idempotent UPSERTs, order matters)
 docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-features
 docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-addresses
+docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-pois
+docker compose --project-directory . -f infra/docker-compose.prod.yml --profile ingest run --rm ingest-street-segments
 
 # 4. Verify
 curl -fsS http://localhost:${SCOUT_HTTP_PORT:-8080}/api/health

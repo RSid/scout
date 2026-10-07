@@ -5,7 +5,7 @@
 #   make docker-down      # tears down, preserving the pgdata volume
 #   make docker-up + --profile ingest:
 #     docker compose --project-directory . -f infra/docker-compose.yml \
-#                    --profile ingest run --rm ingest
+#                    --profile ingest run --rm ingest-addresses
 #
 # Paths: all relative paths below are resolved against Compose's project
 # directory, which the Makefile pins to the **repo root** via
@@ -119,30 +119,30 @@ services:
       - "${SCOUT_WEB_HOST_PORT:-3000}:3000"
     restart: unless-stopped
 
-  # Profile-gated. Stays out of `docker compose up` until invoked
-  # explicitly so it cannot block the dev loop. Runs inside the bridge
-  # network so `db:5432` resolves and the host-side DSN / host-port
+  # Profile-gated ingest services. Stay out of `docker compose up` until
+  # invoked explicitly so they cannot block the dev loop. Run inside the
+  # bridge network so `db:5432` resolves and the host-side DSN / host-port
   # remapping never enters the picture.
   #
-  #   make ingest-dc-addresses
+  # Extra args pass through, e.g.:
+  #   docker compose ... --profile ingest run --rm ingest-addresses --dry-run
+
+  # UPSERTs the DC accessibility corridor features (curb ramps, signals,
+  # obstacles, ...) into the `features` table from the bundled GeoJSONs
+  # under ./data.
+  #
+  #   make ingest-write
   #   # raw equivalent:
   #   docker compose --project-directory . -f infra/docker-compose.yml \
-  #                  --profile ingest run --rm ingest
-  #
-  # Extra args pass through:
-  #   docker compose ... --profile ingest run --rm ingest --dry-run
-  #
-  # When scripts/ingest_dc.py (M1-F11 / M1-T03) lands, give it its own
-  # service or argument switch — keep this one focused on DC MAR per
-  # DEC-023 so the failure surface stays small.
-  ingest:
+  #                  --profile ingest run --rm ingest-features
+  ingest-features:
     profiles: ["ingest"]
     build:
       context: .
       dockerfile: infra/Dockerfile
       target: dev-backend
     image: scout-backend:dev
-    container_name: scout-ingest
+    container_name: scout-ingest-features
     depends_on:
       db:
         condition: service_healthy
@@ -151,36 +151,57 @@ services:
       PYTHONPATH: /app/apps/backend
     volumes:
       - ./apps/backend:/app/apps/backend
-      # Writable so the Overpass cache (data/derived/) can be populated on
-      # first run; everything else under /app/data stays untouched.
       - ./data:/app/data
       - ./scripts:/app/scripts:ro
     working_dir: /app
-    # The dev-backend image bakes /app/.venv (with python + deps) onto $PATH
-    # via the deps-backend stage; we invoke its python directly. PYTHONPATH
-    # above is what lets `from scout.config import ...` resolve.
-    entrypoint: ["python", "/app/scripts/ingest_dc_addresses.py"]
+    entrypoint: ["python", "/app/scripts/ingest_dc.py"]
     restart: "no"
 
-  # Sibling service for the DC MAR "Points of Interest" alias layer
-  # (DEC-026). Kept separate from `ingest` (rather than an argument switch)
-  # per the note above about giving new ingestion scripts their own service
-  # — this one also has a hard runtime dependency on `dc_addresses` already
-  # being populated (it joins by MAR_ID), which `make ingest-dc-pois`'s
-  # target comment documents.
+  # Loads the bundled DC MAR address snapshot (DEC-023) into the
+  # `dc_addresses` table.
   #
-  #   make ingest-dc-pois
+  #   make ingest-dc-addresses
   #   # raw equivalent:
   #   docker compose --project-directory . -f infra/docker-compose.yml \
-  #                  --profile ingest run --rm ingest-poi
-  ingest-poi:
+  #                  --profile ingest run --rm ingest-addresses
+  ingest-addresses:
     profiles: ["ingest"]
     build:
       context: .
       dockerfile: infra/Dockerfile
       target: dev-backend
     image: scout-backend:dev
-    container_name: scout-ingest-poi
+    container_name: scout-ingest-addresses
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SCOUT_DATABASE_URL: postgresql+asyncpg://scout:scout@db:5432/scout
+      PYTHONPATH: /app/apps/backend
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./data:/app/data
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    entrypoint: ["python", "/app/scripts/ingest_dc_addresses.py"]
+    restart: "no"
+
+  # Loads named-place aliases (landmarks, schools, metro stations, ...) from
+  # the bundled dc_points_of_interest.jsonl into the `dc_points_of_interest`
+  # table. Requires `dc_addresses` to be populated first (joins by MAR_ID).
+  #
+  #   make ingest-dc-pois
+  #   # raw equivalent:
+  #   docker compose --project-directory . -f infra/docker-compose.yml \
+  #                  --profile ingest run --rm ingest-pois
+  ingest-pois:
+    profiles: ["ingest"]
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: dev-backend
+    image: scout-backend:dev
+    container_name: scout-ingest-pois
     depends_on:
       db:
         condition: service_healthy
@@ -196,7 +217,7 @@ services:
     restart: "no"
 
   # Sibling service for the DC Street Centerline layer (DEC-027). Kept
-  # separate for the same reason as `ingest-poi`; this one has a hard runtime
+  # separate for the same reason as `ingest-pois`; this one has a hard runtime
   # dependency on `features` already being populated (`make ingest-write`),
   # since after upserting segments it stamps each feature's nearest
   # `street_name`.
