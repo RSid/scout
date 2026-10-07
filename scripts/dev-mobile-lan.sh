@@ -67,7 +67,8 @@ else
   fi
 fi
 
-docker compose \
+# Base Compose binds host ports to loopback; open only web to the LAN.
+SCOUT_WEB_HOST_BIND=0.0.0.0 docker compose \
   --project-directory "${ROOT}" \
   -f "${COMPOSE_BASE}" \
   -f "${COMPOSE_MOBILE}" \
