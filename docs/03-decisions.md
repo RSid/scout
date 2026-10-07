@@ -1413,4 +1413,103 @@ CDN) at runtime, so no client IP leaks.
 
 ---
 
+## DEC-029 — Route check: separate `/check` page, tap-to-place points, geometry-in-URL sharing
+
+**Context.** Organizers of walking tours, marches, and similar events want to
+check the accessibility of a route they have *already chosen* (PRD Flow E,
+`M2-F36`–`M2-F40`). This is a different job from the planner, which picks a
+route for the user. `/api/route-features` already accepts any LineString, so
+the open questions are where the feature lives, how the route gets in, which
+routing profile snaps it, and how it is shared.
+
+**Options considered — placement.**
+
+- **Mode toggle on `/plan`.** Easy to discover, but the two input panels share
+  almost nothing, shared URLs would need a mode field, and it blurs whether
+  Scout *recommended* a path or is *reporting on* one — a liability concern
+  (`DEC-010`). Rejected.
+- **Import-only entry, no navigation.** Smallest build, but hard to find and
+  skips organizers who have no file. Rejected as the end state.
+- **Separate `/check` page sharing a route-view shell with `/plan` (chosen).**
+
+**Options considered — route input.**
+
+- **Typed list of addresses.** Burdensome; organizers may not bother.
+  Kept only as the accessible editing surface, not the main input.
+- **Freehand finger/mouse trace.** Most natural on paper, but: dragging alone
+  fails WCAG 2.2 **2.5.7 Dragging Movements** (AA); one-finger drag already
+  pans the map, so tracing needs a modal draw mode; and a wobbly line needs
+  map-matching, which we have not confirmed on the ORS public API. Deferred.
+- **Tap/click to place points, each stretch snapped to streets (chosen).**
+  Single-pointer by default, keyboard-equivalent via a crosshair, and
+  backed by one data model (an ordered point list) that the stop list edits
+  directly.
+
+**Decision.**
+
+1. Route check lives at **`/check`**, sharing a presentation shell extracted
+   from `PlanExperience` (`M2-F36`).
+2. Routes are entered as an **ordered point list**, added by tap/click,
+   keyboard crosshair, or the stop list, with optional straight-line stretches
+   (`M2-F38`).
+3. Stretches are snapped with an **ordinary walking profile**, not wheelchair:
+   the goal is to check the path the organizer intends, not to route around
+   obstacles. This needs a new allow-listed value on the existing `profile`
+   wire field of `/api/route`.
+4. Share links **encode the resolved geometry**, not only the points, so
+   recipients see exactly what the organizer checked, opening a link costs no
+   routing calls, and nothing is stored server-side (`M2-F40`).
+
+**Third-party TOS review.** Read the HeiGIT terms of service
+(`openrouteservice.org/terms-of-service/`, now served from
+`account.heigit.org/info/tos`) and API restrictions
+(`openrouteservice.org/restrictions/`) on 2026-10-07. Findings:
+
+- **Interactive, end-user-facing use is not prohibited.** The terms do not
+  restrict calling the API from an interactive tool.
+- **Overburdening and quota abuse are the binding constraints.** "You may not
+  use the Services in any manner that could damage or overburden the
+  Services." Exceeding limits returns an error; *repeatedly* exceeding them
+  can get access temporarily blocked and the account disabled or removed
+  without notice. Limits are per-day, per-second, and "too fast for too
+  long." The standard plan's directions limits are **2,000/day and
+  40/minute**, per the plan configuration published in the HeiGIT account
+  site (that page is JavaScript-rendered; re-check the account dashboard
+  before launch). Scout uses one account for all users, so a
+  tap-per-request feature could hit the per-minute limit with two or three
+  organizers at once. **Mitigation:** `M2-F37` (process-wide budget, cache-hit
+  exemption, typed busy error) is a prerequisite for `M2-F38`.
+- **Waypoints:** max 50 per directions request. `M2-F38` caps routes at 50
+  points so a later switch to one multi-waypoint request stays possible.
+- **Results are licensed CC-BY-SA 4.0** and require attribution
+  ("© openrouteservice by HeiGIT | Data from OpenStreetMap"). Redistributing
+  the resolved geometry in a share URL is permitted with attribution and
+  share-alike; `M2-F40` shows the attribution on the shared view. The
+  planner's map currently credits OSM and Protomaps but credits ORS only on
+  `/about`. The terms allow attribution "elsewhere," but on the redistributed
+  share view we show it alongside the route.
+- **No personal data may be transmitted to the API** (apart from account
+  management). Route-check requests send only coordinates and a profile — no
+  identifiers. HeiGIT's privacy page says it stores request coordinates
+  rounded to two decimal places.
+- **Safety disclaimer:** HeiGIT advises against using ORS as the sole source
+  for safety-critical routing. Scout's existing disclaimer pattern
+  (`DEC-010`) already frames results as a planning aid.
+- The terms say changes take effect on posting; re-read them before `M2-F38`
+  ships.
+
+**Consequences.**
+
+- New tickets `M2-F36`–`M2-F40` and Flow E (§5.5) in the PRD; `OQ-14`
+  (share-URL length) and `OQ-15` (organizer input validation) opened.
+- `/api/route` `profile` allow-list grows by one walking value; the routing
+  adapter maps it to the vendor profile string (`DEC-020`).
+- `/api/route-features` gains a vertex cap on inbound geometry.
+- Forking a shared route, GPX import, and freehand tracing are recorded as
+  permissible extensions, not scheduled work.
+- If ORS volume from route checks pushes past `OQ-10`'s threshold, the
+  self-hosted ORS fallback in `DEC-003` moves up.
+
+---
+
 _End of decisions log._
