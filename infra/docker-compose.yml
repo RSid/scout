@@ -38,7 +38,10 @@ services:
       # Host port is overridable for users with another Postgres on :5432
       # (`SCOUT_DB_HOST_PORT=5433 make docker-up`). Container-internal port
       # stays 5432 so the bridge network DSN (`db:5432`) is unaffected.
-      - "${SCOUT_DB_HOST_PORT:-5432}:5432"
+      # Bound to loopback: this stack uses a well-known password, and Docker's
+      # iptables rules bypass host firewalls (ufw), so 0.0.0.0 would expose
+      # Postgres to the internet if this file is ever run on a public host.
+      - "127.0.0.1:${SCOUT_DB_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -82,7 +85,8 @@ services:
       - ./data:/app/data:ro
     ports:
       # Host port overridable for users with another API on :8080.
-      - "${SCOUT_BACKEND_HOST_PORT:-8080}:8080"
+      # Loopback-only for the same reason as `db` above.
+      - "127.0.0.1:${SCOUT_BACKEND_HOST_PORT:-8080}:8080"
     restart: unless-stopped
 
   web:
@@ -116,7 +120,9 @@ services:
       - web-next:/app/web/.next
     ports:
       # Host port overridable for users with another dev server on :3000.
-      - "${SCOUT_WEB_HOST_PORT:-3000}:3000"
+      # Loopback-only like `db` above. `scripts/dev-mobile-lan.sh` sets
+      # SCOUT_WEB_HOST_BIND=0.0.0.0 so a phone on the same Wi-Fi can reach it.
+      - "${SCOUT_WEB_HOST_BIND:-127.0.0.1}:${SCOUT_WEB_HOST_PORT:-3000}:3000"
     restart: unless-stopped
 
   # Profile-gated ingest services. Stay out of `docker compose up` until

@@ -3,7 +3,7 @@
 import type { ApiCategory, CorridorResponse } from "@/lib/api";
 import type { ViewportHint } from "@/components/BasemapView";
 import type { GeoJSON } from "geojson";
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 /**
  * MapLibre's stylesheet is REQUIRED. It includes
  * `.maplibregl-canvas { position: absolute }` (and friends), which take the
@@ -169,6 +169,15 @@ export type BasemapInnerProps = Readonly<{
   selectedFeatureId?: string | null | undefined;
   onSelectFeature?: ((id: string | null) => void) | undefined;
 }>;
+
+/**
+ * maplibre-gl v6 is ESM-only and, under a bundler, can't locate its worker
+ * from `import.meta.url` on its own. This `new URL(...)` form is what lets
+ * Next (Turbopack and webpack) emit the worker as a same-origin hashed asset.
+ */
+maplibregl.setWorkerUrl(
+  new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString(),
+);
 
 const scoutPmtilesProtocol = new Protocol();
 let scoutPmtilesRegistered = false;

@@ -1,4 +1,4 @@
-import maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import type { CorridorResponse } from "@/lib/api";

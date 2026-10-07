@@ -8,7 +8,7 @@ import type { GeoJSON } from "geojson";
 
 import type { ColorToken } from "@/design/tokens/colors";
 import type { CorridorResponse } from "@/lib/api";
-import maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 
 import { resolveColorToken } from "@/design/tokens/colors";
 

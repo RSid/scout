@@ -72,10 +72,11 @@ Two Make targets mirror the Compose commands:
 | Fast Wi-Fi LAN UI checks | [`make dev-mobile-lan`](../Makefile) | Plain `http://<LAN-ip>:<port>` (Geolocation/install-to-home-screen may not behave like HTTPS production). |
 | Geolocation button + HTTPS parity | [`make dev-mobile-tunnel`](../Makefile) | `https://*.trycloudflare.com` Quick Tunnel (**ephemeral URL** exposing your laptop's dev Next port). Requires `cloudflared` (`brew install cloudflare/cloudflare/cloudflared`). Stops cleanly on Ctrl+C (`docker compose … down`). |
 
-Raw Compose (either flow):
+Raw Compose (either flow; the env var is only needed for the LAN flow, since
+host ports otherwise bind to loopback):
 
 ```bash
-docker compose --project-directory . \
+SCOUT_WEB_HOST_BIND=0.0.0.0 docker compose --project-directory . \
   -f infra/docker-compose.yml -f infra/docker-compose.mobile.yml up
 ```
 
@@ -136,7 +137,11 @@ the host-side mapping moves when you set `SCOUT_DB_HOST_PORT`.
 
 Container-internal ports stay fixed (`5432`, `8080`, `3000`) so the
 backend → `db:5432` bridge DSN never moves; only the host side of each
-mapping is overridable. Set them in `.env` at the repo root, or inline:
+mapping is overridable. Host ports bind to `127.0.0.1` only: the dev stack
+uses a well-known DB password and Docker bypasses host firewalls, so this
+file must never expose ports publicly (`make dev-mobile-lan` reopens just
+`web` on the LAN via `SCOUT_WEB_HOST_BIND=0.0.0.0`). Set overrides in `.env`
+at the repo root, or inline:
 
 ```bash
 SCOUT_DB_HOST_PORT=5433 make docker-up
