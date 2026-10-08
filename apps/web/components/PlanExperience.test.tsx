@@ -13,7 +13,7 @@ import { AnnounceProvider } from "./a11y/AnnounceProvider";
 import PlanExperience from "./PlanExperience";
 
 import { demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
-import { en } from "@/lib/i18n/messages";
+import { corridorItemsAnnouncement, en } from "@/lib/i18n/messages";
 import { ProfileProvider } from "@/lib/profile";
 
 async function stubCategoriesPayload(categories: ApiCategory[]): Promise<void> {
@@ -246,7 +246,10 @@ describe("PlanExperience", () => {
     );
 
     await screen.findByRole("heading", { name: /^plan a route$/i });
-    await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
+    // Wait for the corridor announcement itself, not just the fetch call: the
+    // live region holds one message, so a late corridor announce would replace
+    // "Map shown." after the click.
+    await screen.findByText(corridorItemsAnnouncement(demoCorridorFeatures().length));
 
     const toggle = screen.getByRole("button", { name: /^show map$/i });
     await user.click(toggle);
