@@ -105,6 +105,25 @@ them personally.**
 2. Taps "Report correction." Picks the actual condition, optional note, submits.
 3. Submission goes to moderation queue (M3 includes minimal moderation tooling).
 
+### §5.5 Flow E — *Check a pre-defined route* (M2)
+
+For routes someone else already chose — a walking tour, a march, a campus
+orientation loop. Scout **reports on** the path; it does not recommend one.
+Lives at `/check`, separate from the planner (`DEC-029`).
+
+1. Organizer opens "Check a route" from the home page.
+2. Organizer taps (or clicks) points on the map in walking order. Scout snaps
+   each stretch between consecutive points to the street network and draws it
+   immediately. Keyboard users drop points with a crosshair; anyone can add or
+   edit points from the ordered stop list with address autocomplete.
+3. As stretches are added, the map and parallel feature list fill in with the
+   obstacles and aids along the path, plus a per-stretch summary that calls out
+   the roughest stretches in text.
+4. Organizer adjusts: undo, move or delete a point, or mark a stretch
+   "straight line" where the street network has no path (plazas, the Mall).
+5. Organizer taps "Share with participants" and gets a link to a read-only
+   annotated view (and a print layout) of exactly the route they checked.
+
 ---
 
 ## §6. Functional requirements
@@ -628,6 +647,172 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
 - **Estimate:** M
 - **Prompt seed:** `docs/prompts/10-street-names.md` (§M2-F25).
 
+#### Route check (`/check`) — M2-F36 … M2-F40
+
+Flow E (§5.5). A separate page from the planner that reuses its map, list, and
+corridor query, with input and copy framed as *checking* an organizer-chosen
+route. Decisions in `DEC-029`. Build order: F36 and F37 first (in either order),
+then F38, then F39 and F40.
+
+#### M2-F36 — Extract a shared route-view shell from the planner
+- **Persona:** (enabler for P4)
+- **User value:** *So the planner and the route check look and behave the
+  same — same map, same list, same feature detail — without two copies of the
+  code drifting apart.*
+- **Depends on:** M1-F05, M1-F08, M1-F09
+- **Acceptance criteria:**
+  - The map + `<FeatureListView/>` + feature-detail + route-summary layout is
+    pulled out of `PlanExperience` into a component that takes a route
+    geometry and corridor results as props and owns no routing state.
+  - `PlanExperience` uses it; no user-visible change to `/plan`.
+  - Existing `/plan` unit, E2E, and axe tests pass unchanged.
+- **Accessibility notes:** No change; existing jest-axe and Playwright axe
+  coverage on `/plan` is the regression gate.
+- **Estimate:** M
+- **Prompt seed:** Refactor-only story: identify the seam between routing
+  state and route presentation in `PlanExperience`, define the shell's props,
+  and list the existing tests that must keep passing.
+
+#### M2-F37 — Shared ORS call budget (global throttle + daily counter)
+- **Persona:** (enabler; protects every persona)
+- **User value:** *So Scout keeps working for everyone instead of getting its
+  routing account blocked when a few people use it at once.*
+- **Depends on:** M1-F04
+- **Decision:** `DEC-029` (Third-party TOS review), `DEC-003`, `OQ-10`.
+- **Acceptance criteria:**
+  - The routing adapter enforces a **process-wide** budget below the ORS
+    plan limits (currently 40 directions requests/minute and 2,000/day on the
+    standard plan), independent of the existing per-IP `/api/route` limit.
+    Limits come from settings, not constants.
+  - Cache hits do not count against the budget.
+  - When the budget is exhausted, `/api/route` returns a typed error the UI can
+    explain in plain language ("Scout is busy — try again in a minute"); Scout
+    never forwards a request it knows will exceed the upstream quota.
+  - Daily call count is logged (count only, no coordinates) and a warning is
+    emitted above the `OQ-10` threshold (1,500/day).
+- **Accessibility notes:** The busy message is announced via the existing
+  live region (WCAG 4.1.3).
+- **Estimate:** S
+- **Prompt seed:** Generate stories for a global token-bucket around the ORS
+  adapter: per-minute and per-day windows, cache-hit exemption, typed error,
+  settings-driven limits, count-only logging, and tests using an injected
+  clock.
+
+#### M2-F38 — `/check` page: tap-to-place route entry with street snapping
+- **Persona:** P4
+- **User value:** *So I can check the accessibility of a walking tour I've
+  already planned by tapping out its path, without typing a list of
+  addresses.*
+- **Depends on:** M2-F36, M2-F37
+- **Decision:** `DEC-029`.
+- **Acceptance criteria:**
+  - New page `/check`, linked from the home page as "Check a route" next to
+    "Open planner". Copy frames results as a report on the organizer's route,
+    not a recommendation; the disclaimer banner is present.
+  - The route is an **ordered list of points**. Three equivalent ways to add
+    and edit points, all writing to that one list:
+    - tap / click on the map appends a point;
+    - keyboard: arrow keys pan under a fixed center crosshair, Enter drops a
+      point there;
+    - the stop list: insert, edit (address autocomplete, reusing
+      `<AddressAutocomplete/>`), reorder, and delete points.
+  - Each stretch between consecutive points is snapped to the street network
+    via `/api/route` with a new allow-listed `profile` value for ordinary
+    walking (the `profile` wire field currently accepts only `"wheelchair"`).
+    The snapped line renders as soon as it resolves.
+  - A stretch can be marked **straight line** (no routing call) for plazas,
+    parks, and paths missing from the street network.
+  - Undo removes the last change. Moving a point by dragging is supported
+    **and** has a non-drag alternative (select the point in the list, then
+    edit its location).
+  - Max **50 points** per route, matching the ORS waypoint limit; the UI says
+    so when reached.
+  - Corridor results (map + list) update as stretches are added, using
+    `/api/route-features` on the joined line.
+  - `/api/route-features` gains a **vertex cap** on `route_geometry`, since
+    geometry is now user-shaped (AGENTS: cap any unbounded query); over the
+    cap returns HTTP 400.
+  - No point coordinates, addresses, or geometry are logged (`NF-PRIV`).
+- **Accessibility notes:**
+  - 2.5.7 Dragging Movements: every drag action has a single-pointer
+    alternative (tap to place, list edit to move).
+  - 2.1.1 Keyboard: crosshair + Enter, and the stop list.
+  - 4.1.3 Status Messages: each added stretch and its feature count is
+    announced politely via the live region.
+  - 2.5.8 Target Size: point handles ≥ 24×24 CSS px.
+  - Map panning is never disabled; no separate "draw mode" is required on
+    touch.
+- **Estimate:** L
+- **Prompt seed:** Generate stories for `/check` covering the point-list data
+  model, the three input methods and their parity, per-stretch snapping and
+  straight-line stretches, undo, the 50-point cap, the walking `profile`
+  allow-list change, the corridor vertex cap, live announcements, and the
+  stale-response handling already used in `PlanExperience`.
+
+#### M2-F39 — Per-stretch summary and hotspots
+- **Persona:** P4
+- **User value:** *So I know which part of my tour is roughest and can warn
+  people or change that stretch, without reading every feature.*
+- **Depends on:** M2-F38
+- **Acceptance criteria:**
+  - The results panel groups features by stretch ("Stop 2 → Stop 3") with a
+    one-line count per stretch, e.g. "4 non-compliant curb ramps, no benches".
+  - The two or three stretches with the most obstacles in enabled categories
+    are called out in text at the top as hotspots; ties are broken by
+    stretch order.
+  - Corridor queries are made **per stretch** so long tours stay under the
+    500-feature cap per request; if a single stretch is truncated, the summary
+    says so.
+  - The ungrouped, distance-ordered feature list remains available.
+- **Accessibility notes:** Grouping uses headings and lists (1.3.1); hotspot
+  callouts are text, never color-only (1.4.1).
+- **Estimate:** M
+- **Prompt seed:** Generate stories for stretch grouping, the hotspot ranking
+  rule, per-stretch corridor calls and truncation messaging, and the
+  heading/list structure of the panel.
+
+#### M2-F40 — Share a checked route with participants (read-only + print)
+- **Persona:** P4 (sender); P1–P3 (recipients)
+- **User value:** *So I can put a link on the event page and participants see
+  exactly the route I checked, with its obstacles and aids, before deciding to
+  come.*
+- **Depends on:** M2-F38, M2-F39; shares URL plumbing with M2-F16 and the
+  print layout with M2-F20.
+- **Decision:** `DEC-029` (URL carries the resolved geometry).
+- **Acceptance criteria:**
+  - "Share with participants" produces a URL encoding a version number, the
+    points, the **resolved route geometry** (compressed), stretch markers,
+    and the category selection. No server-side storage.
+  - Opening the URL shows a **read-only** view: same route, per-stretch
+    summary, map, and list. It makes **no routing calls**; corridor features
+    are fetched fresh, with their inspection years shown as usual.
+  - The view shows routing attribution
+    ("© openrouteservice by HeiGIT | Data from OpenStreetMap") alongside the
+    route, since the shared geometry is an ORS result redistributed under
+    CC-BY-SA 4.0.
+  - A malformed or unknown-version URL shows a plain-language error, not a
+    blank map. URLs from an older version keep working.
+  - `?print=1` on the shared view renders the M2-F20 print layout.
+  - "Copy link" with an `aria-live` confirmation, as in M2-F16.
+- **Accessibility notes:** Read-only view passes the same axe gates as
+  `/plan`; copy confirmation via live region (4.1.3).
+- **Estimate:** M
+- **Prompt seed:** Generate stories for the share URL schema and versioning,
+  geometry compression and a URL-length budget, the read-only view, the
+  attribution line, malformed-link handling, and print mode.
+
+**Permissible extensions** (no ticket yet; promote with an ID when demand
+appears):
+
+- **Fork a shared route** into an editable `/check` view (e.g. a participant
+  plans a detour around one stretch). Same data model; keep the result framed
+  as the user's own route, not a Scout recommendation.
+- **Import GPX / GeoJSON** for organizers who already have a track file.
+  Parse and validate client-side; enforce DC bounds and the vertex cap.
+- **Freehand trace** as an additional input method. Needs a map-matching
+  service (not confirmed available on the ORS public API) and must keep the
+  tap and keyboard alternatives.
+
 ---
 
 ### §6.3 Milestone M3 — Accounts + user contributions (~6 weekends)
@@ -1040,6 +1225,14 @@ reference it.
   **Recommendation:** option (c). The DC OpenData alone is enough to validate M1
   with users; bringing in a partner dataset properly is a M2 conversation. Block
   any speculative ingestion until we've talked to UW.
+- **OQ-14** Route-check share links (M2-F40) carry the full geometry in the
+  URL. How long can they get before they break in the places organizers paste
+  them (SMS, event platforms, email)? **Recommendation:** measure real tours
+  during M2-F40; if typical links exceed ~2 KB, propose server-side short links
+  as a new decision (it adds storage, which M2 otherwise avoids).
+- **OQ-15** Do DC tour organizers find tap-to-place fast enough, or do they
+  mostly arrive with a GPX file or a stop list? **Action:** show a prototype of
+  M2-F38 to two or three organizers before building the GPX-import extension.
 
 ## §11. Risks
 
