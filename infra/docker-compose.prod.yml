@@ -69,6 +69,8 @@ services:
       # Behind the in-image Caddy, the real client IP arrives in X-Forwarded-For.
       # If a host edge sets a different header (e.g. Cf-Connecting-IP on
       # Cloudflare), change SCOUT_CLIENT_IP_HEADER to match — no code change.
+      # infra/Caddyfile trusts X-Forwarded-For from private-range peers only;
+      # the outermost proxy must overwrite (not trust) client-supplied XFF.
       SCOUT_TRUST_PROXY_HEADERS: "true"
       SCOUT_CLIENT_IP_HEADER: "X-Forwarded-For"
       # CORS stays closed: the browser hits /api on the same origin as the app.

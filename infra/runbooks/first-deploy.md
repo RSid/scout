@@ -37,7 +37,7 @@ set for a production deploy:
 | `SCOUT_GEOCODING_PROVIDER` | No (default `local_dc`) | `local_dc` (bundled DC MAR) \| `stub`. |
 | `SCOUT_RESTROOMS_PROVIDER` | No (default `refuge`) | `refuge` \| `stub`. |
 | `SCOUT_TRUST_PROXY_HEADERS` | No (default `false`) | Set `true` so the rate limiter reads the real client IP from the edge header. |
-| `SCOUT_CLIENT_IP_HEADER` | No (default `X-Forwarded-For`) | The header carrying the client IP. Behind the in-image Caddy it is `X-Forwarded-For`; set to your edge's header if different (e.g. `Cf-Connecting-IP` on Cloudflare). **No code change to switch hosts.** |
+| `SCOUT_CLIENT_IP_HEADER` | No (default `X-Forwarded-For`) | The header carrying the client IP. Behind the in-image Caddy it is `X-Forwarded-For`; set to your edge's header if different (e.g. `Cf-Connecting-IP` on Cloudflare). **No code change to switch hosts.** The in-image Caddy trusts `X-Forwarded-For` from private/loopback peers (`trusted_proxies static private_ranges` in `infra/Caddyfile`) so the host edge's value survives. That is only safe while the outermost proxy overwrites client-supplied `X-Forwarded-For` (Caddy's default). If you put Cloudflare or another CDN in front, switch this to its header. |
 | `SCOUT_CORS_ALLOWLIST_CSV` | No (default empty = closed) | Leave empty: the browser calls `/api` on the **same origin** as the app, so CORS is not needed. |
 | `SCOUT_LOG_LEVEL` | No (default `INFO`) | Log verbosity. |
 

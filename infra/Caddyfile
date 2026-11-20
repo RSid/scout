@@ -14,9 +14,77 @@
 	admin off
 	auto_https off
 	persist_config off
+
+	# Trust X-Forwarded-For from the outer edge proxy (M1-F15). On the
+	# reference deploy the host Caddy reaches this container from a private or
+	# loopback address (Docker gateway). Without this, Caddy 2.5+ discards the
+	# incoming X-Forwarded-For and replaces it with the peer address, so every
+	# visitor shares one rate-limit bucket. With it, Caddy keeps the incoming
+	# value and appends the peer, so the LEFTMOST entry stays the original
+	# client (what scout_key_func reads).
+	#
+	# Invariant: only safe while the outermost proxy does not trust
+	# client-supplied X-Forwarded-For (Caddy's default). If Cloudflare or
+	# another CDN is added in front, switch SCOUT_CLIENT_IP_HEADER to the
+	# CDN's header (e.g. Cf-Connecting-IP); see infra/runbooks/first-deploy.md.
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :{$PORT:8080} {
+	# Security headers for every response, Next and FastAPI alike (AGENTS.md
+	# "Security and privacy posture"; M1-F15). `defer` applies them when the
+	# response is written, so they also cover proxied responses and replace
+	# anything the upstream set instead of duplicating it.
+	header {
+		defer
+
+		# Enforced CSP. Each source beyond 'self' is commented with why it is
+		# allowed; add new ones only with a comment.
+		#   script-src 'unsafe-inline': Next.js inlines its bootstrap/RSC payload
+		#     scripts into statically prerendered HTML. Nonces would make every
+		#     page per-request (no static or CDN-cacheable HTML), which the owner
+		#     rejected.
+		#   script-src https://cloud.umami.is: Umami Cloud tracker, the only
+		#     approved analytics (apps/web/app/layout.tsx). Caddy can't tell
+		#     whether SCOUT_UMAMI_WEBSITE_ID was set at build time, so the
+		#     origin is always allowed; unused when the env var is empty.
+		#   connect-src https://gateway.umami.is: where that tracker POSTs
+		#     events (`/api/send`; its default host when no data-host-url).
+		#   style-src 'unsafe-inline': React/Next and MapLibre write inline
+		#     style attributes and <style> tags.
+		#   img-src data:: marker sprites and list thumbnails are SVG data: URIs
+		#     (apps/web/lib/map/markers.ts).
+		#   img-src blob:: MapLibre's image-decoding fallback for browsers
+		#     without createImageBitmap loads images from blob: URLs.
+		# Tiles (/tiles/dc.pmtiles), glyphs (/fonts/glyphs) and markers are
+		# same-origin, and the MapLibre worker is a same-origin hashed asset
+		# (setWorkerUrl in BasemapInner.tsx). MapLibre only falls back to blob:
+		# workers for cross-origin worker URLs, so worker-src needs no blob:.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cloud.umami.is; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://gateway.umami.is; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'"
+
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+
+		# Deny powerful features by default. geolocation=(self) keeps the
+		# planner's "Use my location" button working (AddressAutocomplete).
+		Permissions-Policy "accelerometer=(), autoplay=(), camera=(), display-capture=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), browsing-topics=()"
+
+		# TLS terminates at the host edge in front of this container. Browsers
+		# ignore HSTS received over plain HTTP, so local http:// use is
+		# unaffected. No includeSubDomains or preload: other subdomains of the
+		# production domain aren't ours to vouch for, and preload is hard to undo.
+		Strict-Transport-Security "max-age=31536000"
+
+		# Redundant with frame-ancestors 'none', kept for browsers that predate it.
+		X-Frame-Options "DENY"
+
+		# Don't advertise the stack (Next's X-Powered-By, uvicorn's/Caddy's Server).
+		-X-Powered-By
+		-Server
+	}
+
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8081
 	}

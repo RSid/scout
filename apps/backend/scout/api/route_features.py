@@ -15,6 +15,7 @@ from scout.clients.restrooms.corridor import restrooms_along_route
 from scout.clients.restrooms.normalize import restrooms_to_features
 from scout.clients.restrooms.types import Bbox
 from scout.data.categories import unknown_corridor_categories
+from scout.data.region import in_dc_service_area
 from scout.data.schema import (
     CorridorGeoJSONFeature,
     CorridorMeta,
@@ -23,16 +24,43 @@ from scout.data.schema import (
 )
 from scout.data.session import get_session
 from scout.data.store import corridor_features_geojson
-from scout.errors import BufferTooLargeError, UnknownCategoryError
+from scout.errors import (
+    BufferTooLargeError,
+    OutsideServiceAreaError,
+    RouteGeometryTooLargeError,
+    UnknownCategoryError,
+)
 from scout.security.rate_limit import POLICIES, limiter
 
 LOGGER = logging.getLogger("scout")
 MAX_BUFFER_METERS = 200
+# Vertex cap on `route_geometry` (M1-F07; owner-approved). Real ORS walking
+# geometry runs ~50 points/km in DC (the 1.09 km DEMO_ROUTE fixture has 54), so
+# even a ~30 km corner-to-corner walk is ~1,500 points: 5,000 is >3x headroom
+# while bounding the per-request PostGIS work an abusive payload can demand.
+MAX_ROUTE_GEOMETRY_POINTS = 5_000
+# Snapped routes can graze the District line (ORS snaps endpoints to the nearest
+# road, and a path between two edge addresses may briefly cross into MD/VA).
+# 0.01 degrees is ~1.1 km north-south / ~0.9 km east-west at DC's latitude:
+# enough for an edge detour, far too small to accept another city.
+SERVICE_AREA_MARGIN_DEGREES = 0.01
 MERGE_LIMIT = 500
 RESTROOMS_CATEGORY = "restrooms"
 _METERS_PER_DEGREE_LAT = 111_320.0
 
 router = APIRouter(tags=["routing"])
+
+
+def _check_route_geometry(coordinates: list[list[float]]) -> None:
+    """Enforce the vertex cap, then the service area, on a shape-valid line."""
+
+    if len(coordinates) > MAX_ROUTE_GEOMETRY_POINTS:
+        raise RouteGeometryTooLargeError(maximum_points=MAX_ROUTE_GEOMETRY_POINTS)
+    margin = SERVICE_AREA_MARGIN_DEGREES
+    if not all(
+        in_dc_service_area(lon, lat, margin_degrees=margin) for lon, lat in coordinates
+    ):
+        raise OutsideServiceAreaError()
 
 
 def _route_bbox(coordinates: list[list[float]], buffer_meters: float) -> Bbox:
@@ -61,6 +89,14 @@ async def post_route_features(
     session: Annotated[AsyncSession, Depends(get_session)],
     restrooms_provider: RestroomsDependency,
 ) -> JSONResponse:
+    """Features within `buffer_meters` of a DC route, ordered along it (M1-F07).
+
+    Limits: 2-5,000 finite `[lon, lat]` points (400 `INVALID_INPUT` /
+    `ROUTE_GEOMETRY_TOO_LARGE`), all inside DC (400 `OUTSIDE_SERVICE_AREA`),
+    buffer <= 200 m (400 `BUFFER_TOO_LARGE`), body <= 512 KB
+    (413 `REQUEST_TOO_LARGE`). A query past its 5 s database budget answers
+    503 `CORRIDOR_QUERY_TIMEOUT`.
+    """
     del request
     buf = int(payload.buffer_meters)
     if buf > MAX_BUFFER_METERS:
@@ -71,10 +107,8 @@ async def post_route_features(
     if bad:
         raise UnknownCategoryError(unknown_ids=bad)
 
-    numeric_coords = [
-        [float(pair[0]), float(pair[1])]
-        for pair in payload.route_geometry["coordinates"]
-    ]
+    numeric_coords = payload.route_geometry.coordinates
+    _check_route_geometry(numeric_coords)
 
     # Restrooms never live in PostGIS; query everything else from the corridor
     # SQL and merge restrooms at this boundary (M1-F13.S4).

@@ -61,6 +61,39 @@ class UnknownCategoryError(ScoutError):
         )
 
 
+class RouteGeometryTooLargeError(ScoutError):
+    """`route_geometry` has more vertices than the corridor cap (M1-F07)."""
+
+    def __init__(self, *, maximum_points: int) -> None:
+        super().__init__(
+            code="ROUTE_GEOMETRY_TOO_LARGE",
+            message=f"route_geometry may have at most {maximum_points} points.",
+            status_code=400,
+        )
+
+
+class OutsideServiceAreaError(ScoutError):
+    """A route coordinate lies outside the DC service area (M1-F07)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            code="OUTSIDE_SERVICE_AREA",
+            message="The route must stay within Washington, DC.",
+            status_code=400,
+        )
+
+
+class RequestBodyTooLargeError(ScoutError):
+    """Request body over the per-request byte cap (HTTP 413)."""
+
+    def __init__(self, *, maximum_bytes: int) -> None:
+        super().__init__(
+            code="REQUEST_TOO_LARGE",
+            message=f"Request body must be {maximum_bytes // 1024} KB or smaller.",
+            status_code=413,
+        )
+
+
 class RouteNotFoundError(ScoutError):
     def __init__(self, *, message: str = "No route found") -> None:
         super().__init__(code="ROUTE_NOT_FOUND", message=message, status_code=404)
@@ -99,6 +132,20 @@ class RestroomsUpstreamUnavailableError(ScoutError):
         super().__init__(
             code="RESTROOMS_UPSTREAM_UNAVAILABLE",
             message=message,
+            status_code=503,
+        )
+
+
+class CorridorQueryTimeoutError(ScoutError):
+    """The corridor query hit its Postgres `statement_timeout` (M1-F07)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            code="CORRIDOR_QUERY_TIMEOUT",
+            message=(
+                "Finding features along this route took too long. "
+                "Try again, or try a shorter route."
+            ),
             status_code=503,
         )
 
