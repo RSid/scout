@@ -123,7 +123,10 @@ jobs:
 
   web-e2e-stub:
     name: web e2e stub (shard ${{ matrix.shard }}/2)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright ~1.60 can't install
+    # Chromium on ("Playwright does not support chromium on ubuntu26.04-x64").
+    # Unpin once @playwright/test supports the new image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -156,7 +159,10 @@ jobs:
 
   web-e2e-interactive:
     name: web e2e interactive (shard ${{ matrix.shard }}/2)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright ~1.60 can't install
+    # Chromium on ("Playwright does not support chromium on ubuntu26.04-x64").
+    # Unpin once @playwright/test supports the new image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
