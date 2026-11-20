@@ -14,6 +14,22 @@
 	admin off
 	auto_https off
 	persist_config off
+
+	# Trust X-Forwarded-For from the outer edge proxy (M1-F15). On the
+	# reference deploy the host Caddy reaches this container from a private or
+	# loopback address (Docker gateway). Without this, Caddy 2.5+ discards the
+	# incoming X-Forwarded-For and replaces it with the peer address, so every
+	# visitor shares one rate-limit bucket. With it, Caddy keeps the incoming
+	# value and appends the peer, so the LEFTMOST entry stays the original
+	# client (what scout_key_func reads).
+	#
+	# Invariant: only safe while the outermost proxy does not trust
+	# client-supplied X-Forwarded-For (Caddy's default). If Cloudflare or
+	# another CDN is added in front, switch SCOUT_CLIENT_IP_HEADER to the
+	# CDN's header (e.g. Cf-Connecting-IP); see infra/runbooks/first-deploy.md.
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :{$PORT:8080} {
