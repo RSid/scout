@@ -5,17 +5,24 @@ from __future__ import annotations
 import logging
 from collections import OrderedDict
 from time import monotonic
-from typing import Any
+from typing import Any, NoReturn
 
 import httpx
 
 from scout.clients.routing.constants import FALLBACK_PROFILE_WARNING
+from scout.clients.routing.cooldown import (
+    QuotaSignal,
+    RoutingCooldown,
+    decide_cooldown,
+    is_daily_quota_exhausted,
+)
 from scout.clients.routing.protocol import RoutingProvider
 from scout.clients.routing.types import RoutingComputation
 from scout.config import Settings
 from scout.errors import (
     ROUTE_SERVICE_DEFAULT_USER_MESSAGE,
     RouteNotFoundError,
+    RouteServiceBusyError,
     RouteServiceUnavailableError,
 )
 
@@ -62,10 +69,17 @@ class TTLCache[R]:
 class OpenRouteServiceProvider(RoutingProvider):
     """Calls the public hosted ORS Directions API."""
 
-    def __init__(self, *, settings: Settings, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        client: httpx.AsyncClient,
+        cooldown: RoutingCooldown | None = None,
+    ) -> None:
         self._settings = settings
         self._client = client
         self._cache: TTLCache[RoutingComputation] = TTLCache()
+        self._cooldown = cooldown or RoutingCooldown()
 
     async def walking_route(
         self,
@@ -106,11 +120,17 @@ class OpenRouteServiceProvider(RoutingProvider):
             raise RouteServiceUnavailableError(
                 message="Routing service credentials are missing for this deployment."
             )
+        # Cache hits above stay available while ORS is cooling down; only
+        # requests that would cost an upstream call are turned away.
+        retry_after = self._cooldown.seconds_remaining()
+        if retry_after is not None:
+            raise RouteServiceBusyError(retry_after_seconds=retry_after)
 
         # M1 only requests the wheelchair-aware ORS profile; foot-walking is
         # the internal fallback (S3). When more Scout-domain modes land we
         # will dispatch from `profile` to a vendor string here, not in the
-        # caller.
+        # caller. A quota error on wheelchair raises RouteServiceBusyError,
+        # not RouteNotFoundError, so we don't spend another call on foot-walking.
         try:
             response = await self._call_directions("wheelchair", coords, api_key)
         except RouteNotFoundError:
@@ -156,7 +176,9 @@ class OpenRouteServiceProvider(RoutingProvider):
             ) from exc
 
         if resp.status_code == 429:
-            raise RouteServiceUnavailableError(message="Routing rate limit exhausted.")
+            self._raise_busy(QuotaSignal.PER_MINUTE, resp.headers)
+        if is_daily_quota_exhausted(resp.status_code, resp.headers):
+            self._raise_busy(QuotaSignal.DAILY, resp.headers)
         if resp.status_code in {401, 403}:
             raise RouteServiceUnavailableError(message="Routing credentials rejected.")
         if resp.status_code in {404, 204} or not resp.content:
@@ -177,6 +199,16 @@ class OpenRouteServiceProvider(RoutingProvider):
             )
         body: dict[str, Any] = parsed
         return body
+
+    def _raise_busy(self, signal: QuotaSignal, headers: httpx.Headers) -> NoReturn:
+        decision = decide_cooldown(
+            signal,
+            headers,
+            now=self._cooldown.now(),
+            policy=self._cooldown.policy,
+        )
+        retry_after = self._cooldown.open(signal, decision)
+        raise RouteServiceBusyError(retry_after_seconds=retry_after)
 
     def _ors_body_to_computation(
         self, body: dict[str, Any], *, fallback_used: bool

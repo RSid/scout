@@ -239,6 +239,15 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
     and clearly flags this fallback in the response (`fallback_profile_used: true`).
   - Endpoint caches results by rounded coordinates for 24 hours (in-memory LRU is
     fine for M1) to stay under ORS free-tier rate limits.
+  - When ORS reports a quota error (HTTP 429 for the per-minute limit; HTTP 403
+    with `x-ratelimit-remaining: 0` for the daily limit), the backend stops
+    calling ORS until the limit is likely to have reset: `Retry-After` (429) or
+    `x-ratelimit-reset` (daily) when present and parseable, else 60 s (429) or
+    1 h (daily), capped at 15 min (429) or 24 h (daily). A quota error on the
+    wheelchair call does not trigger the foot-walking retry. During the
+    cooldown, requests that would need ORS return HTTP 503 with a `Retry-After`
+    header and error code `ROUTE_SERVICE_BUSY`; cached routes are still served.
+    Failures are never cached. The cooldown is in-process (one uvicorn worker).
   - All errors mapped to user-facing strings following
     `docs/contributor/voice-and-copy.md` §7.4 (name what happened, then say what
     the reader can do; no "please try again," no exclamation marks, no blame).
@@ -431,6 +440,11 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
     - `GET  /api/restrooms?bbox=...` — see M1-F13.
   - All endpoints return JSON; all errors return a consistent `{error: {code, message}}`
     shape.
+  - `POST /api/route` error codes: `INVALID_INPUT` (400), `RATE_LIMIT` (429,
+    Scout's own per-IP limit, with `Retry-After`), `ROUTE_NOT_FOUND` (404),
+    `ROUTE_SERVICE_UNAVAILABLE` (502, upstream failure), and
+    `ROUTE_SERVICE_BUSY` (503, ORS quota cooldown, with `Retry-After` in whole
+    seconds — clients should say routing is busy and when to retry).
   - `POST`/`PUT`/`PATCH` bodies are capped at 512 KB (declared `Content-Length`
     or counted for chunked uploads) → else HTTP 413 `REQUEST_TOO_LARGE`. The
     cap fits a full-precision 5,000-point `/api/route-features` request
@@ -705,6 +719,7 @@ then F38, then F39 and F40.
   - When the budget is exhausted, `/api/route` returns a typed error the UI can
     explain in plain language ("Scout is busy — try again in a minute"); Scout
     never forwards a request it knows will exceed the upstream quota.
+    Reuse the M1-F04 `ROUTE_SERVICE_BUSY` (503 + `Retry-After`) error for this.
   - Daily call count is logged (count only, no coordinates) and a warning is
     emitted above the `OQ-10` threshold (1,500/day).
 - **Accessibility notes:** The busy message is announced via the existing
