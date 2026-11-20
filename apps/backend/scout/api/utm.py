@@ -5,8 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +24,7 @@ async def record_utm(
     payload: UtmEvent,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> JSONResponse:
+) -> Response:
     today = datetime.now(tz=UTC).date()
     await session.execute(
         text("""
@@ -42,4 +41,5 @@ async def record_utm(
         },
     )
     await session.commit()
-    return JSONResponse(status_code=204, content=None)
+    # A 204 must carry no body; JSONResponse(content=None) serializes "null".
+    return Response(status_code=204)
