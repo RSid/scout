@@ -257,6 +257,60 @@ test.describe("Planner address autocomplete (M1-F03)", () => {
   });
 });
 
+test.describe("Route-features request budget (M1-F07)", () => {
+  test.setTimeout(120_000);
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("scout.onboarded.v1", "true");
+    });
+
+    await scoutMockApis(page);
+  });
+
+  test("sends one route-features request on load and one per planned route", async ({
+    page,
+  }) => {
+    const corridorBodies: { coordinates: unknown[] }[] = [];
+    let finishedRoutePosts = 0;
+
+    page.on("request", (request) => {
+      if (request.url().includes("/api/route-features")) {
+        const body = request.postDataJSON() as {
+          route_geometry: { coordinates: unknown[] };
+        };
+        corridorBodies.push(body.route_geometry);
+      }
+    });
+    page.on("requestfinished", (request) => {
+      if (request.url().endsWith("/api/route") && request.method() === "POST") {
+        finishedRoutePosts += 1;
+      }
+    });
+
+    await page.goto("/plan");
+    await expect(page.getByText(/1 listed along your route/i)).toBeAttached({
+      timeout: 30_000,
+    });
+    // Leave room for a late duplicate (e.g. a re-query once categories load).
+    await page.waitForTimeout(1_000);
+    expect(corridorBodies).toHaveLength(1);
+
+    // Picks the start (routes to the sample destination), then the destination.
+    await keyboardFillPlannerAddressesFromStubHits(page);
+    await expect.poll(() => finishedRoutePosts, { timeout: 30_000 }).toBe(2);
+    await page.waitForTimeout(1_000);
+
+    // One corridor query per route that arrived, and no throwaway
+    // straight-line (2-point) preview queries while routes were in flight.
+    expect({
+      count: corridorBodies.length,
+      straightLine: corridorBodies.filter((g) => g.coordinates.length === 2).length,
+    }).toStrictEqual({ count: 1 + finishedRoutePosts, straightLine: 0 });
+  });
+});
+
 test.describe("Rendered route + summary text (M1-F05)", () => {
   test.setTimeout(120_000);
 

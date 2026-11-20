@@ -570,6 +570,233 @@ describe("AddressAutocomplete", () => {
   });
 });
 
+/** Outlasts the 500 ms search debounce so a queued search would have fired. */
+function outlastDebounce(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 700));
+}
+
+type Deferred<T> = Readonly<{
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}>;
+
+function deferred<T>(): Deferred<T> {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+/** Rejects like `fetch` does when its signal aborts, otherwise waits on `pending`. */
+function abortable<T>(
+  pending: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    signal?.addEventListener("abort", () =>
+      reject(new DOMException("Aborted", "AbortError")),
+    );
+    void pending.then(resolve);
+  });
+}
+
+describe("AddressAutocomplete request hygiene (M1-F03)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["without distance cues", undefined],
+    ["with distance cues", [-77.05, 38.915] as const],
+  ])(
+    "does not search again after a suggestion is picked (%s)",
+    async (_name, userLocation) => {
+      // MOCK: geocoding provider double; counts searches without a backend.
+      const search = vi.fn().mockResolvedValue([...STUB_SEARCH_HITS]);
+      const user = userEvent.setup({ delay: null });
+
+      render(
+        <AnnounceProvider>
+          <AddressAutocomplete
+            id="scout-destination"
+            label="Destination"
+            onPick={vi.fn()}
+            userLocation={userLocation}
+            provider={makeProviders({ search })}
+          />
+        </AnnounceProvider>,
+      );
+
+      await user.type(screen.getByRole("combobox"), "Dupont");
+      await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+      await user.click(screen.getByRole("button", { name: /show suggestions/i }));
+      await user.click(await screen.findByRole("option", { name: /Dupont Circle/i }));
+      await outlastDebounce();
+
+      expect(search).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("keeps showing 'Searching…' while a newer search is still in flight", async () => {
+    const pending = deferred<readonly AddressHit[]>();
+    // MOCK: provider double that honors abort like fetch and never settles on its own.
+    const search = vi.fn(
+      async (_query: string, _options: unknown, signal?: AbortSignal) =>
+        await abortable(pending.promise, signal),
+    );
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          onPick={vi.fn()}
+          provider={makeProviders({ search })}
+        />
+      </AnnounceProvider>,
+    );
+
+    const combobox = screen.getByRole("combobox");
+    await user.type(combobox, "abc");
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await user.type(combobox, "d");
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByText("Searching…")).toBeInTheDocument();
+  });
+
+  it("never shows results from an older query after a newer keystroke", async () => {
+    const firstQuery = deferred<readonly AddressHit[]>();
+    // MOCK: provider double whose first search ignores abort and resolves late,
+    // like a response already on the wire when the user keeps typing.
+    const search = vi
+      .fn()
+      .mockImplementationOnce(async () => await firstQuery.promise)
+      .mockResolvedValue([]);
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          onPick={vi.fn()}
+          provider={makeProviders({ search })}
+        />
+      </AnnounceProvider>,
+    );
+
+    const combobox = screen.getByRole("combobox");
+    await user.type(combobox, "abc");
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    await user.type(combobox, "d");
+    firstQuery.resolve([...STUB_SEARCH_HITS]);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByRole("status")).not.toHaveTextContent(/suggestion/i);
+  });
+});
+
+describe("AddressAutocomplete when address search is rate-limited (M1-F03)", () => {
+  const RATE_LIMIT_MESSAGE =
+    "Too many address searches in a short time. Try again in a few seconds.";
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** First search gets a 429 with `Retry-After: 1`; later searches succeed. */
+  function rateLimitedOnce(): ReturnType<typeof vi.fn> {
+    // MOCK: provider double standing in for `/api/geocode/search` answering 429 once.
+    return vi
+      .fn()
+      .mockRejectedValueOnce(
+        new ScoutApiError("Rate limit exceeded.", "RATE_LIMIT", {
+          status: 429,
+          retryAfterSeconds: 1,
+        }),
+      )
+      .mockResolvedValue([...STUB_SEARCH_HITS]);
+  }
+
+  function renderWith(search: ReturnType<typeof vi.fn>): HTMLElement {
+    const { container } = render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          onPick={vi.fn()}
+          provider={makeProviders({ search })}
+        />
+      </AnnounceProvider>,
+    );
+    return container;
+  }
+
+  it("shows a plain message instead of going quiet", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWith(rateLimitedOnce());
+
+    await user.type(screen.getByRole("combobox"), "union");
+
+    expect(await screen.findByText(RATE_LIMIT_MESSAGE)).toBeVisible();
+  });
+
+  it("announces the message to screen readers", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWith(rateLimitedOnce());
+
+    await user.type(screen.getByRole("combobox"), "union");
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(RATE_LIMIT_MESSAGE),
+    );
+  });
+
+  it("sends no new search before Retry-After passes, even while typing", async () => {
+    const search = rateLimitedOnce();
+    const user = userEvent.setup({ delay: null });
+    renderWith(search);
+
+    await user.type(screen.getByRole("combobox"), "union");
+    await screen.findByText(RATE_LIMIT_MESSAGE);
+    await user.type(screen.getByRole("combobox"), " st");
+    // Past the 500 ms debounce, still inside the 1 s pause.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
+  it("searches the latest text once the pause ends", async () => {
+    const search = rateLimitedOnce();
+    const user = userEvent.setup({ delay: null });
+    renderWith(search);
+
+    await user.type(screen.getByRole("combobox"), "union");
+    await screen.findByText(RATE_LIMIT_MESSAGE);
+    await user.type(screen.getByRole("combobox"), " st");
+
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    expect(search).toHaveBeenLastCalledWith(
+      "union st",
+      { limit: 5 },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("passes axe while the message shows", async () => {
+    const user = userEvent.setup({ delay: null });
+    const container = renderWith(rateLimitedOnce());
+
+    await user.type(screen.getByRole("combobox"), "union");
+    await screen.findByText(RATE_LIMIT_MESSAGE);
+
+    expect((await axe(container)).violations).toStrictEqual([]);
+  });
+});
+
 describe("AddressAutocomplete axe", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER", "stub");

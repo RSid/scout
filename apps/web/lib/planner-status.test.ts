@@ -1,7 +1,56 @@
 import { describe, expect, it } from "vitest";
 
 import { derivePlannerStatus } from "./planner-status";
-import { en } from "@/lib/i18n/messages";
+import { en, requestLimitMessages } from "@/lib/i18n/messages";
+
+describe("derivePlannerStatus busy and rate-limit states (M1-F04, M1-F07)", () => {
+  const WHEN = "in about a minute";
+
+  it.each([
+    ["ROUTE_SERVICE_BUSY", requestLimitMessages.routeBusyTitle],
+    ["RATE_LIMIT", requestLimitMessages.routeRateLimitedTitle],
+    ["ROUTE_SERVICE_UNAVAILABLE", en.routeUnavailableTitle],
+    [undefined, en.routeUnavailableTitle],
+  ])("titles a %s routing failure as %j", (code, title) => {
+    const status = derivePlannerStatus({
+      summaryMode: "approx-fallback",
+      corridorStatus: "ready",
+      routeFailure: { code, retryWhen: WHEN },
+    });
+
+    expect(status?.title).toBe(title);
+  });
+
+  it.each(["ROUTE_SERVICE_BUSY", "RATE_LIMIT"])(
+    "tells people when to retry a %s routing failure",
+    (code) => {
+      const status = derivePlannerStatus({
+        summaryMode: "approx-fallback",
+        corridorStatus: "ready",
+        routeFailure: { code, retryWhen: WHEN },
+      });
+
+      expect(status?.detail).toContain(`Try again ${WHEN}.`);
+    },
+  );
+
+  it.each([
+    ["RATE_LIMIT", `Try again ${WHEN}.`],
+    ["CORRIDOR_QUERY_TIMEOUT", requestLimitMessages.corridorTimeoutDetail],
+    ["ROUTE_GEOMETRY_TOO_LARGE", requestLimitMessages.corridorTooLargeDetail],
+    ["REQUEST_TOO_LARGE", requestLimitMessages.corridorTooLargeDetail],
+    ["OUTSIDE_SERVICE_AREA", requestLimitMessages.corridorOutsideAreaDetail],
+    [undefined, en.corridorListingErrorDetail],
+  ])("explains a %s corridor failure", (code, detail) => {
+    const status = derivePlannerStatus({
+      summaryMode: "live",
+      corridorStatus: "error",
+      corridorFailure: { code, retryWhen: WHEN },
+    });
+
+    expect(status?.detail).toContain(detail);
+  });
+});
 
 describe("derivePlannerStatus", () => {
   it("surfaces the routing-unavailable warning above every other state", () => {

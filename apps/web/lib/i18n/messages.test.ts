@@ -7,6 +7,27 @@ import {
   routeAnnouncementLoaded,
   unverifiedSegmentNotice,
 } from "./messages";
+import { retryWhenPhrase } from "./messages";
+
+describe("retryWhenPhrase (busy and rate-limit copy)", () => {
+  // Local noon, so "later today" and "tomorrow" don't depend on the runner's zone.
+  const NOON = new Date(2026, 10, 20, 12, 0, 0);
+
+  it.each([
+    [undefined, "in a little while"],
+    [0, "in a little while"],
+    [5, "in a few seconds"],
+    [60, "in about a minute"],
+    [600, "in about 10 minutes"],
+    [3600, "in about an hour"],
+    [3 * 3600, "in about 3 hours"],
+    [8 * 3600, "later today"],
+    [14 * 3600, "tomorrow"],
+    [24 * 3600, "tomorrow"],
+  ])("phrases %s seconds as %s", (seconds, phrase) => {
+    expect(retryWhenPhrase(seconds, NOON)).toBe(phrase);
+  });
+});
 
 /** PRD M1-F04 owner-approved copy, spelled out here so the test pins it verbatim. */
 const FOOT_WALKING_FALLBACK_COPY =
