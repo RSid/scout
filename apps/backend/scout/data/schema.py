@@ -7,6 +7,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
+from scout.data.region import in_dc_service_area
+
 
 class HealthResponse(BaseModel):
     """`GET /api/health`."""
@@ -55,7 +57,7 @@ class RouteComputeRequest(BaseModel):
     @staticmethod
     def _assert_dc_lon_lat(endpoint: list[float], *, alias: str) -> None:
         lon, lat = float(endpoint[0]), float(endpoint[1])
-        if not (-77.12 <= lon <= -76.91 and 38.79 <= lat <= 39.0):
+        if not in_dc_service_area(lon, lat):
             raise ValueError(f"Coordinate outside DC service area ({alias}).")
 
     @field_validator("frm")
@@ -131,30 +133,34 @@ class CorridorResponse(BaseModel):
     meta: CorridorMeta
 
 
+# One GeoJSON position: exactly (lon, lat) as finite JSON numbers. Strict mode
+# rejects numeric strings rather than coercing them; NaN/Infinity (which
+# Python's JSON parser accepts) are rejected as non-finite.
+LonLatPosition = Annotated[
+    list[Annotated[float, Field(allow_inf_nan=False)]],
+    Field(min_length=2, max_length=2),
+]
+
+
+class CorridorLineString(BaseModel):
+    """`route_geometry` for `POST /api/route-features` (GeoJSON LineString).
+
+    Shape only. The vertex cap and the service-area check live in the handler
+    so they can answer with their own error codes (M1-F07).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["LineString"]
+    coordinates: Annotated[list[LonLatPosition], Field(min_length=2)]
+
+
 class CorridorRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
-    route_geometry: dict[str, Any]
+    route_geometry: CorridorLineString
     buffer_meters: int = Field(default=30, ge=1)
     categories: Annotated[list[str], Field(min_length=1)]
-
-    @field_validator("route_geometry")
-    @classmethod
-    def _linestring_kind(cls, val: dict[str, Any]) -> dict[str, Any]:
-        """Reject unknown geometry payloads early."""
-
-        if val.get("type") != "LineString":
-            raise ValueError("route_geometry.type must be LineString")
-        coords = val.get("coordinates")
-        if (
-            not isinstance(coords, list)
-            or len(coords) < 2
-            or not all(isinstance(p, list) and len(p) >= 2 for p in coords)
-        ):
-            raise ValueError(
-                "route_geometry.coordinates must be a lon/lat list with length >= 2"
-            )
-        return val
 
 
 class RestroomFeatureProperties(BaseModel):

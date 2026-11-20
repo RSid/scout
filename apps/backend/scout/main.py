@@ -36,6 +36,7 @@ from scout.data.session import close_engine, init_engine_and_session
 from scout.errors import register_exception_handlers
 from scout.logging import configure_logging, correlation_id
 from scout.runtime_flags import scout_under_test
+from scout.security.body_limit import RequestBodyLimitMiddleware
 from scout.security.rate_limit import install_rate_limiter
 
 LOGGER = logging.getLogger("scout")
@@ -90,6 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     register_exception_handlers(app)
     install_rate_limiter(app, resolved)
+    app.add_middleware(RequestBodyLimitMiddleware)
 
     origins = cors_origin_list(resolved.cors_allowlist_csv)
     if origins:

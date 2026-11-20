@@ -371,6 +371,19 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
     source_dataset, source_id, geometry`.
   - Endpoint sorts Features by along-route distance from start.
   - Returns at most 500 Features; if more, returns the closest 500 and a warning.
+  - Input limits (public-deploy hardening; every rejection uses the
+    `{error: {code, message}}` shape):
+    - `route_geometry.coordinates` is at least 2 `[lon, lat]` pairs of finite
+      JSON numbers; strings, `null`, NaN/Infinity, or other position shapes →
+      HTTP 400 `INVALID_INPUT` (never coerced).
+    - At most **5,000 points** (`MAX_ROUTE_GEOMETRY_POINTS`; real ORS walking
+      geometry is ~50 points/km, so a corner-to-corner DC walk is ~1,500) →
+      else HTTP 400 `ROUTE_GEOMETRY_TOO_LARGE`.
+    - Every point inside the DC service area used by `/api/route`, grown by a
+      0.01° margin for snapped routes that graze the District line → else
+      HTTP 400 `OUTSIDE_SERVICE_AREA`.
+    - The corridor SQL runs under a 5 s Postgres `statement_timeout`; on
+      timeout → HTTP 503 `CORRIDOR_QUERY_TIMEOUT`.
 - **Accessibility notes:** N/A (backend).
 - **Estimate:** L
 - **Prompt seed:** Generate stories for the corridor query: buffering, intersection,
@@ -491,6 +504,10 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   - `POST /api/route` success: `features[0].properties` carries
     `distance_meters`, `duration_seconds`, `fallback_profile_used`,
     `warnings`, and `unverified_segments` (see M1-F04).
+  - `POST`/`PUT`/`PATCH` bodies are capped at 512 KB (declared `Content-Length`
+    or counted for chunked uploads) → else HTTP 413 `REQUEST_TOO_LARGE`. The
+    cap fits a full-precision 5,000-point `/api/route-features` request
+    (~200 KB) with headroom.
   - OpenAPI schema auto-generated at `/api/docs` (FastAPI default).
   - CORS configured to allow same-origin only by default; configurable via env var
     for development.
@@ -805,9 +822,10 @@ then F38, then F39 and F40.
     so when reached.
   - Corridor results (map + list) update as stretches are added, using
     `/api/route-features` on the joined line.
-  - `/api/route-features` gains a **vertex cap** on `route_geometry`, since
-    geometry is now user-shaped (AGENTS: cap any unbounded query); over the
-    cap returns HTTP 400.
+  - `/api/route-features` caps `route_geometry` vertices, since geometry is
+    now user-shaped (AGENTS: cap any unbounded query); over the cap returns
+    HTTP 400. The cap already exists (5,000 points, `ROUTE_GEOMETRY_TOO_LARGE`,
+    M1-F07); confirm it covers a joined 50-point route.
   - No point coordinates, addresses, or geometry are logged (`NF-PRIV`).
 - **Accessibility notes:**
   - 2.5.7 Dragging Movements: every drag action has a single-pointer

@@ -25,10 +25,12 @@ from sqlalchemy import (
     not_,
     or_,
     select,
+    text,
     union_all,
     update,
 )
 from sqlalchemy import cast as sa_cast
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement
@@ -44,6 +46,15 @@ from scout.data.models import (
     DcStreetSegment,
     Feature,
 )
+from scout.errors import CorridorQueryTimeoutError
+
+# Postgres `statement_timeout` for each corridor statement (M1-F07). NF-PERF-03
+# budgets p95 < 1.5 s for routes under 5 km; 5 s leaves room for a long
+# cross-city route on a cold cache while capping how long one request can pin
+# one of the pool's 10 connections (session.py) under abusive geometry.
+CORRIDOR_STATEMENT_TIMEOUT_MS = 5_000
+# SQLSTATE `query_canceled`: what Postgres raises when statement_timeout fires.
+_PG_QUERY_CANCELED = "57014"
 
 # Restroom rows come from Refuge (not PostGIS) and have no centerline to join
 # against, so the enrichment UPDATE skips them defensively (DEC-027).
@@ -146,20 +157,32 @@ async def corridor_features_geojson(
     categories: Sequence[str],
     buffer_meters: float,
     limit: int = 500,
+    statement_timeout_ms: int = CORRIDOR_STATEMENT_TIMEOUT_MS,
 ) -> tuple[list[dict[str, Any]], float, bool, int]:
     """Buffered corridor intersection + along-route ordering.
 
     Returns GeoJSON-ish feature dicts, elapsed ms, truncation flag,
-    and the total matching row count (uncapped).
+    and the total matching row count (uncapped). Raises
+    `CorridorQueryTimeoutError` when Postgres cancels a statement for running
+    past `statement_timeout_ms`.
     """
 
     started = time.perf_counter()
     line_geography, _route_geom = _corridor_geographies(coordinates)
     route_length_stmt = select(gf.ST_Length(line_geography))
-    route_length_m = float((await session.execute(route_length_stmt)).scalar_one())
-
     stmt = corridor_features_select(coordinates, categories, buffer_meters, limit=limit)
-    rows = (await session.execute(stmt)).all()
+    try:
+        # SET LOCAL scopes the timeout to this request's transaction, so the
+        # pooled connection goes back with the server default (DEC-019).
+        await session.execute(
+            text(f"SET LOCAL statement_timeout = {int(statement_timeout_ms)}")
+        )
+        route_length_m = float((await session.execute(route_length_stmt)).scalar_one())
+        rows = (await session.execute(stmt)).all()
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) == _PG_QUERY_CANCELED:
+            raise CorridorQueryTimeoutError() from exc
+        raise
 
     truncated = len(rows) > limit
     if truncated:
