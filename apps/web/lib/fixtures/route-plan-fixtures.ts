@@ -1,4 +1,5 @@
 import type { CorridorResponse, RouteSummaryPayload } from "@/lib/api";
+import type { AddressHit } from "@/lib/providers/geocoding";
 import type { GeoJSON } from "geojson";
 
 /** Deterministic corridor + route payloads for demos and playwright mocks. */
@@ -88,6 +89,25 @@ export const DEMO_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = {
  * Lets the first-load sample show honest distance/time instead of a
  * straight-line estimate.
  */
+/**
+ * Endpoints of `DEMO_ROUTE`, shaped like the backend geocoder's hits for the same
+ * MAR rows (`id` = mar_id, `label` = label_full) so the planner can pre-fill its
+ * address inputs with them.
+ */
+export const DEMO_START_HIT: AddressHit = {
+  id: "313454",
+  label: "1000 MADISON DRIVE NW",
+  lon: -77.02624344,
+  lat: 38.89020747,
+};
+
+export const DEMO_DESTINATION_HIT: AddressHit = {
+  id: "242928",
+  label: "1201 G STREET NW",
+  lon: -77.02839035,
+  lat: 38.89851941,
+};
+
 export const DEMO_ROUTE_SUMMARY: RouteSummaryPayload = {
   distanceMeters: 1089,
   durationSeconds: 731.4,

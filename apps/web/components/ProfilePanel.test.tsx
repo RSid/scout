@@ -116,4 +116,35 @@ describe("ProfilePanel", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(trigger).toHaveFocus();
   });
+
+  it("calls onSave after the profile is saved", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <ProfilePanel onSave={onSave} />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+    await openPanel(user);
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onSave).toHaveBeenCalledOnce();
+  });
+
+  it("renders a custom trigger label", async () => {
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <ProfilePanel triggerLabel="Configure accessibility needs" />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /^configure accessibility needs$/i }),
+    ).toBeInTheDocument();
+  });
 });
