@@ -6,7 +6,25 @@ import ProfileCategoryFields from "@/components/ProfileCategoryFields";
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 import { useProfile } from "@/lib/profile";
 
-export default function ProfilePanel() {
+const TRIGGER_CLASS_BY_VARIANT = {
+  primary:
+    "inline-flex min-h-tap shrink-0 items-center justify-center rounded-tokenMd bg-accent px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark",
+  secondary:
+    "inline-flex min-h-tap shrink-0 items-center justify-center rounded-tokenMd border border-border px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-text)] focus-visible:btn-accent-double-ring-dark",
+} as const;
+
+type ProfilePanelProps = Readonly<{
+  triggerLabel?: string;
+  triggerVariant?: keyof typeof TRIGGER_CLASS_BY_VARIANT;
+  /** Runs after the profile is persisted, e.g. to navigate onward from the home page. */
+  onSave?: () => void;
+}>;
+
+export default function ProfilePanel({
+  triggerLabel = "My accessibility needs",
+  triggerVariant = "primary",
+  onSave,
+}: ProfilePanelProps = {}) {
   const {
     categories,
     selections,
@@ -26,8 +44,8 @@ export default function ProfilePanel() {
 
   return (
     <Dialog.Root>
-      <Dialog.Trigger className="inline-flex min-h-tap shrink-0 items-center justify-center rounded-tokenMd bg-accent px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-on-accent)] focus-visible:btn-accent-double-ring-dark">
-        My accessibility needs
+      <Dialog.Trigger className={TRIGGER_CLASS_BY_VARIANT[triggerVariant]}>
+        {triggerLabel}
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-[rgba(34,28,20,0.55)] backdrop-blur-sm dark:bg-[rgba(10,12,22,0.65)]" />
@@ -77,6 +95,7 @@ export default function ProfilePanel() {
                     onClick={() => {
                       persist();
                       announce("Profile saved to this browser.");
+                      onSave?.();
                     }}
                   >
                     Save

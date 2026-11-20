@@ -3,6 +3,7 @@ import type { AddressHit, GeocodingProvider } from "@/lib/providers/geocoding";
 import { backendGeocodingProvider } from "@/lib/providers/geocoding/backend";
 import { STUB_SEARCH_HITS } from "@/lib/providers/geocoding/stub";
 import { axe } from "jest-axe";
+import { StrictMode } from "react";
 import userEvent from "@testing-library/user-event";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -145,6 +146,46 @@ describe("AddressAutocomplete", () => {
       { limit: 5 },
       expect.any(AbortSignal),
     );
+  });
+
+  it("shows initialValue in the input", () => {
+    render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          initialValue="1000 MADISON DRIVE NW"
+          onPick={vi.fn()}
+          provider={makeProviders()}
+        />
+      </AnnounceProvider>,
+    );
+
+    expect(screen.getByRole("combobox")).toHaveValue("1000 MADISON DRIVE NW");
+  });
+
+  it("does not geocode initialValue on mount", async () => {
+    const search = vi.fn().mockResolvedValue([...STUB_SEARCH_HITS]);
+
+    // StrictMode re-runs mount effects, as Next.js dev does; a one-shot skip flag would leak a search.
+    render(
+      <StrictMode>
+        <AnnounceProvider>
+          <AddressAutocomplete
+            id="scout-start"
+            label="Starting point"
+            initialValue="1000 MADISON DRIVE NW"
+            onPick={vi.fn()}
+            provider={makeProviders({ search })}
+          />
+        </AnnounceProvider>
+      </StrictMode>,
+    );
+
+    // Outlast the 500 ms search debounce so a mount-time search would have fired.
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    expect(search).not.toHaveBeenCalled();
   });
 
   it("surfaces bundled DC-scope guidance after an empty autocomplete response", async () => {

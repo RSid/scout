@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import ConfigureNeedsButton from "@/components/ConfigureNeedsButton";
+
 const GITHUB_NEW_ISSUE =
   "https://github.com/RSid/scout/issues/new?template=feature_request.yml";
 
@@ -42,12 +44,7 @@ export default function HomePage() {
         >
           Open planner
         </Link>
-        <Link
-          href="/about"
-          className="inline-flex min-h-tap items-center justify-center rounded-tokenMd border border-border px-[var(--space-5)] py-[var(--space-4)] font-semibold text-[color:var(--color-text)] focus-visible:btn-accent-double-ring-dark"
-        >
-          About Scout
-        </Link>
+        <ConfigureNeedsButton />
       </div>
       <p className="text-[color:var(--color-text-muted)]">
         Suggestions or feedback?{" "}
