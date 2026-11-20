@@ -3,18 +3,30 @@
 from __future__ import annotations
 
 import logging
-from collections import OrderedDict
-from time import monotonic
 from typing import Any, NoReturn
 
 import httpx
 
+from scout.clients.routing.cache import TTLCache, routing_cache_key
 from scout.clients.routing.constants import FALLBACK_PROFILE_WARNING
 from scout.clients.routing.cooldown import (
     QuotaSignal,
     RoutingCooldown,
     decide_cooldown,
     is_daily_quota_exhausted,
+)
+from scout.clients.routing.endpoint_nudge import (
+    NudgePlan,
+    nudged_endpoints,
+    plan_endpoint_nudge,
+    step_runs,
+    stitch_nudged_route,
+)
+from scout.clients.routing.ors_response import (
+    ors_body_to_computation,
+    route_coordinates,
+    waytype_ranges,
+    without_extras,
 )
 from scout.clients.routing.protocol import RoutingProvider
 from scout.clients.routing.types import RoutingComputation
@@ -25,45 +37,48 @@ from scout.errors import (
     RouteServiceBusyError,
     RouteServiceUnavailableError,
 )
+from scout.geo import cumulative_distances_m
 
 LOGGER = logging.getLogger("scout")
 
-RoutingCacheKey = tuple[str | int, ...]
+__all__ = ["OpenRouteServiceProvider", "routing_cache_key"]
+
+# ORS's documented wheelchair defaults, sent explicitly. Without `options`,
+# ORS applies no incline, curb, or surface limits at all; the defaults only
+# take effect when sent. Shape and values per the wheelchair example at
+# https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/routing-options
+# (`cobblestone:flattened` and `sett` map to the same ORS surface class.)
+WHEELCHAIR_DEFAULT_RESTRICTIONS: dict[str, Any] = {
+    "maximum_incline": 6,
+    "maximum_sloped_kerb": 0.06,
+    "smoothness_type": "good",
+    "surface_type": "cobblestone:flattened",
+    "track_type": "grade1",
+}
+
+# Extra request fields per ORS profile. Foot-walking asks for `waytype` so the
+# wheelchair retry can find steps near each end (waytype 8 = Steps).
+_PROFILE_REQUEST_FIELDS: dict[str, dict[str, Any]] = {
+    "wheelchair": {
+        "options": {"profile_params": {"restrictions": WHEELCHAIR_DEFAULT_RESTRICTIONS}}
+    },
+    "foot-walking": {"extra_info": ["waytype"]},
+}
 
 
-def routing_cache_key(profile: str, pairs: list[float]) -> RoutingCacheKey:
-    """Cache key: request profile plus four-decimal rounded lon/lat pairs."""
+def _log_retry(outcome: str, plan: NudgePlan | None) -> None:
+    """One line per wheelchair-retry decision, so the extra ORS calls are
+    visible (DEC-003: instrument routing call volume). No coordinates."""
 
-    token = profile.strip().lower()
-    coords = tuple(int(round(coord * 10_000)) for coord in pairs)
-    return (token,) + coords
-
-
-class TTLCache[R]:
-    """256-entry LRU with 24-hour expiry (M1-F04 scaffolding)."""
-
-    def __init__(self, *, maxlen: int = 256, ttl_seconds: float = 86400.0) -> None:
-        self.maxlen = maxlen
-        self.ttl_seconds = ttl_seconds
-        self._store: OrderedDict[RoutingCacheKey, tuple[float, R]] = OrderedDict()
-
-    def get(self, key: RoutingCacheKey) -> R | None:
-        now = monotonic()
-        if key not in self._store:
-            return None
-        stamp, payload = self._store[key]
-        if now - stamp > self.ttl_seconds:
-            del self._store[key]
-            return None
-        self._store.move_to_end(key)
-        return payload
-
-    def set(self, key: RoutingCacheKey, payload: R) -> None:
-        now = monotonic()
-        self._store[key] = (now, payload)
-        self._store.move_to_end(key)
-        while len(self._store) > self.maxlen:
-            self._store.popitem(last=False)
+    extra: dict[str, Any] = {"upstream_service": "openrouteservice", "outcome": outcome}
+    if plan is not None:
+        extra |= {
+            "nudged_ends": plan.nudged_ends,
+            "steps_near_start": plan.steps_near_start,
+            "steps_near_end": plan.steps_near_end,
+            "unverified_meters": round(plan.start_offset_m + plan.end_offset_m),
+        }
+    LOGGER.info("wheelchair_endpoint_retry", extra=extra)
 
 
 class OpenRouteServiceProvider(RoutingProvider):
@@ -114,7 +129,6 @@ class OpenRouteServiceProvider(RoutingProvider):
         )
 
         coords = [[frm[0], frm[1]], [to[0], to[1]]]
-        fallback_used = False
         api_key = (self._settings.ors_api_key or "").strip()
         if not api_key:
             raise RouteServiceUnavailableError(
@@ -134,20 +148,76 @@ class OpenRouteServiceProvider(RoutingProvider):
         try:
             response = await self._call_directions("wheelchair", coords, api_key)
         except RouteNotFoundError:
-            response = await self._call_directions("foot-walking", coords, api_key)
-            fallback_used = True
-        computation = self._ors_body_to_computation(
-            response, fallback_used=fallback_used
-        )
-        if fallback_used:
-            computation = computation.model_copy(
-                update={
-                    "warnings": (*computation.warnings, FALLBACK_PROFILE_WARNING),
-                }
-            )
+            computation = await self._route_without_wheelchair_match(coords, api_key)
+        else:
+            computation = ors_body_to_computation(response, fallback_used=False)
 
         self._cache.set(key, computation)
         return computation
+
+    async def _route_without_wheelchair_match(
+        self, coords: list[list[float]], api_key: str
+    ) -> RoutingComputation:
+        """Foot-walking fallback, upgraded by one wheelchair retry when it works.
+
+        Worst case this costs two more ORS calls (foot-walking, then the
+        retry). Errors from the foot-walking call propagate as before.
+        """
+
+        foot_body = await self._call_directions("foot-walking", coords, api_key)
+        foot = ors_body_to_computation(without_extras(foot_body), fallback_used=True)
+        foot = foot.model_copy(
+            update={"warnings": (*foot.warnings, FALLBACK_PROFILE_WARNING)}
+        )
+        retried = await self._retry_wheelchair_near_endpoints(foot_body, foot, api_key)
+        return retried if retried is not None else foot
+
+    async def _retry_wheelchair_near_endpoints(
+        self, foot_body: dict[str, Any], foot: RoutingComputation, api_key: str
+    ) -> RoutingComputation | None:
+        """One wheelchair retry between points moved off step-only endpoints.
+
+        Returns ``None`` (keep the foot-walking fallback) when the trip is too
+        short to nudge, ORS is cooling down, or the retry fails for any reason,
+        including quota (which still opens the cooldown).
+        """
+
+        line = route_coordinates(foot_body)
+        cumulative = cumulative_distances_m(line)
+        total_m = cumulative[-1] if cumulative else 0.0
+        plan = plan_endpoint_nudge(
+            total_m, step_runs(cumulative, waytype_ranges(foot_body))
+        )
+        if plan is None:
+            _log_retry("skipped_short_route", None)
+            return None
+        if self._cooldown.seconds_remaining() is not None:
+            _log_retry("skipped_cooldown", plan)
+            return None
+
+        start, end = nudged_endpoints(line, cumulative, plan)
+        retry_coords = [[round(c, 6) for c in start], [round(c, 6) for c in end]]
+        try:
+            body = await self._call_directions("wheelchair", retry_coords, api_key)
+            wheelchair = ors_body_to_computation(body, fallback_used=False)
+        except RouteServiceBusyError:
+            _log_retry("quota", plan)
+            return None
+        except RouteNotFoundError:
+            _log_retry("not_found", plan)
+            return None
+        except RouteServiceUnavailableError:
+            _log_retry("unavailable", plan)
+            return None
+        _log_retry("success", plan)
+        return stitch_nudged_route(
+            foot_coordinates=line,
+            foot_cumulative=cumulative,
+            foot_duration_seconds=foot.duration_seconds,
+            plan=plan,
+            wheelchair=wheelchair,
+            wheelchair_coordinates=route_coordinates(body),
+        )
 
     async def _call_directions(
         self, profile: str, coordinates: list[list[float]], api_key: str
@@ -164,6 +234,7 @@ class OpenRouteServiceProvider(RoutingProvider):
             "coordinates": coordinates,
             "instructions": False,
             "units": "m",
+            **_PROFILE_REQUEST_FIELDS.get(route, {}),
         }
 
         try:
@@ -209,56 +280,3 @@ class OpenRouteServiceProvider(RoutingProvider):
         )
         retry_after = self._cooldown.open(signal, decision)
         raise RouteServiceBusyError(retry_after_seconds=retry_after)
-
-    def _ors_body_to_computation(
-        self, body: dict[str, Any], *, fallback_used: bool
-    ) -> RoutingComputation:
-        features_any = body.get("features")
-        if not isinstance(features_any, list) or len(features_any) == 0:
-            raise RouteNotFoundError()
-
-        # ORS Directions GeoJSON puts `summary` on `features[0].properties.summary`
-        # (`https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/`).
-        # Older mocks placed it on `metadata.summary` or top-level `properties.summary`;
-        # we keep those as fallbacks so existing fixtures still parse.
-        summary: dict[str, Any] | None = None
-        first_feature = features_any[0]
-        if isinstance(first_feature, dict):
-            feature_props = first_feature.get("properties")
-            if isinstance(feature_props, dict):
-                maybe_feature_summary = feature_props.get("summary")
-                if isinstance(maybe_feature_summary, dict):
-                    summary = maybe_feature_summary
-        if summary is None:
-            metadata = body.get("metadata")
-            if isinstance(metadata, dict):
-                maybe_summary = metadata.get("summary")
-                if isinstance(maybe_summary, dict):
-                    summary = maybe_summary
-        if summary is None:
-            top_props = body.get("properties")
-            if isinstance(top_props, dict):
-                maybe_summary_top = top_props.get("summary")
-                if isinstance(maybe_summary_top, dict):
-                    summary = maybe_summary_top
-
-        distance_meters = float(summary.get("distance", 0.0)) if summary else 0.0
-        duration_seconds = float(summary.get("duration", 0.0)) if summary else 0.0
-        warnings: tuple[str, ...] = ()
-        if summary:
-            warns = summary.get("warnings")
-            if isinstance(warns, list):
-                warnings = tuple(str(w) for w in warns)
-
-        geojson_fc: dict[str, Any] = {
-            "type": "FeatureCollection",
-            "features": features_any,
-        }
-
-        return RoutingComputation(
-            geojson_fc=geojson_fc,
-            distance_meters=distance_meters,
-            duration_seconds=duration_seconds,
-            fallback_profile_used=fallback_used,
-            warnings=warnings,
-        )
