@@ -233,6 +233,23 @@ describe("PlanExperience", () => {
     expect(results.violations).toStrictEqual([]);
   });
 
+  it("places the route summary after the start and destination inputs", async () => {
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    const destination = await screen.findByRole("combobox", { name: /destination/i });
+    const summary = screen.getByRole("region", { name: /^route summary$/i });
+
+    expect(
+      destination.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("announces 'Map shown.' and keeps focus on the toggle when revealed on mobile", async () => {
     // matchMedia defaults to matches:false in the test setup, i.e. < 768px.
     const user = userEvent.setup({ delay: null });

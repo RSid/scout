@@ -378,8 +378,6 @@ export default function PlanExperience() {
         <ProfilePanel />
       </header>
 
-      <RouteSummary mode={summaryModel.mode} summary={summaryModel.summary} />
-
       <fieldset
         aria-labelledby="scout-planner-heading"
         id="scout-route-planner"
@@ -396,21 +394,26 @@ export default function PlanExperience() {
             className="sticky top-0 z-[10] shadow-modal"
           />
         ) : null}
-        <AddressAutocomplete
-          id="scout-start"
-          label="Starting point"
-          showUseMyLocation
-          userLocation={userLocation}
-          onPick={handlePickStart}
-          onUserLocationAcquired={(coords) => setUserLocation([coords[0], coords[1]])}
-        />
-        <AddressAutocomplete
-          id="scout-destination"
-          label="Destination"
-          userLocation={userLocation}
-          onPick={handlePickDestination}
-        />
+        {/* Side by side from `md` up; the planner treats ≥768px as desktop. */}
+        <div className="grid grid-cols-1 gap-[var(--space-8)] md:grid-cols-2 md:items-start md:gap-[var(--space-6)]">
+          <AddressAutocomplete
+            id="scout-start"
+            label="Starting point"
+            showUseMyLocation
+            userLocation={userLocation}
+            onPick={handlePickStart}
+            onUserLocationAcquired={(coords) => setUserLocation([coords[0], coords[1]])}
+          />
+          <AddressAutocomplete
+            id="scout-destination"
+            label="Destination"
+            userLocation={userLocation}
+            onPick={handlePickDestination}
+          />
+        </div>
       </fieldset>
+
+      <RouteSummary mode={summaryModel.mode} summary={summaryModel.summary} />
 
       <div className="flex flex-col gap-[var(--space-10)] md:flex-row md:items-start">
         <div className="order-2 min-w-0 flex-1 md:order-1 md:mr-[var(--space-6)]">
