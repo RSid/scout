@@ -16,20 +16,27 @@ import {
   DEMO_ROUTE_SUMMARY,
   DEMO_START_HIT,
 } from "@/lib/fixtures/route-plan-fixtures";
-import { derivePlannerStatus } from "@/lib/planner-status";
+import {
+  corridorFailureAnnouncement,
+  derivePlannerStatus,
+  requestFailureFrom,
+  routeFailureAnnouncement,
+  type RequestFailure,
+} from "@/lib/planner-status";
 
 import {
   CORRIDOR_BUFFER_METERS,
   CORRIDOR_BUFFER_METERS_FALLBACK,
   fetchCorridorFeatures,
   fetchRoute,
+  ScoutApiError,
   type CorridorResponse,
   type RouteSummaryPayload,
 } from "@/lib/api";
 import {
   corridorFetchSuccessAnnouncement,
   en,
-  routeAnnouncementApproxFallback,
+  retryWhenPhrase,
   routeAnnouncementLoaded,
 } from "@/lib/i18n/messages";
 
@@ -75,7 +82,13 @@ type RouteFetchSlice =
       line: GeoJSON.Feature<GeoJSON.LineString>;
       summary: RouteSummaryPayload;
     }
-  | { kind: "error"; routeKey: string };
+  | { kind: "error"; routeKey: string; failure: RequestFailure };
+
+/** Backend codes whose `Retry-After` means "don't ask again until then". */
+const ROUTE_COOLDOWN_CODES: ReadonlySet<string> = new Set([
+  "ROUTE_SERVICE_BUSY",
+  "RATE_LIMIT",
+]);
 
 export default function PlanExperience() {
   const announce = useAnnounce();
@@ -94,6 +107,15 @@ export default function PlanExperience() {
   const [routeFetch, setRouteFetch] = useState<RouteFetchSlice>({ kind: "unset" });
   /** Ignores stale `fetchRoute` settles when endpoints change faster than upstream responds. */
   const desiredRouteKeyRef = useRef<string | null>(null);
+  /**
+   * Set when routing answers busy (503) or rate-limited (429) with a
+   * `Retry-After`. Until it passes, new routes show that state without a
+   * request: the backend would only refuse again, and each refusal still
+   * counts against this device's limit.
+   */
+  const routeCooldownRef = useRef<Readonly<{ untilMs: number; code: string }> | null>(
+    null,
+  );
 
   const [selectedCorridorFeatureId, setSelectedCorridorFeatureId] = useState<
     string | null
@@ -106,6 +128,10 @@ export default function PlanExperience() {
   /** Corridor fetch UX for the paired list/map (M1-F09). */
   const [corridorListingStatus, setCorridorListingStatus] =
     useState<CorridorListingStatus>("idle");
+  /** Why the last corridor query failed; read only while the status is `error`. */
+  const [corridorFailure, setCorridorFailure] = useState<RequestFailure | undefined>(
+    undefined,
+  );
 
   const mapShellRef = useRef<HTMLDivElement | null>(null);
 
@@ -159,9 +185,20 @@ export default function PlanExperience() {
       return undefined;
     }
 
-    const controller = new AbortController();
     const keyed = routeKey;
 
+    const cooldown = routeCooldownRef.current;
+    if (cooldown !== null && Date.now() < cooldown.untilMs) {
+      const failure: RequestFailure = {
+        code: cooldown.code,
+        retryWhen: retryWhenPhrase((cooldown.untilMs - Date.now()) / 1000),
+      };
+      setRouteFetch({ kind: "error", routeKey: keyed, failure });
+      announce(routeFailureAnnouncement(failure));
+      return undefined;
+    }
+
+    const controller = new AbortController();
     setRouteFetch({ kind: "loading", routeKey: keyed });
 
     void fetchRoute(
@@ -210,8 +247,21 @@ export default function PlanExperience() {
           return;
         }
 
-        setRouteFetch({ kind: "error", routeKey: keyed });
-        announce(routeAnnouncementApproxFallback());
+        const failure = requestFailureFrom(reason);
+        if (
+          reason instanceof ScoutApiError &&
+          reason.code !== undefined &&
+          ROUTE_COOLDOWN_CODES.has(reason.code) &&
+          reason.retryAfterSeconds !== undefined
+        ) {
+          routeCooldownRef.current = {
+            untilMs: Date.now() + reason.retryAfterSeconds * 1000,
+            code: reason.code,
+          };
+        }
+
+        setRouteFetch({ kind: "error", routeKey: keyed, failure });
+        announce(routeFailureAnnouncement(failure));
       });
 
     return () => controller.abort();
@@ -335,8 +385,10 @@ export default function PlanExperience() {
       derivePlannerStatus({
         summaryMode: summaryModel.mode,
         corridorStatus: corridorListingStatus,
+        routeFailure: routeFetch.kind === "error" ? routeFetch.failure : undefined,
+        corridorFailure,
       }),
-    [summaryModel.mode, corridorListingStatus],
+    [summaryModel.mode, corridorListingStatus, routeFetch, corridorFailure],
   );
 
   function handlePickStart(hit: AddressHit) {
@@ -390,9 +442,11 @@ export default function PlanExperience() {
         if (reason instanceof DOMException && reason.name === "AbortError") {
           return;
         }
+        const failure = requestFailureFrom(reason);
         setCorridorFeatures([]);
+        setCorridorFailure(failure);
         setCorridorListingStatus("error");
-        announce(en.corridorListingFailedBrief);
+        announce(corridorFailureAnnouncement(failure));
       });
 
     return () => controller.abort();

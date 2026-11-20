@@ -8,6 +8,7 @@ import {
   fetchCorridorFeatures,
   fetchHealth,
   fetchRoute,
+  parseRetryAfterSeconds,
   reverseGeocode,
   searchGeocode,
 } from "./api";
@@ -431,5 +432,74 @@ describe("reverseGeocode", () => {
     } satisfies Partial<Response>);
 
     await expect(reverseGeocode(-77, 38)).rejects.toThrow(ScoutApiError);
+  });
+});
+
+describe("busy and rate-limit errors (M1-F03, M1-F04, M1-F07)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const LINE: GeoJSON.LineString = {
+    type: "LineString",
+    coordinates: [
+      [-77.03, 38.9],
+      [-77.02, 38.91],
+    ],
+  };
+
+  const CALLS = {
+    route: () => fetchRoute({ from: [-77.03, 38.9], to: [-77.02, 38.91] }),
+    corridor: () =>
+      fetchCorridorFeatures({ route_geometry: LINE, categories: ["curb_ramps"] }),
+    geocode: () => searchGeocode("union station"),
+  } as const;
+
+  it.each([
+    ["route", 503, "ROUTE_SERVICE_BUSY", "120", 120],
+    ["route", 429, "RATE_LIMIT", "30", 30],
+    ["corridor", 503, "CORRIDOR_QUERY_TIMEOUT", null, undefined],
+    ["corridor", 429, "RATE_LIMIT", "15", 15],
+    ["geocode", 429, "RATE_LIMIT", "7", 7],
+  ] as const)(
+    "%s %i %s carries code, status, and Retry-After",
+    async (call, status, code, retryAfter, expectedSeconds) => {
+      // MOCK: HTTP boundary returning a backend `{error}` body with headers.
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status,
+          headers: new Headers(
+            retryAfter === null ? {} : { "Retry-After": retryAfter },
+          ),
+          json: async () => ({ error: { code, message: "Busy." } }),
+        } satisfies Partial<Response>),
+      );
+
+      const error: unknown = await CALLS[call]().catch((reason: unknown) => reason);
+
+      expect({
+        code: (error as ScoutApiError).code,
+        status: (error as ScoutApiError).status,
+        retryAfterSeconds: (error as ScoutApiError).retryAfterSeconds,
+      }).toStrictEqual({ code, status, retryAfterSeconds: expectedSeconds });
+    },
+  );
+});
+
+describe("parseRetryAfterSeconds", () => {
+  const NOW_MS = Date.parse("2026-11-20T12:00:00Z");
+
+  it.each([
+    ["whole seconds", "90", 90],
+    ["padded seconds", " 60 ", 60],
+    ["an HTTP date", "Fri, 20 Nov 2026 12:02:00 GMT", 120],
+    ["a past HTTP date", "Fri, 20 Nov 2026 11:00:00 GMT", 0],
+    ["garbage", "soon", undefined],
+    ["an empty header", "", undefined],
+    ["a missing header", null, undefined],
+  ] as const)("reads %s", (_name, header, expected) => {
+    expect(parseRetryAfterSeconds(header, NOW_MS)).toBe(expected);
   });
 });

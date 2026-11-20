@@ -3,6 +3,11 @@
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 import { ScoutApiError } from "@/lib/api";
 import { formatApproxMeters, roughDistanceMeters } from "@/lib/geo";
+import {
+  requestLimitMessages,
+  retryWhenPhrase,
+  withRetryWhen,
+} from "@/lib/i18n/messages";
 import type { AddressHit, GeocodingProvider } from "@/lib/providers/geocoding";
 import { getGeocodingProvider } from "@/lib/providers/geocoding";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +23,17 @@ import {
 } from "react-aria-components";
 
 const DEBOUNCE_MS = 500;
+/** Pause after a 429 that carries no usable `Retry-After`. */
+const RATE_LIMIT_DEFAULT_PAUSE_SECONDS = 10;
+/** Longest pause honored, so a bad header can't disable search for the session. */
+const RATE_LIMIT_MAX_PAUSE_SECONDS = 60;
+
+function isRateLimited(error: unknown): error is ScoutApiError {
+  return (
+    error instanceof ScoutApiError &&
+    (error.code === "RATE_LIMIT" || error.status === 429)
+  );
+}
 
 type LocationStatus =
   | { kind: "idle" }
@@ -93,6 +109,8 @@ export default function AddressAutocomplete({
    * effect) so React's dev-mode double effect run can't trigger a search either.
    */
   const userHasEdited = useRef(false);
+  /** While in the future, searches wait instead of hitting the rate limit again. */
+  const searchPausedUntilMs = useRef(0);
   const [inputValue, setInputValue] = useState(initialValue);
   const [hits, setHits] = useState<readonly AddressHit[]>([]);
   const [busy, setBusy] = useState(false);
@@ -103,6 +121,8 @@ export default function AddressAutocomplete({
    * search).
    */
   const [noMatchesForCurrentQuery, setNoMatchesForCurrentQuery] = useState(false);
+  /** Shown after a 429 until the next search gets an answer. */
+  const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>({
     kind: "idle",
   });
@@ -146,6 +166,7 @@ export default function AddressAutocomplete({
           return;
         }
         const nextArray = [...nextHits];
+        setRateLimitMessage(null);
         setHits(nextArray);
         setNoMatchesForCurrentQuery(nextArray.length === 0);
 
@@ -159,6 +180,28 @@ export default function AddressAutocomplete({
           controller.signal.aborted ||
           (error instanceof DOMException && error.name === "AbortError")
         ) {
+          return;
+        }
+
+        if (isRateLimited(error)) {
+          const pauseSeconds = Math.min(
+            error.retryAfterSeconds ?? RATE_LIMIT_DEFAULT_PAUSE_SECONDS,
+            RATE_LIMIT_MAX_PAUSE_SECONDS,
+          );
+          searchPausedUntilMs.current = Date.now() + pauseSeconds * 1000;
+          const message = withRetryWhen(
+            requestLimitMessages.geocodeRateLimitedTemplate,
+            retryWhenPhrase(pauseSeconds),
+          );
+          setRateLimitMessage(message);
+          announce(message);
+          setHits([]);
+          // Try this query once more when the pause ends. A new keystroke
+          // replaces this timer with one for the newer text.
+          window.clearTimeout(debounceTimer.current);
+          debounceTimer.current = window.setTimeout(() => {
+            void runGeocode(query);
+          }, pauseSeconds * 1000);
           return;
         }
 
@@ -201,14 +244,16 @@ export default function AddressAutocomplete({
     setNoMatchesForCurrentQuery(false);
     cancelPendingSearch();
     const trimmed = inputValue.trim();
-    if (trimmed.length >= 3) {
-      setBusy(true);
-    } else {
-      setBusy(false);
-    }
-    debounceTimer.current = window.setTimeout(() => {
-      void runGeocode(inputValue);
-    }, DEBOUNCE_MS);
+    // After a 429, wait out the pause; the rate-limit message stands in for
+    // "Searching…" until then.
+    const pauseLeftMs = searchPausedUntilMs.current - Date.now();
+    setBusy(trimmed.length >= 3 && pauseLeftMs <= 0);
+    debounceTimer.current = window.setTimeout(
+      () => {
+        void runGeocode(inputValue);
+      },
+      Math.max(DEBOUNCE_MS, pauseLeftMs),
+    );
 
     return () => window.clearTimeout(debounceTimer.current);
   }, [cancelPendingSearch, inputValue, runGeocode]);
@@ -276,7 +321,14 @@ export default function AddressAutocomplete({
           )}
         </ListBox>
       </Popover>
-      {trimmedForHint.length >= 3 && !busy && noMatchesForCurrentQuery ? (
+      {rateLimitMessage !== null ? (
+        // Announced through the shared live region when it first appears.
+        <p className="text-sm text-[color:var(--color-text)]">{rateLimitMessage}</p>
+      ) : null}
+      {trimmedForHint.length >= 3 &&
+      !busy &&
+      noMatchesForCurrentQuery &&
+      rateLimitMessage === null ? (
         <p className="text-sm text-[color:var(--color-text-muted)]" aria-live="polite">
           We currently support Washington, DC addresses and named places only.
         </p>

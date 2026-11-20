@@ -699,6 +699,104 @@ describe("AddressAutocomplete request hygiene (M1-F03)", () => {
   });
 });
 
+describe("AddressAutocomplete when address search is rate-limited (M1-F03)", () => {
+  const RATE_LIMIT_MESSAGE =
+    "Too many address searches in a short time. Try again in a few seconds.";
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** First search gets a 429 with `Retry-After: 1`; later searches succeed. */
+  function rateLimitedOnce(): ReturnType<typeof vi.fn> {
+    // MOCK: provider double standing in for `/api/geocode/search` answering 429 once.
+    return vi
+      .fn()
+      .mockRejectedValueOnce(
+        new ScoutApiError("Rate limit exceeded.", "RATE_LIMIT", {
+          status: 429,
+          retryAfterSeconds: 1,
+        }),
+      )
+      .mockResolvedValue([...STUB_SEARCH_HITS]);
+  }
+
+  function renderWith(search: ReturnType<typeof vi.fn>): HTMLElement {
+    const { container } = render(
+      <AnnounceProvider>
+        <AddressAutocomplete
+          id="scout-start"
+          label="Starting point"
+          onPick={vi.fn()}
+          provider={makeProviders({ search })}
+        />
+      </AnnounceProvider>,
+    );
+    return container;
+  }
+
+  it("shows a plain message instead of going quiet", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWith(rateLimitedOnce());
+
+    await user.type(screen.getByRole("combobox"), "union");
+
+    expect(await screen.findByText(RATE_LIMIT_MESSAGE)).toBeVisible();
+  });
+
+  it("announces the message to screen readers", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWith(rateLimitedOnce());
+
+    await user.type(screen.getByRole("combobox"), "union");
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(RATE_LIMIT_MESSAGE),
+    );
+  });
+
+  it("sends no new search before Retry-After passes, even while typing", async () => {
+    const search = rateLimitedOnce();
+    const user = userEvent.setup({ delay: null });
+    renderWith(search);
+
+    await user.type(screen.getByRole("combobox"), "union");
+    await screen.findByText(RATE_LIMIT_MESSAGE);
+    await user.type(screen.getByRole("combobox"), " st");
+    // Past the 500 ms debounce, still inside the 1 s pause.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
+  it("searches the latest text once the pause ends", async () => {
+    const search = rateLimitedOnce();
+    const user = userEvent.setup({ delay: null });
+    renderWith(search);
+
+    await user.type(screen.getByRole("combobox"), "union");
+    await screen.findByText(RATE_LIMIT_MESSAGE);
+    await user.type(screen.getByRole("combobox"), " st");
+
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    expect(search).toHaveBeenLastCalledWith(
+      "union st",
+      { limit: 5 },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("passes axe while the message shows", async () => {
+    const user = userEvent.setup({ delay: null });
+    const container = renderWith(rateLimitedOnce());
+
+    await user.type(screen.getByRole("combobox"), "union");
+    await screen.findByText(RATE_LIMIT_MESSAGE);
+
+    expect((await axe(container)).violations).toStrictEqual([]);
+  });
+});
+
 describe("AddressAutocomplete axe", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_SCOUT_GEOCODING_PROVIDER", "stub");

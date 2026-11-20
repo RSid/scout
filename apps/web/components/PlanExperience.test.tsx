@@ -459,6 +459,114 @@ describe("PlanExperience", () => {
     );
   });
 
+  describe("busy and rate-limited routing (M1-F04)", () => {
+    function busyError(
+      code: string,
+      retryAfterSeconds: number,
+    ): scoutApi.ScoutApiError {
+      return new scoutApi.ScoutApiError("Busy.", code, {
+        status: code === "RATE_LIMIT" ? 429 : 503,
+        retryAfterSeconds,
+      });
+    }
+
+    async function planToDupont(): Promise<HTMLElement> {
+      const user = userEvent.setup({ delay: null });
+      const { container } = render(
+        <AnnounceProvider>
+          <ProfileProvider>
+            <PlanExperience />
+          </ProfileProvider>
+        </AnnounceProvider>,
+      );
+      await screen.findByRole("heading", { name: /^plan a route$/i });
+      await keyboardPickDestination(user);
+      return container;
+    }
+
+    it.each([
+      [
+        "ROUTE_SERVICE_BUSY",
+        "Route planning is busy",
+        60,
+        /try again in about a minute/i,
+      ],
+      ["RATE_LIMIT", "Too many route requests", 20, /try again in a few seconds/i],
+    ])(
+      "shows a specific %s message with when to retry",
+      async (code, title, retryAfterSeconds, detail) => {
+        // MOCK: backend refuses routing with a Retry-After.
+        routeSpy.mockRejectedValue(busyError(code, retryAfterSeconds));
+
+        await planToDupont();
+
+        const strip = (await screen.findByText(title)).parentElement;
+        expect(strip).toHaveTextContent(detail);
+      },
+      60_000,
+    );
+
+    it("passes axe while routing is busy", async () => {
+      // MOCK: backend refuses routing with a Retry-After.
+      routeSpy.mockRejectedValue(busyError("ROUTE_SERVICE_BUSY", 3600));
+
+      const container = await planToDupont();
+      await screen.findByText("Route planning is busy");
+
+      expect((await axe(container)).violations).toStrictEqual([]);
+    }, 60_000);
+
+    it("doesn't ask for another route until Retry-After passes", async () => {
+      // MOCK: backend refuses routing with a long Retry-After.
+      routeSpy.mockRejectedValue(busyError("ROUTE_SERVICE_BUSY", 3600));
+      const user = userEvent.setup({ delay: null });
+      render(
+        <AnnounceProvider>
+          <ProfileProvider>
+            <PlanExperience />
+          </ProfileProvider>
+        </AnnounceProvider>,
+      );
+      await screen.findByRole("heading", { name: /^plan a route$/i });
+
+      await keyboardPickDestination(user);
+      await screen.findByText("Route planning is busy");
+      // A second pick (start → Dupont) would normally request a new route.
+      await keyboardPickBothAddresses(user);
+      await screen.findByText("Route planning is busy");
+
+      expect(routeSpy).toHaveBeenCalledTimes(1);
+    }, 60_000);
+  });
+
+  describe("busy and rate-limited corridor queries (M1-F07)", () => {
+    it.each([
+      ["CORRIDOR_QUERY_TIMEOUT", 503, en.corridorListingErrorTitle, /took too long/i],
+      ["RATE_LIMIT", 429, en.corridorListingErrorTitle, /try again in about a minute/i],
+    ])(
+      "explains a %s failure in the status strip",
+      async (code, status, title, detail) => {
+        // MOCK: backend refuses the corridor query.
+        corridorSpy.mockRejectedValue(
+          new scoutApi.ScoutApiError("Busy.", code, { status, retryAfterSeconds: 60 }),
+        );
+        const { container } = render(
+          <AnnounceProvider>
+            <ProfileProvider>
+              <PlanExperience />
+            </ProfileProvider>
+          </AnnounceProvider>,
+        );
+
+        const strip = (await screen.findAllByText(title))
+          .map((element) => element.parentElement)
+          .find((parent) => parent !== null && detail.test(parent.textContent ?? ""));
+        expect(strip).toBeDefined();
+        expect((await axe(container)).violations).toStrictEqual([]);
+      },
+    );
+  });
+
   describe("route retrieval errors", () => {
     beforeEach(() => {
       routeSpy.mockRejectedValue(

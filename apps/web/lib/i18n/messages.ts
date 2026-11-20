@@ -129,6 +129,82 @@ export const en = {
     "Interactive map paused because Scout could not load its local tiles.",
 } satisfies LocaleMessages;
 
+/* ---- Busy and rate-limit states (M1-F03, M1-F04, M1-F07) ---- */
+
+/**
+ * Copy for when Scout's backend asks the browser to slow down: `RATE_LIMIT`
+ * (429, Scout's own per-device limit) or `ROUTE_SERVICE_BUSY` (503, the
+ * directions service's daily or per-minute quota is used up). `{when}` is a
+ * phrase from `retryWhenPhrase`, never raw seconds.
+ */
+export const requestLimitMessages = {
+  geocodeRateLimitedTemplate:
+    "Too many address searches in a short time. Try again {when}.",
+
+  routeBusyTitle: "Route planning is busy",
+  routeBusyDetailTemplate:
+    "Directions aren't available right now. Try again {when}. " +
+    "The map and the accessibility features below still work.",
+  /** Live region (≤12 words, §9.5). */
+  routeBusyAnnouncementTemplate: "Route planning is busy. Try again {when}.",
+
+  routeRateLimitedTitle: "Too many route requests",
+  routeRateLimitedDetailTemplate:
+    "Scout limits how many routes one device can plan in a short time. " +
+    "Try again {when}. The map and the accessibility features below still work.",
+  /** Live region (≤12 words, §9.5). */
+  routeRateLimitedAnnouncementTemplate: "Too many route requests. Try again {when}.",
+
+  corridorRateLimitedDetailTemplate:
+    "Scout limits how often one device can look up items along a route. " +
+    "Try again {when}.",
+  corridorTimeoutDetail:
+    "Looking up items along this route took too long. Try again in a moment, " +
+    "or try a shorter route.",
+  corridorTooLargeDetail:
+    "This route is too long to list items along it. Try a shorter route.",
+  corridorOutsideAreaDetail:
+    "Part of this route is outside Washington, DC. Scout lists items in DC only.",
+} satisfies LocaleMessages;
+
+/**
+ * Turns a `Retry-After` wait into a plain phrase that finishes "Try again …".
+ * Long waits name the day instead of a number of hours: a quota can stay
+ * closed until tomorrow.
+ */
+export function retryWhenPhrase(
+  seconds: number | undefined,
+  now: Date = new Date(),
+): string {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) {
+    return "in a little while";
+  }
+  if (seconds <= 20) {
+    return "in a few seconds";
+  }
+  if (seconds <= 90) {
+    return "in about a minute";
+  }
+  if (seconds < 50 * 60) {
+    return `in about ${String(Math.round(seconds / 60))} minutes`;
+  }
+  if (seconds < 90 * 60) {
+    return "in about an hour";
+  }
+  if (seconds < 6 * 60 * 60) {
+    return `in about ${String(Math.round(seconds / 3600))} hours`;
+  }
+  const retryAt = new Date(now.getTime() + seconds * 1000);
+  return retryAt.toDateString() === now.toDateString() ? "later today" : "tomorrow";
+}
+
+/** Fills a `{when}` template from `requestLimitMessages`. */
+export function withRetryWhen(template: string, when: string): string {
+  return template.replace("{when}", when);
+}
+
+/* ---- end busy and rate-limit states ---- */
+
 /**
  * Location label for a feature sitting on a named street (M2-F24, DEC-027).
  * e.g. `onStreetLabel("14th St NW")` -> "on 14th St NW". Structured so an

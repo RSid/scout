@@ -13,13 +13,61 @@ export function apiBase(): string {
 
 export class ScoutApiError extends Error {
   readonly code?: string | undefined;
+  /** HTTP status of the failed response, when there was one. */
+  readonly status?: number | undefined;
+  /** Parsed `Retry-After` (whole seconds) on 429 / 503 responses. */
+  readonly retryAfterSeconds?: number | undefined;
 
-  constructor(message: string, code?: string | undefined, options?: ErrorOptions) {
+  constructor(
+    message: string,
+    code?: string | undefined,
+    options?: ScoutApiErrorOptions,
+  ) {
     super(message, options);
     this.code = code;
+    this.status = options?.status;
+    this.retryAfterSeconds = options?.retryAfterSeconds;
     this.name = "ScoutApiError";
   }
 }
+
+/* ---- Busy and rate-limit responses (M1-F03, M1-F04, M1-F07) ---- */
+
+export type ScoutApiErrorOptions = ErrorOptions &
+  Readonly<{
+    status?: number | undefined;
+    retryAfterSeconds?: number | undefined;
+  }>;
+
+/**
+ * Parses a `Retry-After` header: whole seconds (what Scout's backend sends) or
+ * an HTTP date. Returns `undefined` when absent or unreadable.
+ */
+export function parseRetryAfterSeconds(
+  header: string | null | undefined,
+  nowMs: number = Date.now(),
+): number | undefined {
+  if (header === null || header === undefined || header.trim() === "") {
+    return undefined;
+  }
+  const trimmed = header.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+  const dateMs = Date.parse(trimmed);
+  if (Number.isNaN(dateMs)) {
+    return undefined;
+  }
+  return Math.max(0, Math.ceil((dateMs - nowMs) / 1000));
+}
+
+function retryAfterFromResponse(resp: Response): number | undefined {
+  // Test doubles and some proxies hand back responses without `headers`.
+  const headers = (resp as Partial<Response>).headers;
+  return parseRetryAfterSeconds(headers?.get("Retry-After"));
+}
+
+/* ---- end busy and rate-limit responses ---- */
 
 async function safeReadJson(resp: Response): Promise<unknown> {
   try {
@@ -29,7 +77,7 @@ async function safeReadJson(resp: Response): Promise<unknown> {
   }
 }
 
-function parseUpstreamError(payload: unknown): ScoutApiError {
+function parseUpstreamError(payload: unknown, resp?: Response): ScoutApiError {
   const err =
     typeof payload === "object" &&
     payload !== null &&
@@ -46,7 +94,10 @@ function parseUpstreamError(payload: unknown): ScoutApiError {
   const msg = typeof err?.message === "string" ? err.message : "Scout upstream error.";
   const code = typeof err?.code === "string" ? err.code : undefined;
 
-  return new ScoutApiError(msg, code);
+  return new ScoutApiError(msg, code, {
+    status: resp?.status,
+    retryAfterSeconds: resp === undefined ? undefined : retryAfterFromResponse(resp),
+  });
 }
 
 export type DbStatus = "up" | "down";
@@ -164,7 +215,7 @@ export async function searchGeocode(
 
   const body = await safeReadJson(resp);
   if (!resp.ok) {
-    throw parseUpstreamError(body);
+    throw parseUpstreamError(body, resp);
   }
   if (typeof body !== "object" || body === null) {
     throw new ScoutApiError("Geocode payload malformed.", "GEOCODE_FAILED");
@@ -244,7 +295,7 @@ export async function fetchCorridorFeatures(
 
   const body = await safeReadJson(resp);
   if (!resp.ok) {
-    throw parseUpstreamError(body);
+    throw parseUpstreamError(body, resp);
   }
 
   if (
@@ -321,7 +372,7 @@ export async function fetchRoute(
 
   const body = await safeReadJson(resp);
   if (!resp.ok) {
-    throw parseUpstreamError(body);
+    throw parseUpstreamError(body, resp);
   }
 
   if (
