@@ -8,6 +8,7 @@ import {
   fetchCorridorFeatures,
   fetchHealth,
   fetchRoute,
+  parseUnverifiedSegments,
   reverseGeocode,
   searchGeocode,
 } from "./api";
@@ -431,5 +432,136 @@ describe("reverseGeocode", () => {
     } satisfies Partial<Response>);
 
     await expect(reverseGeocode(-77, 38)).rejects.toThrow(ScoutApiError);
+  });
+});
+
+describe("parseUnverifiedSegments (M1-F04 unverified_segments)", () => {
+  const wireSegment = {
+    position: "end",
+    length_meters: 135.0,
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [-77.03, 38.9],
+        [-77.031, 38.901],
+      ],
+    },
+    reason: "endpoint_steps_only",
+  };
+
+  it("maps a well-formed wire segment to the typed shape", () => {
+    expect(parseUnverifiedSegments([wireSegment])).toStrictEqual([
+      {
+        position: "end",
+        lengthMeters: 135,
+        geometry: wireSegment.geometry,
+        reason: "endpoint_steps_only",
+      },
+    ]);
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["null", null],
+    ["an object", { position: "end" }],
+    ["a string", "end"],
+  ])("returns an empty list when the field is %s", (_label, raw) => {
+    expect(parseUnverifiedSegments(raw)).toStrictEqual([]);
+  });
+
+  it.each([
+    ["not an object", 42],
+    ["an unknown position", { ...wireSegment, position: "middle" }],
+    ["a string length", { ...wireSegment, length_meters: "135" }],
+    ["a negative length", { ...wireSegment, length_meters: -1 }],
+    ["a non-finite length", { ...wireSegment, length_meters: Number.NaN }],
+    ["an unknown reason", { ...wireSegment, reason: "construction" }],
+    ["a missing geometry", { ...wireSegment, geometry: undefined }],
+    [
+      "a Point geometry",
+      { ...wireSegment, geometry: { type: "Point", coordinates: [-77, 38] } },
+    ],
+    [
+      "a one-point LineString",
+      { ...wireSegment, geometry: { type: "LineString", coordinates: [[-77, 38]] } },
+    ],
+    [
+      "non-numeric coordinates",
+      {
+        ...wireSegment,
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            ["-77", "38"],
+            [-77, 38],
+          ],
+        },
+      },
+    ],
+  ])("drops a segment with %s and keeps the valid ones", (_label, malformed) => {
+    expect(parseUnverifiedSegments([malformed, wireSegment])).toHaveLength(1);
+  });
+});
+
+describe("fetchRoute unverified segments", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubRouteProperties(extra: Record<string, unknown>): void {
+    // MOCK: POST /api/route HTTP boundary; only the summary properties vary.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-77.04, 38.89],
+                  [-77.03, 38.9],
+                ],
+              },
+              properties: {
+                distance_meters: 900,
+                duration_seconds: 640,
+                fallback_profile_used: false,
+                warnings: [],
+                ...extra,
+              },
+            },
+          ],
+        }),
+      } satisfies Partial<Response>),
+    );
+  }
+
+  const startSegment = {
+    position: "start",
+    length_meters: 41.2,
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [-77.04, 38.89],
+        [-77.0405, 38.8902],
+      ],
+    },
+    reason: "endpoint_steps_only",
+  };
+
+  it.each([
+    ["present", { unverified_segments: [startSegment] }, 1],
+    ["absent (older backend)", {}, 0],
+    ["malformed", { unverified_segments: "oops" }, 0],
+  ])("parses unverified_segments when %s", async (_label, extra, expectedCount) => {
+    stubRouteProperties(extra);
+
+    const result = await fetchRoute({ from: [-77.05, 38.91], to: [-77.04, 38.92] });
+
+    expect(result.summary.unverifiedSegments).toHaveLength(expectedCount);
   });
 });
