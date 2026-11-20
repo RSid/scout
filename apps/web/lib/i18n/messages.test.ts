@@ -5,6 +5,7 @@ import {
   onStreetLabel,
   routeAnnouncementApproxFallback,
   routeAnnouncementLoaded,
+  unverifiedSegmentNotice,
 } from "./messages";
 import { retryWhenPhrase } from "./messages";
 
@@ -28,6 +29,10 @@ describe("retryWhenPhrase (busy and rate-limit copy)", () => {
   });
 });
 
+/** PRD M1-F04 owner-approved copy, spelled out here so the test pins it verbatim. */
+const FOOT_WALKING_FALLBACK_COPY =
+  "We couldn't find a step-free route to this exact spot. In our map data it may only connect by steps. This is a standard walking route and may include steps, steep slopes or high curbs. Check for an accessible entrance before you go.";
+
 describe("English UI strings scaffold", () => {
   it("gates the verbatim M1-F02 map narration strings behind stable keys", () => {
     expect(en.mapPlanAriaLabel).toBe("Interactive map of Washington, DC");
@@ -40,10 +45,44 @@ describe("English UI strings scaffold", () => {
     expect(`${en.locale} ${en.scoutTitle}`).toMatch(/routes and accessibility data/);
   });
 
-  it("keeps route summary headings and fallback copy under stable keys (M1-F05)", () => {
+  it("keeps the route summary heading under a stable key (M1-F05)", () => {
     expect(en.routeSummaryHeading).toStrictEqual("Route summary");
-    expect(en.routeProfileFallbackNote).toContain("standard directions");
   });
+
+  // `routeProfileFallbackNote` was retired: the owner-approved notice below
+  // replaces it so users never see two fallback messages.
+  it.each([
+    ["routeFootWalkingFallbackNotice", en.routeFootWalkingFallbackNotice],
+    ["routeAnnouncementWheelchairFallback", en.routeAnnouncementWheelchairFallback],
+  ])(
+    "%s is the owner-approved foot-walking fallback copy verbatim (M1-F04)",
+    (_key, text) => {
+      expect(text).toBe(FOOT_WALKING_FALLBACK_COPY);
+    },
+  );
+
+  it.each([
+    [
+      "end" as const,
+      134.6,
+      "The last 135\u00A0m to this spot isn't part of the step-free route. In our map data it may only connect by steps.",
+    ],
+    [
+      "start" as const,
+      41.2,
+      "The first 41\u00A0m from this spot isn't part of the step-free route. In our map data it may only connect by steps.",
+    ],
+    [
+      "end" as const,
+      0.2,
+      "The last 1\u00A0m to this spot isn't part of the step-free route. In our map data it may only connect by steps.",
+    ],
+  ])(
+    "unverifiedSegmentNotice(%s, %s) rounds to whole meters with a non-breaking space",
+    (position, meters, expected) => {
+      expect(unverifiedSegmentNotice(position, meters)).toBe(expected);
+    },
+  );
 
   it("builds polite route-loaded announcements from distance and duration", () => {
     expect(routeAnnouncementLoaded(850, 660)).toBe(

@@ -1,4 +1,8 @@
-import type { CorridorResponse, RouteSummaryPayload } from "@/lib/api";
+import type {
+  CorridorResponse,
+  RouteSummaryPayload,
+  UnverifiedSegment,
+} from "@/lib/api";
 import type { AddressHit } from "@/lib/providers/geocoding";
 import type { GeoJSON } from "geojson";
 
@@ -113,6 +117,82 @@ export const DEMO_ROUTE_SUMMARY: RouteSummaryPayload = {
   durationSeconds: 731.4,
   fallbackProfileUsed: false,
   warnings: [],
+  unverifiedSegments: [],
+};
+
+/**
+ * M1-F04 plain foot-walking fallback: the wheelchair route and the endpoint
+ * retry both failed, so the backend flags the route and sends no segments.
+ */
+export const FOOT_WALKING_FALLBACK_ROUTE_SUMMARY: RouteSummaryPayload = {
+  distanceMeters: 1250,
+  durationSeconds: 900,
+  fallbackProfileUsed: true,
+  warnings: ["fallback_profile:foot-walking"],
+  unverifiedSegments: [],
+};
+
+/** Final stretch of a retry-success route (the end only connects by steps). */
+export const UNVERIFIED_END_SEGMENT: UnverifiedSegment = {
+  position: "end",
+  lengthMeters: 134.6,
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-77.02839, 38.898426],
+      [-77.0284, 38.8996],
+    ],
+  },
+  reason: "endpoint_steps_only",
+};
+
+/** Opening stretch of a retry-success route (the start only connects by steps). */
+export const UNVERIFIED_START_SEGMENT: UnverifiedSegment = {
+  position: "start",
+  lengthMeters: 41.2,
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-77.0258, 38.8904],
+      [-77.026248, 38.890383],
+    ],
+  },
+  reason: "endpoint_steps_only",
+};
+
+/**
+ * M1-F04 wheelchair retry success: a step-free wheelchair route with
+ * walking stretches at one or both ends, listed in `unverifiedSegments`.
+ */
+export const RETRY_SUCCESS_ROUTE_SUMMARY: RouteSummaryPayload = {
+  distanceMeters: 1265,
+  durationSeconds: 860,
+  fallbackProfileUsed: false,
+  warnings: [],
+  unverifiedSegments: [UNVERIFIED_START_SEGMENT, UNVERIFIED_END_SEGMENT],
+};
+
+/**
+ * {@link DEMO_ROUTE} geometry carrying `POST /api/route` wire-shaped
+ * `unverified_segments`, as the map receives it (`RouteComputeResult.line`).
+ */
+export const RETRY_SUCCESS_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = {
+  ...DEMO_ROUTE,
+  id: "retry-success-route",
+  properties: {
+    distance_meters: RETRY_SUCCESS_ROUTE_SUMMARY.distanceMeters,
+    duration_seconds: RETRY_SUCCESS_ROUTE_SUMMARY.durationSeconds,
+    fallback_profile_used: false,
+    warnings: [],
+    unverified_segments: [UNVERIFIED_START_SEGMENT, UNVERIFIED_END_SEGMENT].map(
+      (segment) => ({
+        position: segment.position,
+        length_meters: segment.lengthMeters,
+        geometry: segment.geometry,
+        reason: segment.reason,
+      }),
+    ),
+  },
 };
 
 export function demoCorridorFeatures(): CorridorResponse["features"] {

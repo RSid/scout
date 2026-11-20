@@ -280,8 +280,10 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
       }
     ]
     ```
-    New codes are **not** added to `warnings`, which the frontend renders
-    verbatim.
+    New codes are **not** added to `warnings`. The frontend never renders
+    `warnings` entries verbatim: known codes (today only
+    `fallback_profile:foot-walking`) map to the copy below, and unknown
+    entries are not shown.
   - User-facing copy (owner-approved; the frontend uses it verbatim):
     - Foot-walking fallback: "We couldn't find a step-free route to this exact
       spot. In our map data it may only connect by steps. This is a standard

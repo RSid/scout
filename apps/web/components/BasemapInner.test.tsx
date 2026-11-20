@@ -2,10 +2,14 @@ import { axe } from "jest-axe";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import BasemapInner from "./BasemapInner";
+import BasemapInner, { unverifiedSegmentCollection } from "./BasemapInner";
 import { AnnounceProvider } from "@/components/a11y/AnnounceProvider";
 
-import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
+import {
+  DEMO_ROUTE,
+  RETRY_SUCCESS_ROUTE,
+  demoCorridorFeatures,
+} from "@/lib/fixtures/route-plan-fixtures";
 import { en } from "@/lib/i18n/messages";
 
 const stubs = vi.hoisted(() => {
@@ -453,6 +457,97 @@ describe("BasemapInner", () => {
           duration: 600,
         }),
       );
+    });
+  });
+
+  describe("unverified segments overlay (M1-F04 / M1-F05)", () => {
+    it.each([
+      ["a retry-success route", RETRY_SUCCESS_ROUTE, 2],
+      ["the sample route (no segments)", DEMO_ROUTE, 0],
+      ["no route", null, 0],
+    ])(
+      "unverifiedSegmentCollection yields line features for %s",
+      (_label, route, count) => {
+        expect(unverifiedSegmentCollection(route).features).toHaveLength(count);
+      },
+    );
+
+    it("adds a dashed line layer for unverified stretches (pattern, not color alone)", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={RETRY_SUCCESS_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const mapStub = stubs.instances[0] as unknown as {
+        addLayer: ReturnType<typeof vi.fn>;
+      };
+      await waitFor(() =>
+        expect(mapStub.addLayer).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: "route-unverified-segments",
+            paint: expect.objectContaining({
+              "line-dasharray": expect.any(Array) as unknown,
+            }) as unknown,
+          }),
+        ),
+      );
+    });
+
+    it("shows the dashed-line legend entry when the route has unverified stretches", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={RETRY_SUCCESS_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      expect(screen.getByText(en.mapUnverifiedSegmentLegend)).toBeInTheDocument();
+    });
+
+    it("omits the dashed-line legend entry for routes without unverified stretches", async () => {
+      render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      expect(screen.queryByText(en.mapUnverifiedSegmentLegend)).not.toBeInTheDocument();
+    });
+
+    it("pushes the new route's segments through route-unverified-segments.setData", async () => {
+      const { rerender } = render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={DEMO_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      rerender(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={RETRY_SUCCESS_ROUTE} />
+        </AnnounceProvider>,
+      );
+
+      await waitFor(() =>
+        expect(
+          stubs.instances[0].sourceSetDataSpy("route-unverified-segments"),
+        ).toHaveBeenLastCalledWith(unverifiedSegmentCollection(RETRY_SUCCESS_ROUTE)),
+      );
+    });
+
+    it("passes axe with the unverified-stretch legend shown", async () => {
+      const { container } = render(
+        <AnnounceProvider>
+          <BasemapInner corridor={demoCorridorFeatures()} route={RETRY_SUCCESS_ROUTE} />
+        </AnnounceProvider>,
+      );
+      await flushMapLoads();
+
+      const results = await axe(container);
+      expect(results.violations).toStrictEqual([]);
     });
   });
 

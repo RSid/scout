@@ -12,7 +12,10 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { AnnounceProvider } from "./a11y/AnnounceProvider";
 import PlanExperience from "./PlanExperience";
 
-import { demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
+import {
+  UNVERIFIED_END_SEGMENT,
+  demoCorridorFeatures,
+} from "@/lib/fixtures/route-plan-fixtures";
 import { corridorItemsAnnouncement, en } from "@/lib/i18n/messages";
 import { ProfileProvider } from "@/lib/profile";
 
@@ -71,7 +74,8 @@ const ROUTE_OK_PAYLOAD: RouteComputeResult = {
     distanceMeters: 930,
     durationSeconds: 720,
     fallbackProfileUsed: false,
-    warnings: ["narrow crossing ahead"],
+    warnings: [],
+    unverifiedSegments: [UNVERIFIED_END_SEGMENT],
   },
   response: { type: "FeatureCollection", features: [ROUTE_LINE] },
 };
@@ -353,7 +357,7 @@ describe("PlanExperience", () => {
     expect(results.violations).toStrictEqual([]);
   });
 
-  it("renders routed distance, duration, and warnings once both endpoints are chosen", async () => {
+  it("renders routed distance, duration, and route notices once both endpoints are chosen", async () => {
     const user = userEvent.setup({ delay: null });
 
     const { container } = render(
@@ -372,7 +376,10 @@ describe("PlanExperience", () => {
 
     expect(screen.getByText("12 minutes")).toBeVisible();
 
-    expect(screen.getByText(/narrow crossing ahead/i)).toBeVisible();
+    // Raw warning codes are no longer rendered (M1-F05); the plain-language
+    // unverified-stretch line is the notice this flow now shows.
+    // RTL's default normalizer folds the non-breaking space to a plain one.
+    expect(screen.getByText(/the last 135 m to this spot/i)).toBeVisible();
 
     const results = await axe(container);
 

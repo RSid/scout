@@ -331,6 +331,8 @@ export interface RouteSummaryPayload {
   durationSeconds: number;
   fallbackProfileUsed: boolean;
   warnings: readonly string[];
+  /** Endpoint stretches the wheelchair profile did not plan (M1-F04); empty when none. */
+  unverifiedSegments: readonly UnverifiedSegment[];
 }
 
 /** Successful `fetchRoute` return value — line geometry + summary for UI. */
@@ -347,6 +349,88 @@ function parseRouteWarnings(raw: unknown): readonly string[] {
     return [];
   }
   return raw.filter((item): item is string => typeof item === "string");
+}
+
+/*
+ * M1-F04 `unverified_segments` — stretches at the start or end of a wheelchair
+ * route that were covered by the standard walking route because that end only
+ * connects by steps in the map data. Parsed defensively: the field is additive
+ * on the wire, so absent or malformed input yields an empty list, and any
+ * individual malformed segment is dropped rather than failing the route.
+ */
+
+export type UnverifiedSegmentPosition = "start" | "end";
+
+/** The only `reason` the backend sends today; the user-facing copy is written for it. */
+export type UnverifiedSegmentReason = "endpoint_steps_only";
+
+export interface UnverifiedSegment {
+  position: UnverifiedSegmentPosition;
+  lengthMeters: number;
+  geometry: GeoJSON.LineString;
+  reason: UnverifiedSegmentReason;
+}
+
+function isFinitePosition(raw: unknown): raw is GeoJSON.Position {
+  return (
+    Array.isArray(raw) &&
+    raw.length >= 2 &&
+    raw.every((value) => typeof value === "number" && Number.isFinite(value))
+  );
+}
+
+function parseLineStringGeometry(raw: unknown): GeoJSON.LineString | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+  const rec = raw as Record<string, unknown>;
+  const coordinates = rec["coordinates"];
+  if (
+    rec["type"] !== "LineString" ||
+    !Array.isArray(coordinates) ||
+    coordinates.length < 2 ||
+    !coordinates.every(isFinitePosition)
+  ) {
+    return null;
+  }
+  return { type: "LineString", coordinates };
+}
+
+function parseUnverifiedSegment(raw: unknown): UnverifiedSegment | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+  const rec = raw as Record<string, unknown>;
+  const position = rec["position"];
+  const lengthMeters = rec["length_meters"];
+  const geometry = parseLineStringGeometry(rec["geometry"]);
+  // Unknown reasons are dropped: the copy says "may only connect by steps",
+  // which would be wrong for any future reason the frontend hasn't learned.
+  if (
+    (position !== "start" && position !== "end") ||
+    typeof lengthMeters !== "number" ||
+    !Number.isFinite(lengthMeters) ||
+    lengthMeters < 0 ||
+    geometry === null ||
+    rec["reason"] !== "endpoint_steps_only"
+  ) {
+    return null;
+  }
+  return { position, lengthMeters, geometry, reason: "endpoint_steps_only" };
+}
+
+/** Parse `properties.unverified_segments` from a `POST /api/route` feature (M1-F04). */
+export function parseUnverifiedSegments(raw: unknown): readonly UnverifiedSegment[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.reduce<UnverifiedSegment[]>((acc, item) => {
+    const parsed = parseUnverifiedSegment(item);
+    if (parsed !== null) {
+      acc.push(parsed);
+    }
+    return acc;
+  }, []);
 }
 
 /** `POST /api/route` — wheelchair walking directions (M1-F04 wire contract). */
@@ -435,6 +519,7 @@ export async function fetchRoute(
     durationSeconds,
     fallbackProfileUsed,
     warnings,
+    unverifiedSegments: parseUnverifiedSegments(rec["unverified_segments"]),
   };
 
   const response = body as GeoJSON.FeatureCollection & {
