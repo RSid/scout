@@ -60,6 +60,8 @@ export type AddressAutocompleteProps = Readonly<{
   onPick: (hit: AddressHit) => void;
   onUserLocationAcquired?: ((coords: readonly [number, number]) => void) | undefined;
   provider?: GeocodingProvider | undefined;
+  /** Text shown before the user types, e.g. the sample route's address. Not geocoded. */
+  initialValue?: string | undefined;
 }>;
 
 export default function AddressAutocomplete({
@@ -70,6 +72,7 @@ export default function AddressAutocomplete({
   onPick,
   onUserLocationAcquired,
   provider: providerProp,
+  initialValue = "",
 }: AddressAutocompleteProps) {
   const announce = useAnnounce();
   const provider = useMemo(
@@ -79,7 +82,13 @@ export default function AddressAutocomplete({
   const debounceTimer = useRef<number | undefined>(undefined);
   const abortController = useRef<AbortController | undefined>(undefined);
   const suppressNextSearch = useRef(false);
-  const [inputValue, setInputValue] = useState("");
+  /**
+   * A pre-filled `initialValue` is already a chosen address, so don't geocode it
+   * until the user edits the field. A ref (not a one-shot flag consumed by the
+   * effect) so React's dev-mode double effect run can't trigger a search either.
+   */
+  const userHasEdited = useRef(false);
+  const [inputValue, setInputValue] = useState(initialValue);
   const [hits, setHits] = useState<readonly AddressHit[]>([]);
   const [busy, setBusy] = useState(false);
   /**
@@ -161,6 +170,9 @@ export default function AddressAutocomplete({
       setNoMatchesForCurrentQuery(false);
       return undefined;
     }
+    if (!userHasEdited.current) {
+      return undefined;
+    }
     // A new keystroke starts fresh — the hint should only reappear once a
     // fresh geocode round-trip confirms zero matches.
     setNoMatchesForCurrentQuery(false);
@@ -187,7 +199,10 @@ export default function AddressAutocomplete({
       aria-label={label}
       items={suggestionItems}
       inputValue={inputValue}
-      onInputChange={(value) => setInputValue(value)}
+      onInputChange={(value) => {
+        userHasEdited.current = true;
+        setInputValue(value);
+      }}
       className="space-y-[var(--space-3)] text-[color:var(--color-text)]"
       onSelectionChange={(key) => {
         if (key == null) {
