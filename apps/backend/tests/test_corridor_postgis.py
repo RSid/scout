@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from scout.data.models import Feature
 from scout.data.store import corridor_features_geojson, corridor_features_select
+from scout.errors import CorridorQueryTimeoutError
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("SCOUT_RUN_PG_TESTS"),
@@ -136,3 +137,27 @@ async def _explain_plan() -> str:
 def test_corridor_query_can_use_the_gist_index() -> None:
     plan = _run(_explain_plan())
     assert "features_geom_idx" in plan
+
+
+async def _query_with_tiny_timeout() -> None:
+    url = os.environ["SCOUT_DATABASE_URL"]
+    engine = create_async_engine(url)
+    # A 5,000-vertex zigzag across downtown: far more than 1 ms of PostGIS work.
+    zigzag = [[-77.05 + (i % 2) * 0.05, 38.88 + i * 0.00001] for i in range(5_000)]
+    try:
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as session:
+            await corridor_features_geojson(
+                session,
+                coordinates=zigzag,
+                categories=["curb_ramps"],
+                buffer_meters=200.0,
+                statement_timeout_ms=1,
+            )
+    finally:
+        await engine.dispose()
+
+
+def test_statement_timeout_surfaces_as_corridor_timeout() -> None:
+    with pytest.raises(CorridorQueryTimeoutError):
+        _run(_query_with_tiny_timeout())
