@@ -379,6 +379,86 @@ describe("PlanExperience", () => {
     expect(results.violations).toStrictEqual([]);
   }, 60_000);
 
+  describe("route-features request dedupe (M1-F07)", () => {
+    function renderPlanner(): void {
+      render(
+        <AnnounceProvider>
+          <ProfileProvider>
+            <PlanExperience />
+          </ProfileProvider>
+        </AnnounceProvider>,
+      );
+    }
+
+    /** Lets any late, duplicate request show up before counting. */
+    function settle(): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    it("sends one route-features request on page load", async () => {
+      renderPlanner();
+
+      await screen.findByText(corridorItemsAnnouncement(demoCorridorFeatures().length));
+      await settle();
+
+      expect(corridorSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("waits for the profile's categories before the first request", async () => {
+      renderPlanner();
+
+      await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
+
+      expect(corridorSpy.mock.calls[0]?.[0]).toMatchObject({
+        categories: ["curb_ramps"],
+      });
+    });
+
+    it("does not query a straight-line corridor while the route is in flight", async () => {
+      // MOCK: routing never settles, holding the planner in its pending state.
+      routeSpy.mockReturnValue(new Promise<RouteComputeResult>(() => undefined));
+      const user = userEvent.setup({ delay: null });
+      renderPlanner();
+      await waitFor(() => expect(corridorSpy).toHaveBeenCalledTimes(1));
+
+      await keyboardPickDestination(user);
+      await waitFor(() => expect(routeSpy).toHaveBeenCalled());
+      await settle();
+
+      expect(corridorSpy).toHaveBeenCalledTimes(1);
+    }, 60_000);
+
+    it.each([
+      ["the route arrives", "ok", ROUTE_LINE.geometry.coordinates.length, 30],
+      ["routing fails", "error", 2, 200],
+    ] as const)(
+      "sends one route-features request once %s",
+      async (_name, outcome, pointCount, bufferMeters) => {
+        if (outcome === "error") {
+          // MOCK: routing failure drives the straight-line fallback corridor.
+          routeSpy.mockRejectedValue(new scoutApi.ScoutApiError("No route."));
+        }
+        const user = userEvent.setup({ delay: null });
+        renderPlanner();
+        await waitFor(() => expect(corridorSpy).toHaveBeenCalledTimes(1));
+
+        await keyboardPickDestination(user);
+        await waitFor(() => expect(corridorSpy).toHaveBeenCalledTimes(2));
+        await settle();
+
+        const routedCalls = corridorSpy.mock.calls.slice(1).map(([request]) => ({
+          points: (request as { route_geometry: GeoJSON.LineString }).route_geometry
+            .coordinates.length,
+          buffer: (request as { buffer_meters: number }).buffer_meters,
+        }));
+        expect(routedCalls).toStrictEqual([
+          { points: pointCount, buffer: bufferMeters },
+        ]);
+      },
+      60_000,
+    );
+  });
+
   describe("route retrieval errors", () => {
     beforeEach(() => {
       routeSpy.mockRejectedValue(

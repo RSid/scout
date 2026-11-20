@@ -58,6 +58,14 @@ function straightLinePreview(
   };
 }
 
+type CorridorRequest = Readonly<{
+  /** Identifies a distinct (geometry, buffer, categories) query. */
+  key: string;
+  geometry: GeoJSON.LineString;
+  bufferMeters: number;
+  categories: readonly string[];
+}>;
+
 type RouteFetchSlice =
   | { kind: "unset" }
   | { kind: "loading"; routeKey: string }
@@ -71,7 +79,7 @@ type RouteFetchSlice =
 
 export default function PlanExperience() {
   const announce = useAnnounce();
-  const { categories, selections } = useProfile();
+  const { categories, selections, isReady: profileReady } = useProfile();
 
   // Start on the sample route's endpoints so first-time visitors see a worked example.
   const [startHit, setStartHit] = useState<AddressHit>(DEMO_START_HIT);
@@ -215,26 +223,65 @@ export default function PlanExperience() {
     routeFetch.routeKey === routeKey;
 
   /**
-   * Geometry used to query corridor features. A straight-line approximation is
-   * acceptable here even when routing is unavailable: the nearby DC features it
-   * surfaces are still real and useful (the user still gets "things between A
-   * and B"). This is *not* what we draw on the map.
+   * The single corridor request the planner wants right now, or `null` while
+   * there is nothing worth asking for yet. Each distinct request is sent once:
+   * the effect below re-runs only when `key` changes, never on a fresh array or
+   * object identity.
+   *
+   * - Waits for the profile's categories, so page load doesn't query once with
+   *   the bundled fallback list and again when `/api/categories` answers.
+   * - Skips the straight-line preview while a real route is in flight. That
+   *   query would be thrown away a few seconds later, and its 30 m corridor
+   *   around a crow-flies line lists things that aren't on the actual route.
+   * - When routing fails, queries a wide corridor around the straight line:
+   *   the nearby DC features it surfaces are still real and useful ("things
+   *   between A and B"). That line is never drawn on the map.
    */
-  const corridorRouteFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
+  const corridorRequest = useMemo((): CorridorRequest | null => {
+    if (!profileReady) {
+      return null;
+    }
+
+    let geometryKey: string;
+    let geometry: GeoJSON.LineString;
     if (routeKey === null) {
-      return DEMO_ROUTE;
+      geometryKey = "sample";
+      geometry = DEMO_ROUTE.geometry;
+    } else if (routeFetch.kind === "ok" && routeFetch.routeKey === routeKey) {
+      geometryKey = `route:${routeKey}`;
+      geometry = routeFetch.line.geometry;
+    } else if (routingUnavailable) {
+      geometryKey = `straight:${routeKey}`;
+      geometry = straightLinePreview(startHit, destinationHit).geometry;
+    } else {
+      return null;
     }
 
-    if (
-      routeFetch.kind === "ok" &&
-      routeFetch.routeKey === routeKey &&
-      routeKey !== null
-    ) {
-      return routeFetch.line;
-    }
+    const bufferMeters = routingUnavailable
+      ? CORRIDOR_BUFFER_METERS_FALLBACK
+      : CORRIDOR_BUFFER_METERS;
+    const sortedCategories = [...enabledCategories].sort();
 
-    return straightLinePreview(startHit, destinationHit);
-  }, [destinationHit, routeFetch, routeKey, startHit]);
+    return {
+      key: `${geometryKey}|${String(bufferMeters)}|${sortedCategories.join(",")}`,
+      geometry,
+      bufferMeters,
+      categories: sortedCategories,
+    };
+  }, [
+    destinationHit,
+    enabledCategories,
+    profileReady,
+    routeFetch,
+    routeKey,
+    routingUnavailable,
+    startHit,
+  ]);
+
+  /** Lets the corridor effect read the latest request while keying only on `key`. */
+  const corridorRequestRef = useRef<CorridorRequest | null>(corridorRequest);
+  corridorRequestRef.current = corridorRequest;
+  const corridorRequestKey = corridorRequest?.key ?? null;
 
   /**
    * Line drawn on the map. We never draw a straight crow-flies line: it would
@@ -302,7 +349,20 @@ export default function PlanExperience() {
   }
 
   useEffect(() => {
-    if (enabledCategories.length === 0) {
+    const request = corridorRequestRef.current;
+
+    if (request === null) {
+      // Profile still loading (list stays idle), or a real route is in flight:
+      // clear the previous route's items rather than list them against the
+      // new endpoints.
+      if (profileReady) {
+        setCorridorFeatures([]);
+        setCorridorListingStatus("loading");
+      }
+      return undefined;
+    }
+
+    if (request.categories.length === 0) {
       setCorridorFeatures([]);
       setCorridorListingStatus("ready");
       return undefined;
@@ -313,11 +373,9 @@ export default function PlanExperience() {
 
     void fetchCorridorFeatures(
       {
-        route_geometry: corridorRouteFeature.geometry,
-        buffer_meters: routingUnavailable
-          ? CORRIDOR_BUFFER_METERS_FALLBACK
-          : CORRIDOR_BUFFER_METERS,
-        categories: enabledCategories,
+        route_geometry: request.geometry,
+        buffer_meters: request.bufferMeters,
+        categories: request.categories,
       },
       controller.signal,
     )
@@ -338,7 +396,8 @@ export default function PlanExperience() {
       });
 
     return () => controller.abort();
-  }, [announce, corridorRouteFeature, enabledCategories, routingUnavailable]);
+    // `corridorRequestKey` stands in for the request it names (see `corridorRequest`).
+  }, [announce, corridorRequestKey, profileReady]);
 
   const revealMapForSmallScreens = useCallback(() => {
     if (matchesDesktopMd === true) {

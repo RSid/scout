@@ -81,7 +81,12 @@ export default function AddressAutocomplete({
   );
   const debounceTimer = useRef<number | undefined>(undefined);
   const abortController = useRef<AbortController | undefined>(undefined);
-  const suppressNextSearch = useRef(false);
+  /**
+   * Input text that names an address the user already chose (a picked
+   * suggestion or a reverse-geocoded location). Searching for it again would
+   * only repeat the lookup, so the search effect skips these values.
+   */
+  const committedText = useRef<ReadonlySet<string>>(new Set());
   /**
    * A pre-filled `initialValue` is already a chosen address, so don't geocode it
    * until the user edits the field. A ref (not a one-shot flag consumed by the
@@ -107,6 +112,13 @@ export default function AddressAutocomplete({
     [hits, userLocation],
   );
 
+  /** Drops any queued or in-flight search so its results can't land late. */
+  const cancelPendingSearch = useCallback(() => {
+    window.clearTimeout(debounceTimer.current);
+    abortController.current?.abort();
+    abortController.current = undefined;
+  }, []);
+
   const runGeocode = useCallback(
     async (query: string) => {
       const trimmed = query.trim();
@@ -129,6 +141,10 @@ export default function AddressAutocomplete({
           { limit: 5 },
           controller.signal,
         );
+        // A provider may ignore the signal; never show results for an old query.
+        if (controller.signal.aborted) {
+          return;
+        }
         const nextArray = [...nextHits];
         setHits(nextArray);
         setNoMatchesForCurrentQuery(nextArray.length === 0);
@@ -139,7 +155,10 @@ export default function AddressAutocomplete({
             : `${String(nextArray.length)} ${nextArray.length === 1 ? "suggestion" : "suggestions"}`,
         );
       } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
           return;
         }
 
@@ -150,33 +169,37 @@ export default function AddressAutocomplete({
         announce(fallback);
         setHits([]);
       } finally {
-        setBusy(false);
+        // Only the newest request owns the spinner; an aborted one must not
+        // hide "Searching…" while its replacement is still in flight.
+        if (abortController.current === controller) {
+          abortController.current = undefined;
+          setBusy(false);
+        }
       }
     },
     [announce, provider],
   );
 
   useEffect(() => {
-    if (suppressNextSearch.current) {
-      suppressNextSearch.current = false;
-      // The suppress branch fires when a selection (pick or reverse-geocode)
-      // just committed a final value. Any pending debounce from the user's
-      // preceding keystrokes gets cancelled below via cleanup, but `busy` was
-      // already set to true by that earlier effect run and would otherwise
-      // stick, leaving "Searching…" visible forever. The "no matches" hint
-      // is cleared for the same reason: a picked value is by definition a
-      // match, so the DC-scope guidance shouldn't linger.
+    if (committedText.current.has(inputValue)) {
+      // A selection (pick or reverse-geocode) just committed this value, either
+      // as the suggestion text the combobox writes or the plain label we write
+      // after it. Cancel any search queued by earlier keystrokes, and clear
+      // "Searching…" and the "no matches" hint: a picked value is a match.
+      cancelPendingSearch();
       setBusy(false);
       setNoMatchesForCurrentQuery(false);
       return undefined;
     }
+    committedText.current = new Set();
     if (!userHasEdited.current) {
       return undefined;
     }
     // A new keystroke starts fresh — the hint should only reappear once a
-    // fresh geocode round-trip confirms zero matches.
+    // fresh geocode round-trip confirms zero matches. Abort the in-flight
+    // request too, so its results can't flash in after this keystroke.
     setNoMatchesForCurrentQuery(false);
-    window.clearTimeout(debounceTimer.current);
+    cancelPendingSearch();
     const trimmed = inputValue.trim();
     if (trimmed.length >= 3) {
       setBusy(true);
@@ -188,7 +211,7 @@ export default function AddressAutocomplete({
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(debounceTimer.current);
-  }, [inputValue, runGeocode]);
+  }, [cancelPendingSearch, inputValue, runGeocode]);
 
   const trimmedForHint = inputValue.trim();
 
@@ -216,8 +239,10 @@ export default function AddressAutocomplete({
         onPick(match);
         announce(`Selected ${match.suggestionText}`);
         setHits([]);
+        committedText.current = new Set([match.label, match.suggestionText]);
+        cancelPendingSearch();
+        setBusy(false);
         window.setTimeout(() => {
-          suppressNextSearch.current = true;
           setInputValue(match.label);
         });
       }}
@@ -293,7 +318,9 @@ export default function AddressAutocomplete({
                       onUserLocationAcquired?.([coords.longitude, coords.latitude]);
                       setLocationStatus({ kind: "idle" });
                       announce(hit.label);
-                      suppressNextSearch.current = true;
+                      committedText.current = new Set([hit.label]);
+                      cancelPendingSearch();
+                      setBusy(false);
                       setInputValue(hit.label);
                       setHits([]);
                     } catch (error: unknown) {
