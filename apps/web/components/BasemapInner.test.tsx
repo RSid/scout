@@ -242,7 +242,8 @@ describe("BasemapInner", () => {
     resizeObserverCallbacks.length = 0;
     vi.stubGlobal(
       "ResizeObserver",
-      vi.fn().mockImplementation((cb: ResizeObserverCallback) => {
+      // `function`, not an arrow: Vitest 4 mocks called with `new` need one.
+      vi.fn().mockImplementation(function (cb: ResizeObserverCallback) {
         resizeObserverCallbacks.push(cb);
         return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
       }),

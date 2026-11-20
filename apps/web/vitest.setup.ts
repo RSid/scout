@@ -25,14 +25,17 @@ beforeEach(() => {
 
   // MOCK: jsdom lacks ResizeObserver; BasemapInner uses one to react to late
   // container layout. No-op stub is sufficient — production behavior is tested
-  // in the browser, not jsdom.
+  // in the browser, not jsdom. Vitest 4 only lets `new` call a mock whose
+  // implementation is a `function` or `class`, so this can't be an arrow.
   vi.stubGlobal(
     "ResizeObserver",
-    vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-    })),
+    vi.fn().mockImplementation(function () {
+      return {
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+      };
+    }),
   );
 });
 
