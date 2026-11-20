@@ -1,7 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { scoutMockApis } from "./mock-api-fixtures";
+import {
+  MOCK_ROUTE_BODY_FOOT_WALKING_FALLBACK,
+  MOCK_ROUTE_BODY_UNVERIFIED_END,
+  scoutMockApis,
+} from "./mock-api-fixtures";
 import {
   assertNoHorizontalOverflow,
   findUndersizedTouchTargets,
@@ -374,6 +378,87 @@ test.describe("Rendered route + summary text (M1-F05)", () => {
 
     await expect(page.getByRole("button", { name: /^hide map$/i })).toBeVisible();
   });
+});
+
+/** PRD M1-F04 owner-approved copy, verbatim. */
+const FOOT_WALKING_FALLBACK_COPY =
+  "We couldn't find a step-free route to this exact spot. In our map data it may only connect by steps. This is a standard walking route and may include steps, steep slopes or high curbs. Check for an accessible entrance before you go.";
+
+test.describe("Route notices (M1-F04 / M1-F05)", () => {
+  test.setTimeout(120_000);
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("scout.onboarded.v1", "true");
+    });
+  });
+
+  test("foot-walking fallback shows the approved notice, not the raw code", async ({
+    page,
+  }) => {
+    await scoutMockApis(page, { routeBody: MOCK_ROUTE_BODY_FOOT_WALKING_FALLBACK });
+    await page.goto("/plan");
+
+    await keyboardFillPlannerAddressesFromStubHits(page);
+
+    const summary = page.getByTestId("scout-route-summary");
+    await expect(summary.getByText(FOOT_WALKING_FALLBACK_COPY)).toBeVisible();
+    await expect(summary).not.toContainText("fallback_profile");
+  });
+
+  test("full-page axe passes with the foot-walking fallback notice shown", async ({
+    page,
+  }) => {
+    await scoutMockApis(page, { routeBody: MOCK_ROUTE_BODY_FOOT_WALKING_FALLBACK });
+    await page.goto("/plan");
+
+    await keyboardFillPlannerAddressesFromStubHits(page);
+    await page.getByText(FOOT_WALKING_FALLBACK_COPY).waitFor();
+
+    const axeResults = await new AxeBuilder({ page }).analyze();
+    expect(axeResults.violations).toStrictEqual([]);
+  });
+
+  test("retry-success route lists its unverified end stretch and passes axe", async ({
+    page,
+  }) => {
+    await scoutMockApis(page, { routeBody: MOCK_ROUTE_BODY_UNVERIFIED_END });
+    await page.goto("/plan");
+
+    await keyboardFillPlannerAddressesFromStubHits(page);
+
+    await expect(
+      page
+        .getByTestId("scout-route-summary")
+        .getByText(/^The last 135\sm to this spot isn't part of the step-free route\./),
+    ).toBeVisible();
+
+    const axeResults = await new AxeBuilder({ page }).analyze();
+    expect(axeResults.violations).toStrictEqual([]);
+  });
+
+  test(
+    "interactive map shows the dashed-line legend for unverified stretches",
+    { tag: "@interactive" },
+    async ({ page }) => {
+      test.skip(
+        !INTERACTIVE,
+        "set NEXT_PUBLIC_SCOUT_MAP_MODE=interactive (Playwright CI does this)",
+      );
+
+      await scoutMockApis(page, { routeBody: MOCK_ROUTE_BODY_UNVERIFIED_END });
+      await page.goto("/plan");
+
+      await keyboardFillPlannerAddressesFromStubHits(page);
+
+      await expect(
+        page.getByText(
+          "Dashed line: not part of the step-free route. It may only connect by steps.",
+        ),
+      ).toBeVisible({ timeout: 30_000 });
+    },
+  );
 });
 
 test.describe("Mobile responsive layout (M1-F14)", () => {

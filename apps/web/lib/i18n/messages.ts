@@ -2,6 +2,17 @@
 
 export type LocaleMessages = Record<string, string>;
 
+/**
+ * Owner-approved foot-walking fallback notice (PRD M1-F04, verbatim). Shared by
+ * the visible route-summary notice and the route-loaded announcement so eyes
+ * and ears get the same words (voice-and-copy §9.1).
+ */
+const ROUTE_FOOT_WALKING_FALLBACK_NOTICE =
+  "We couldn't find a step-free route to this exact spot. In our map data it " +
+  "may only connect by steps. This is a standard walking route and may include " +
+  "steps, steep slopes or high curbs. Check for an accessible entrance before " +
+  "you go.";
+
 export const en = {
   locale: "en",
   scoutTitle: "Scout — routes and accessibility data for DC",
@@ -15,8 +26,6 @@ export const en = {
   routeSummaryHeading: "Route summary",
   routeDistanceLabel: "Distance",
   routeDurationLabel: "Travel time",
-  routeProfileFallbackNote:
-    "Wheelchair-aware routing wasn't available, so we used standard directions.",
   /** Shown when `POST /api/route` fails (e.g. routing service unreachable). */
   routeUnavailableTitle: "Directions unavailable",
   routeApproxFallbackExplanation:
@@ -30,13 +39,36 @@ export const en = {
     "Couldn't load directions from the planner. The map and nearby " +
     "accessibility features still work.",
 
-  /** Appended after base loaded announcement when `fallback_profile_used` is true. */
-  routeAnnouncementWheelchairFallback:
-    "Wheelchair-aware routing wasn't available, so we used standard directions.",
+  /**
+   * Appended after base loaded announcement when `fallback_profile_used` is true.
+   * Longer than voice §9.5's 12 words on purpose: it is a safety notice, so the
+   * full owner-approved text is announced rather than a paraphrase.
+   */
+  routeAnnouncementWheelchairFallback: ROUTE_FOOT_WALKING_FALLBACK_NOTICE,
   routeWarningsNoticesHeading: "Notices along this route",
   routeSummaryPendingTravelTime: "Calculating…",
   /** Distance/time placeholder before a real route returns (no straight-line estimate). */
   routeSummaryUnavailableValue: "Unavailable",
+
+  /**
+   * M1-F04 / M1-F05 route notices. Raw `warnings` codes are never shown; known
+   * codes map to the copy below and unknown codes are not rendered.
+   */
+  /** `fallback_profile:foot-walking` / `fallback_profile_used` (owner-approved, verbatim). */
+  routeFootWalkingFallbackNotice: ROUTE_FOOT_WALKING_FALLBACK_NOTICE,
+  /**
+   * `unverified_segments` lines (PRD M1-F04 copy — proposed, pending owner
+   * sign-off). Replace `{distance}` via `unverifiedSegmentNotice`.
+   */
+  routeUnverifiedSegmentEndTemplate:
+    "The last {distance} to this spot isn't part of the step-free route. " +
+    "In our map data it may only connect by steps.",
+  routeUnverifiedSegmentStartTemplate:
+    "The first {distance} from this spot isn't part of the step-free route. " +
+    "In our map data it may only connect by steps.",
+  /** Map legend entry shown only while a route has unverified stretches. */
+  mapUnverifiedSegmentLegend:
+    "Dashed line: not part of the step-free route. It may only connect by steps.",
 
   /** Planner status strip (single home for planner-wide state). */
   plannerPendingTitle: "Finding a route…",
@@ -251,4 +283,22 @@ export function routeAnnouncementLoaded(
 /** Announced when routing failed and UI falls back to a straight segment. */
 export function routeAnnouncementApproxFallback(): string {
   return en.routeAnnouncementApproxFallback;
+}
+
+/**
+ * One route-summary line for an M1-F04 unverified stretch, e.g. "The last
+ * 135 m to this spot …". Whole meters (at least 1) with a non-breaking space
+ * before the unit (voice-and-copy §10.2).
+ */
+export function unverifiedSegmentNotice(
+  position: "start" | "end",
+  lengthMeters: number,
+): string {
+  const meters = Math.max(1, Math.round(lengthMeters));
+  const distance = `${String(meters)}\u00A0m`;
+  const template =
+    position === "start"
+      ? en.routeUnverifiedSegmentStartTemplate
+      : en.routeUnverifiedSegmentEndTemplate;
+  return template.replace("{distance}", distance);
 }

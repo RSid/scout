@@ -61,7 +61,59 @@ export const MOCK_ROUTE_BODY = {
   ],
 } as const;
 
-export async function scoutMockApis(page: Page): Promise<void> {
+/** M1-F04 plain foot-walking fallback: flagged, with the raw warning code. */
+export const MOCK_ROUTE_BODY_FOOT_WALKING_FALLBACK = {
+  type: "FeatureCollection",
+  features: [
+    {
+      ...MOCK_ROUTE_BODY.features[0],
+      properties: {
+        distance_meters: 1012,
+        duration_seconds: 720,
+        fallback_profile_used: true,
+        warnings: ["fallback_profile:foot-walking"],
+        unverified_segments: [],
+      },
+    },
+  ],
+} as const;
+
+/** M1-F04 wheelchair retry success: a walking stretch at the destination end. */
+export const MOCK_ROUTE_BODY_UNVERIFIED_END = {
+  type: "FeatureCollection",
+  features: [
+    {
+      ...MOCK_ROUTE_BODY.features[0],
+      properties: {
+        distance_meters: 1077,
+        duration_seconds: 760,
+        fallback_profile_used: false,
+        warnings: [],
+        unverified_segments: [
+          {
+            position: "end",
+            length_meters: 134.6,
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-77.035, 38.903],
+                [-77.0312, 38.9074],
+              ],
+            },
+            reason: "endpoint_steps_only",
+          },
+        ],
+      },
+    },
+  ],
+} as const;
+
+export async function scoutMockApis(
+  page: Page,
+  options?: Readonly<{ routeBody?: unknown }>,
+): Promise<void> {
+  const routeBody = options?.routeBody ?? MOCK_ROUTE_BODY;
+
   await page.route("**/api/categories", async (route) => {
     await route.fulfill({
       status: 200,
@@ -79,7 +131,7 @@ export async function scoutMockApis(page: Page): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(MOCK_ROUTE_BODY),
+      body: JSON.stringify(routeBody),
     });
   });
 

@@ -5,7 +5,11 @@ import { render, screen } from "@testing-library/react";
 
 import BasemapView from "./BasemapView";
 
-import { DEMO_ROUTE, demoCorridorFeatures } from "@/lib/fixtures/route-plan-fixtures";
+import {
+  DEMO_ROUTE,
+  RETRY_SUCCESS_ROUTE,
+  demoCorridorFeatures,
+} from "@/lib/fixtures/route-plan-fixtures";
 
 describe("BasemapView", () => {
   beforeEach(() => {
@@ -25,5 +29,13 @@ describe("BasemapView", () => {
 
     const results = await axe(container);
     expect(results.violations).toStrictEqual([]);
+  });
+
+  it("renders the stub placeholder for a route carrying unverified segments", () => {
+    render(
+      <BasemapView corridor={demoCorridorFeatures()} route={RETRY_SUCCESS_ROUTE} />,
+    );
+
+    expect(screen.getByRole("heading", { name: /Map placeholder/i })).toBeVisible();
   });
 });
