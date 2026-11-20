@@ -89,6 +89,8 @@ describe("PlanExperience", () => {
 
     const start = planner.getByRole("combobox", { name: /starting point/i });
 
+    // The planner pre-fills the sample route's address; clear it like a user would.
+    await user.clear(start);
     await user.type(start, "1400");
 
     await waitFor(
@@ -126,7 +128,15 @@ describe("PlanExperience", () => {
       { timeout: 20_000 },
     );
 
-    const destination = planner.getByRole("combobox", { name: /destination/i });
+    await keyboardPickDestination(user);
+  }
+
+  /** Replaces the pre-filled destination with the stub geocoder's Dupont Circle hit. */
+  async function keyboardPickDestination(user: UserEvent): Promise<void> {
+    const plannerRegion = screen.getByRole("group", { name: /plan a route/i });
+    const destination = within(plannerRegion).getByRole("combobox", {
+      name: /destination/i,
+    });
 
     await user.click(destination);
 
@@ -231,6 +241,73 @@ describe("PlanExperience", () => {
     const results = await axe(container);
 
     expect(results.violations).toStrictEqual([]);
+  });
+
+  it.each([
+    [/starting point/i, "1000 MADISON DRIVE NW"],
+    [/destination/i, "1201 G STREET NW"],
+  ])("pre-fills %s with the sample route's address", async (name, address) => {
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    expect(await screen.findByRole("combobox", { name })).toHaveValue(address);
+  });
+
+  it("shows the frozen sample route without calling the routing API on load", async () => {
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    await waitFor(() => expect(corridorSpy).toHaveBeenCalled());
+
+    expect(routeSpy).not.toHaveBeenCalled();
+  });
+
+  it("routes from the sample start when only the destination changes", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+    await screen.findByRole("heading", { name: /^plan a route$/i });
+
+    await keyboardPickDestination(user);
+
+    await waitFor(() =>
+      expect(routeSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ from: [-77.02624344, 38.89020747] }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("places the route summary after the start and destination inputs", async () => {
+    render(
+      <AnnounceProvider>
+        <ProfileProvider>
+          <PlanExperience />
+        </ProfileProvider>
+      </AnnounceProvider>,
+    );
+
+    const destination = await screen.findByRole("combobox", { name: /destination/i });
+    const summary = screen.getByRole("region", { name: /^route summary$/i });
+
+    expect(
+      destination.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("announces 'Map shown.' and keeps focus on the toggle when revealed on mobile", async () => {
