@@ -87,6 +87,8 @@ async function keyboardFillPlannerAddressesFromStubHits(page: Page): Promise<voi
 
   const start = page.getByRole("combobox", { name: /starting point/i });
 
+  // The planner pre-fills the sample route's address; select it so typing replaces it.
+  await start.press("ControlOrMeta+a");
   await start.type("14th", { delay: 0 });
 
   await expect
@@ -120,6 +122,8 @@ async function keyboardFillPlannerAddressesFromStubHits(page: Page): Promise<voi
 
   const destination = page.getByRole("combobox", { name: /destination/i });
 
+  // The planner pre-fills the sample route's address; select it so typing replaces it.
+  await destination.press("ControlOrMeta+a");
   await destination.type("Dupont", { delay: 0 });
 
   await expect

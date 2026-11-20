@@ -43,9 +43,8 @@ export const en = {
   plannerPendingDetail:
     "We'll show the route, distance, and travel time as soon as it's ready. " +
     "No line is drawn until then.",
-  plannerSampleTitle: "Pick a start and a destination",
-  plannerSampleDetail:
-    "Until you set both points, Scout shows a sample route across DC.",
+  plannerSampleTitle: "Showing a sample route",
+  plannerSampleDetail: "Change either address to plan your own route.",
 
   /** Corridor fetch failed — distinct from "nothing matched" (no longer silent). */
   corridorListingErrorTitle: "Couldn't load nearby features",

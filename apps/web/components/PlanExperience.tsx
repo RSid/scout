@@ -10,7 +10,12 @@ import StatusStrip from "@/components/StatusStrip";
 
 import { useAnnounce } from "@/components/a11y/AnnounceProvider";
 
-import { DEMO_ROUTE, DEMO_ROUTE_SUMMARY } from "@/lib/fixtures/route-plan-fixtures";
+import {
+  DEMO_DESTINATION_HIT,
+  DEMO_ROUTE,
+  DEMO_ROUTE_SUMMARY,
+  DEMO_START_HIT,
+} from "@/lib/fixtures/route-plan-fixtures";
 import { derivePlannerStatus } from "@/lib/planner-status";
 
 import {
@@ -68,8 +73,10 @@ export default function PlanExperience() {
   const announce = useAnnounce();
   const { categories, selections } = useProfile();
 
-  const [startHit, setStartHit] = useState<AddressHit | null>(null);
-  const [destinationHit, setDestinationHit] = useState<AddressHit | null>(null);
+  // Start on the sample route's endpoints so first-time visitors see a worked example.
+  const [startHit, setStartHit] = useState<AddressHit>(DEMO_START_HIT);
+  const [destinationHit, setDestinationHit] =
+    useState<AddressHit>(DEMO_DESTINATION_HIT);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   const [corridorFeatures, setCorridorFeatures] = useState<
@@ -127,15 +134,19 @@ export default function PlanExperience() {
       .map((category) => category.id);
   }, [categories, selections]);
 
-  const routeKey =
-    startHit !== null && destinationHit !== null
-      ? `${startHit.id}→${destinationHit.id}`
-      : null;
+  /**
+   * While both endpoints are still the sample's, show the frozen sample route
+   * instead of asking the routing provider for it on every page load.
+   */
+  const showingSampleRoute =
+    startHit.id === DEMO_START_HIT.id && destinationHit.id === DEMO_DESTINATION_HIT.id;
+
+  const routeKey = showingSampleRoute ? null : `${startHit.id}→${destinationHit.id}`;
 
   desiredRouteKeyRef.current = routeKey;
 
   useEffect(() => {
-    if (routeKey === null || startHit === null || destinationHit === null) {
+    if (routeKey === null) {
       setRouteFetch({ kind: "unset" });
       return undefined;
     }
@@ -210,7 +221,7 @@ export default function PlanExperience() {
    * and B"). This is *not* what we draw on the map.
    */
   const corridorRouteFeature = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(() => {
-    if (startHit === null || destinationHit === null) {
+    if (routeKey === null) {
       return DEMO_ROUTE;
     }
 
@@ -233,7 +244,7 @@ export default function PlanExperience() {
    * why).
    */
   const mapRoute = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
-    if (startHit === null || destinationHit === null) {
+    if (routeKey === null) {
       return DEMO_ROUTE;
     }
     if (
@@ -244,13 +255,13 @@ export default function PlanExperience() {
       return routeFetch.line;
     }
     return null;
-  }, [destinationHit, routeFetch, routeKey, startHit]);
+  }, [routeFetch, routeKey]);
 
   const summaryModel = useMemo((): Readonly<{
     mode: RouteSummaryMode;
     summary: RouteSummaryPayload | null;
   }> => {
-    if (routeKey === null || startHit === null || destinationHit === null) {
+    if (routeKey === null) {
       // First-load sample: show the frozen example route's real numbers.
       return { mode: "sample", summary: DEMO_ROUTE_SUMMARY };
     }
@@ -270,7 +281,7 @@ export default function PlanExperience() {
           ? { mode: "live", summary: routeFetch.summary }
           : pending;
     }
-  }, [destinationHit, routeFetch, routeKey, startHit]);
+  }, [routeFetch, routeKey]);
 
   const plannerStatus = useMemo(
     () =>
@@ -371,14 +382,12 @@ export default function PlanExperience() {
             Plan a route
           </h1>
           <p className="max-w-2xl text-[color:var(--color-text-muted)]">
-            Pick a start and a destination. Until you set both points, Scout shows a
+            Pick a start and a destination. To show how it works, Scout starts with a
             sample route across DC.
           </p>
         </div>
         <ProfilePanel />
       </header>
-
-      <RouteSummary mode={summaryModel.mode} summary={summaryModel.summary} />
 
       <fieldset
         aria-labelledby="scout-planner-heading"
@@ -396,21 +405,28 @@ export default function PlanExperience() {
             className="sticky top-0 z-[10] shadow-modal"
           />
         ) : null}
-        <AddressAutocomplete
-          id="scout-start"
-          label="Starting point"
-          showUseMyLocation
-          userLocation={userLocation}
-          onPick={handlePickStart}
-          onUserLocationAcquired={(coords) => setUserLocation([coords[0], coords[1]])}
-        />
-        <AddressAutocomplete
-          id="scout-destination"
-          label="Destination"
-          userLocation={userLocation}
-          onPick={handlePickDestination}
-        />
+        {/* Side by side from `md` up; the planner treats ≥768px as desktop. */}
+        <div className="grid grid-cols-1 gap-[var(--space-8)] md:grid-cols-2 md:items-start md:gap-[var(--space-6)]">
+          <AddressAutocomplete
+            id="scout-start"
+            label="Starting point"
+            initialValue={DEMO_START_HIT.label}
+            showUseMyLocation
+            userLocation={userLocation}
+            onPick={handlePickStart}
+            onUserLocationAcquired={(coords) => setUserLocation([coords[0], coords[1]])}
+          />
+          <AddressAutocomplete
+            id="scout-destination"
+            label="Destination"
+            initialValue={DEMO_DESTINATION_HIT.label}
+            userLocation={userLocation}
+            onPick={handlePickDestination}
+          />
+        </div>
       </fieldset>
+
+      <RouteSummary mode={summaryModel.mode} summary={summaryModel.summary} />
 
       <div className="flex flex-col gap-[var(--space-10)] md:flex-row md:items-start">
         <div className="order-2 min-w-0 flex-1 md:order-1 md:mr-[var(--space-6)]">
@@ -453,7 +469,7 @@ export default function PlanExperience() {
                 corridor={corridorFeatures}
                 route={mapRoute}
                 viewportHint={
-                  routingUnavailable && startHit && destinationHit
+                  routingUnavailable
                     ? {
                         start: [startHit.lon, startHit.lat],
                         end: [destinationHit.lon, destinationHit.lat],
