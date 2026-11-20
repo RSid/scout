@@ -1,6 +1,10 @@
 "use client";
 
-import type { ApiCategory, CorridorResponse } from "@/lib/api";
+import {
+  parseUnverifiedSegments,
+  type ApiCategory,
+  type CorridorResponse,
+} from "@/lib/api";
 import type { ViewportHint } from "@/components/BasemapView";
 import type { GeoJSON } from "geojson";
 import * as maplibregl from "maplibre-gl";
@@ -203,6 +207,25 @@ function featureCollection(
   };
 }
 
+/**
+ * M1-F04 unverified stretches as line features for the dashed overlay. Read
+ * from the route feature's own `properties.unverified_segments` so the map
+ * needs no extra prop; routes without segments (or the sample route) yield
+ * an empty collection.
+ */
+export function unverifiedSegmentCollection(
+  route: GeoJSON.Feature<GeoJSON.LineString> | null,
+): GeoJSON.FeatureCollection {
+  const segments = parseUnverifiedSegments(route?.properties?.["unverified_segments"]);
+  return featureCollection(
+    segments.map((segment) => ({
+      type: "Feature",
+      geometry: segment.geometry,
+      properties: { position: segment.position },
+    })),
+  );
+}
+
 const featureIdCandidate = corridorFeatureId;
 
 export default function BasemapInner({
@@ -254,6 +277,9 @@ export default function BasemapInner({
     () => featureCollection(corridorPrepared as GeoJSON.Feature[]),
     [corridorPrepared],
   );
+
+  const unverifiedSegments = useMemo(() => unverifiedSegmentCollection(route), [route]);
+  const hasUnverifiedSegments = unverifiedSegments.features.length > 0;
 
   const corridorPointRowsRef = useRef(corridorPointRows);
   const categoryByIdRef = useRef(new Map<string, ApiCategory>());
@@ -525,6 +551,30 @@ export default function BasemapInner({
           },
         });
 
+        // M1-F04 unverified stretches: a wider dashed line in the text token
+        // drawn over the route, so the stretch reads as dark/accent stripes —
+        // a pattern change, not just a color change (NF-A11Y, AGENTS.md). Static
+        // paint only; nothing animates, so reduced motion needs no branch.
+        map.addSource("route-unverified-segments", {
+          type: "geojson",
+          data: unverifiedSegmentCollection(routeRef.current),
+        });
+
+        map.addLayer({
+          id: "route-unverified-segments",
+          type: "line",
+          source: "route-unverified-segments",
+          layout: {
+            "line-cap": "butt",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": resolveColorToken("text"),
+            "line-width": 7,
+            "line-dasharray": [1.2, 1],
+          },
+        });
+
         map.addSource("cluster-points", {
           type: "geojson",
           data: markerCollectionRef.current,
@@ -779,13 +829,18 @@ export default function BasemapInner({
     const data = route !== null ? featureCollection([route]) : EMPTY_FC;
     src?.setData?.(data);
 
+    const unverifiedSrc = map.getSource("route-unverified-segments") as
+      | maplibregl.GeoJSONSource
+      | undefined;
+    unverifiedSrc?.setData?.(unverifiedSegments);
+
     if (route !== null && route.geometry.coordinates.length >= 2) {
       const preferInstant =
         pendingInitialRouteViewportRef.current || prefersReducedMotion();
       pendingInitialRouteViewportRef.current = false;
       fitMapViewportToRoute(map, route.geometry, { preferInstant });
     }
-  }, [route, scoutMapBootstrapDone]);
+  }, [route, unverifiedSegments, scoutMapBootstrapDone]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -852,7 +907,29 @@ export default function BasemapInner({
         disabled={!scoutMapBootstrapDone || corridorPointRows.length === 0}
       />
       <div className="pointer-events-none absolute left-[var(--space-4)] top-[var(--space-4)] z-[1] max-w-xs rounded-tokenSm bg-surface px-[var(--space-3)] py-[var(--space-2)] text-xs text-[color:var(--color-text-muted)] shadow-modal">
-        {en.mapMarkersLegend}
+        <p>{en.mapMarkersLegend}</p>
+        {hasUnverifiedSegments ? (
+          <p className="mt-[var(--space-2)] flex items-start gap-[var(--space-2)] text-[color:var(--color-text)]">
+            <svg
+              viewBox="0 0 28 8"
+              width="28"
+              height="8"
+              aria-hidden
+              className="mt-[4px] flex-none"
+            >
+              <line
+                x1="2"
+                y1="4"
+                x2="26"
+                y2="4"
+                stroke="currentColor"
+                strokeWidth="4"
+                strokeDasharray="5 4"
+              />
+            </svg>
+            <span>{en.mapUnverifiedSegmentLegend}</span>
+          </p>
+        ) : null}
       </div>
       <noscript>
         Activate JavaScript so we can initialise the Scout map viewport.
