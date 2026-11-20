@@ -41,6 +41,13 @@ def test_route_stub_contract() -> None:
         assert props["fallback_profile_used"] is False
 
 
+def test_route_stub_contract_has_empty_unverified_segments() -> None:
+    with TestClient(app) as client:
+        resp = client.post("/api/route", json=_VALID_DC_PAYLOAD)
+
+    assert resp.json()["features"][0]["properties"]["unverified_segments"] == []
+
+
 def test_route_dependency_override_controls_provider_instance() -> None:
     sentinel = StubRoutingProvider()
 

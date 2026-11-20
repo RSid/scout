@@ -54,6 +54,12 @@ async def compute_route(
         "duration_seconds": route.duration_seconds,
         "fallback_profile_used": route.fallback_profile_used,
         "warnings": list(route.warnings),
+        # Additive (M1-F04): stretches at either end that the wheelchair
+        # profile did not plan. Empty for ordinary routes and for the
+        # foot-walking fallback.
+        "unverified_segments": [
+            segment.model_dump(mode="json") for segment in route.unverified_segments
+        ],
     }
 
     first_props = dict(features[0].get("properties") or {})

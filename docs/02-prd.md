@@ -235,8 +235,64 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
   - Backend endpoint `POST /api/route` accepts `{from: [lon, lat], to: [lon, lat],
     profile: "wheelchair"}` and returns a GeoJSON FeatureCollection with the route
     LineString, total distance, total duration, and any ORS warnings.
-  - Backend retries with `profile="foot-walking"` if ORS returns no wheelchair route,
-    and clearly flags this fallback in the response (`fallback_profile_used: true`).
+  - Every wheelchair request sends ORS's documented wheelchair defaults
+    explicitly (`options.profile_params.restrictions`: `maximum_incline` 6,
+    `maximum_sloped_kerb` 0.06, `smoothness_type` `good`, `surface_type`
+    `cobblestone:flattened`, `track_type` `grade1`). Without them ORS applies
+    no incline, curb, or surface limits at all.
+  - If ORS returns no wheelchair route, the backend fetches the
+    `profile="foot-walking"` route (with the `waytype` extra) and uses it to
+    work around endpoints that only connect by steps. ORS's wheelchair graph
+    drops steps, so a start or destination inside a landmark (Union Station,
+    the Capitol, Dupont Circle, …) often has no step-free link at all; in a
+    20-trip DC sample this caused 8 of 8 wheelchair failures.
+    - For each end, if the foot route has steps starting within 200 m of it,
+      that end moves along the foot route to 20 m past the last such step.
+      If neither end has steps nearby, both ends move 100 m. No end moves past
+      the route's midpoint, and the remaining wheelchair leg must be at least
+      50 m; otherwise no retry is made.
+    - The backend makes **one** wheelchair retry between the moved points.
+      On success the response is the foot-walking stretch(es) + the wheelchair
+      route as one LineString, with summed distance and duration (stretches
+      at the foot route's pace), `fallback_profile_used: false`, and each
+      stretch listed in `unverified_segments` (see below).
+    - If the retry fails for any reason, the response is the plain
+      foot-walking route, clearly flagged as a fallback
+      (`fallback_profile_used: true`, warning `fallback_profile:foot-walking`).
+    - A quota error on the retry returns the foot-walking route (the user's
+      request still succeeds) and opens the cooldown below. No retry is made
+      while the cooldown is open. Worst case is 3 ORS calls per uncached
+      request (wheelchair, foot-walking, retry); each retry decision is
+      logged as `wheelchair_endpoint_retry` with its outcome and stretch
+      lengths, never coordinates.
+    - This stays on the wheelchair profile (`DEC-003`); it narrows when the
+      foot-walking fallback is shown rather than changing the routing engine.
+  - The route feature's `properties` always include `unverified_segments`
+    (empty for ordinary routes and for the foot-walking fallback). It is
+    additive; older clients ignore it. Shape:
+    ```jsonc
+    "unverified_segments": [
+      {
+        "position": "end",              // "start" | "end"
+        "length_meters": 135.0,
+        "geometry": { "type": "LineString", "coordinates": [[lon, lat], …] },
+        "reason": "endpoint_steps_only" // only value today
+      }
+    ]
+    ```
+    New codes are **not** added to `warnings`, which the frontend renders
+    verbatim.
+  - User-facing copy (owner-approved; the frontend uses it verbatim):
+    - Foot-walking fallback: "We couldn't find a step-free route to this exact
+      spot. In our map data it may only connect by steps. This is a standard
+      walking route and may include steps, steep slopes or high curbs. Check
+      for an accessible entrance before you go."
+    - Unverified stretch (proposed, pending owner sign-off), with `{n}` the
+      rounded `length_meters` and a non-breaking space before "m":
+      end — "The last {n} m to this spot isn't part of the step-free route.
+      In our map data it may only connect by steps."; start — "The first
+      {n} m from this spot isn't part of the step-free route. In our map
+      data it may only connect by steps."
   - Endpoint caches results by rounded coordinates for 24 hours (in-memory LRU is
     fine for M1) to stay under ORS free-tier rate limits.
   - When ORS reports a quota error (HTTP 429 for the per-minute limit; HTTP 403
@@ -445,6 +501,9 @@ Prompt seed:            <one-paragraph hint for the user-story-generation agent>
     `ROUTE_SERVICE_UNAVAILABLE` (502, upstream failure), and
     `ROUTE_SERVICE_BUSY` (503, ORS quota cooldown, with `Retry-After` in whole
     seconds — clients should say routing is busy and when to retry).
+  - `POST /api/route` success: `features[0].properties` carries
+    `distance_meters`, `duration_seconds`, `fallback_profile_used`,
+    `warnings`, and `unverified_segments` (see M1-F04).
   - `POST`/`PUT`/`PATCH` bodies are capped at 512 KB (declared `Content-Length`
     or counted for chunked uploads) → else HTTP 413 `REQUEST_TOO_LARGE`. The
     cap fits a full-precision 5,000-point `/api/route-features` request
@@ -715,7 +774,9 @@ then F38, then F39 and F40.
     plan limits (currently 40 directions requests/minute and 2,000/day on the
     standard plan), independent of the existing per-IP `/api/route` limit.
     Limits come from settings, not constants.
-  - Cache hits do not count against the budget.
+  - Cache hits do not count against the budget. Every upstream call does,
+    including the foot-walking fallback and the M1-F04 wheelchair retry (up
+    to 3 calls per uncached request).
   - When the budget is exhausted, `/api/route` returns a typed error the UI can
     explain in plain language ("Scout is busy — try again in a minute"); Scout
     never forwards a request it knows will exceed the upstream quota.
