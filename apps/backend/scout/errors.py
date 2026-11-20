@@ -16,6 +16,9 @@ LOGGER = logging.getLogger("scout")
 ROUTE_SERVICE_DEFAULT_USER_MESSAGE = (
     "Routing is taking longer than usual. You can wait or pick a closer destination."
 )
+ROUTE_SERVICE_BUSY_USER_MESSAGE = (
+    "Route planning is busy right now. You can try again in a little while."
+)
 
 
 class ScoutError(Exception):
@@ -113,6 +116,25 @@ class RateLimitedError(ScoutError):
         super().__init__(code="RATE_LIMIT", message=message, status_code=429)
 
 
+class RouteServiceBusyError(RouteServiceUnavailableError):
+    """Routing upstream is over quota; Scout is backing off (HTTP 503, M1-F04).
+
+    A kind of `RouteServiceUnavailableError`, but with its own code and a
+    `Retry-After` so clients can tell "wait and retry" from other failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        retry_after_seconds: int,
+        message: str = ROUTE_SERVICE_BUSY_USER_MESSAGE,
+    ) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        ScoutError.__init__(
+            self, code="ROUTE_SERVICE_BUSY", message=message, status_code=503
+        )
+
+
 async def scout_rate_limit_exceeded_handler(
     request: Request, exc: RateLimitExceeded
 ) -> Response:
@@ -184,6 +206,9 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
         )
-        if isinstance(exc, RateLimitedError) and exc.retry_after_seconds is not None:
+        if (
+            isinstance(exc, RateLimitedError | RouteServiceBusyError)
+            and exc.retry_after_seconds is not None
+        ):
             response.headers["Retry-After"] = str(exc.retry_after_seconds)
         return response
