@@ -254,7 +254,13 @@ which produces a single image that boots (`start.sh`):
 The bundled Caddy proxy (`infra/Caddyfile`) routes `/api/*` → uvicorn and
 everything else → Next, so the image is **self-contained behind one port** and
 needs no host-provided proxy (`DEC-025`). TLS is terminated by whatever sits in
-front (platform load balancer, Cloudflare, or an outer proxy). Bring the whole
+front (platform load balancer, Cloudflare, or an outer proxy). The Caddyfile
+trusts `X-Forwarded-For` from private/loopback peers (`trusted_proxies static
+private_ranges`) so an outer proxy's client IP reaches the rate limiter; without
+it Caddy replaces the header with the peer address and every visitor shares one
+rate-limit bucket. This assumes the outermost proxy does not trust
+client-supplied `X-Forwarded-For`; if a CDN is added in front, change
+`SCOUT_CLIENT_IP_HEADER` (e.g. `Cf-Connecting-IP`). Bring the whole
 stack up host-neutrally with
 [`docker-compose.prod.yml`](docker-compose.prod.yml); see
 [`runbooks/first-deploy.md`](runbooks/first-deploy.md).
