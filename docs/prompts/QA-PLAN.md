@@ -47,8 +47,10 @@ Scout is an accessibility-aware route planner for Washington, DC. The `/plan` pa
 |---|------|----------|-----|
 | 1 | Load `/plan` without entering addresses | Sample route displayed on map, sample data in feature list | 1 |
 | 2 | Check Route Summary card | Shows distance/duration numbers (not "—" or placeholders) with "Wheelchair" profile | 1 |
-| 3 | Check Status Strip | Blue info strip: "Sample route" message explaining pick start/destination | 1 |
+| 3 | Check Status Strip | Blue info strip: "Showing a sample route" with a prompt to change either address | 1 |
 | 4 | Verify feature list has items | List is populated with corridor features from the sample route | 1 |
+| 5 | Check address inputs | Starting point shows "1000 MADISON DRIVE NW"; Destination shows "1201 G STREET NW" | 1 |
+| 6 | Change only the Destination | A live route is calculated from the pre-filled starting point | 1 |
 
 ---
 
